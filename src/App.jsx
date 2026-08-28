@@ -1,0 +1,208 @@
+import { useEffect, useState } from 'react'
+import { supabase } from './lib/supabase'
+import Login from './Login'
+import './App.css'
+
+export default function App() {
+  const [session, setSession] = useState(null)
+  const [chargement, setChargement] = useState(true)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      setChargement(false)
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  if (chargement) return <div className="ecran-centre">Chargement...</div>
+  if (!session) return <Login />
+
+  return <Pool session={session} />
+}
+
+function Pool({ session }) {
+  const [match, setMatch] = useState(null)
+  const [joueurs, setJoueurs] = useState([])
+  const [monChoix, setMonChoix] = useState(null)
+  const [tousLesChoix, setTousLesChoix] = useState([])
+  const [classement, setClassement] = useState([])
+  const [erreur, setErreur] = useState('')
+  const [chargement, setChargement] = useState(true)
+
+  useEffect(() => {
+    initialiser()
+  }, [])
+
+  async function initialiser() {
+    setChargement(true)
+    try {
+      const resMatch = await fetch('/.netlify/functions/prochain-match')
+      const dataMatch = await resMatch.json()
+
+      if (!dataMatch.match) {
+        setChargement(false)
+        return
+      }
+
+      let { data: matchExistant } = await supabase
+        .from('matchs')
+        .select('*')
+        .eq('nhl_game_id', dataMatch.match.nhl_game_id)
+        .maybeSingle()
+
+      if (!matchExistant) {
+        const { data: nouveauMatch, error } = await supabase
+          .from('matchs')
+          .insert({
+            nhl_game_id: dataMatch.match.nhl_game_id,
+            date_match: dataMatch.match.date_match,
+            adversaire: dataMatch.match.adversaire,
+            statut: 'a_venir',
+          })
+          .select()
+          .single()
+        if (error) throw error
+        matchExistant = nouveauMatch
+      }
+      setMatch(matchExistant)
+
+      const resRoster = await fetch('/.netlify/functions/roster')
+      const dataRoster = await resRoster.json()
+      setJoueurs(dataRoster.joueurs || [])
+
+      const { data: choixExistants } = await supabase
+        .from('choix')
+        .select('*, joueurs(nom)')
+        .eq('match_id', matchExistant.id)
+
+      setTousLesChoix(choixExistants || [])
+      const mienChoix = (choixExistants || []).find((c) => c.user_id === session.user.id)
+      if (mienChoix) setMonChoix(mienChoix.joueur_id)
+
+      await chargerClassement()
+    } catch (err) {
+      setErreur(err.message)
+    } finally {
+      setChargement(false)
+    }
+  }
+
+  async function chargerClassement() {
+    const { data } = await supabase.from('resultats').select('user_id, points')
+    if (!data) return
+
+    const totaux = {}
+    for (const r of data) {
+      totaux[r.user_id] = (totaux[r.user_id] || 0) + r.points
+    }
+    const liste = Object.entries(totaux)
+      .map(([user_id, points]) => ({ user_id, points }))
+      .sort((a, b) => b.points - a.points)
+    setClassement(liste)
+  }
+
+  async function choisirJoueur(joueurNhl) {
+    setErreur('')
+    try {
+      const { data: joueurDb, error: erreurJoueur } = await supabase
+        .from('joueurs')
+        .upsert({ nhl_id: joueurNhl.nhl_id, nom: joueurNhl.nom }, { onConflict: 'nhl_id' })
+        .select()
+        .single()
+
+      if (erreurJoueur) throw erreurJoueur
+
+      const { error: erreurChoix } = await supabase.from('choix').upsert(
+        {
+          match_id: match.id,
+          user_id: session.user.id,
+          joueur_id: joueurDb.id,
+        },
+        { onConflict: 'match_id,user_id' }
+      )
+
+      if (erreurChoix) throw erreurChoix
+
+      setMonChoix(joueurDb.id)
+      initialiser()
+    } catch (err) {
+      setErreur(err.message)
+    }
+  }
+
+  if (chargement) return <div className="ecran-centre">Chargement...</div>
+
+  return (
+    <div className="conteneur">
+      <header className="entete">
+        <h1>Pool de Hockey 🏒</h1>
+        <button className="bouton-lien" onClick={() => supabase.auth.signOut()}>
+          Déconnexion
+        </button>
+      </header>
+
+      {erreur && <p className="erreur">{erreur}</p>}
+
+      {!match && <p className="info">Pas de match prévu pour le Canadien présentement.</p>}
+
+      {match && (
+        <section className="carte">
+          <h2>Prochain match vs {match.adversaire}</h2>
+          <p className="date-match">
+            {new Date(match.date_match).toLocaleString('fr-CA', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </p>
+
+          <h3>Ton choix</h3>
+          <select
+            className="selecteur-joueur"
+            value={monChoix || ''}
+            onChange={(e) => {
+              const j = joueurs.find((j) => j.nhl_id === parseInt(e.target.value))
+              if (j) choisirJoueur(j)
+            }}
+          >
+            <option value="">-- Choisis un joueur --</option>
+            {joueurs.map((j) => (
+              <option key={j.nhl_id} value={j.nhl_id}>
+                #{j.numero} {j.nom} ({j.position})
+              </option>
+            ))}
+          </select>
+
+          <h3>Choix de tout le monde</h3>
+          <ul className="liste-choix">
+            {tousLesChoix.length === 0 && <li>Personne n'a choisi encore</li>}
+            {tousLesChoix.map((c) => (
+              <li key={c.id}>
+                {c.user_id === session.user.id ? 'Toi' : 'Autre'} → {c.joueurs?.nom}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section className="carte">
+        <h2>Classement</h2>
+        <ol className="classement">
+          {classement.map((c, i) => (
+            <li key={c.user_id}>
+              <span>{c.user_id === session.user.id ? 'Toi' : `Joueur ${i + 1}`}</span>
+              <span className="points">{c.points} pts</span>
+            </li>
+          ))}
+          {classement.length === 0 && <li>Aucun résultat encore</li>}
+        </ol>
+      </section>
+    </div>
+  )
+}
