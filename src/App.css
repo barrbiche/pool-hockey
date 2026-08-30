@@ -88,7 +88,8 @@ button:disabled {
   max-width: 480px;
   margin: 0 auto;
   padding: 16px;
-  padding-bottom: 40px;
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(40px, env(safe-area-inset-bottom));
 }
 
 .entete {
@@ -163,14 +164,14 @@ button:disabled {
 
 .liste-calendrier li {
   display: grid;
-  grid-template-columns: 60px 1fr 70px;
+  grid-template-columns: 55px 1fr auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: #ffffff;
   border: 1px solid #f0c2c7;
   padding: 8px 10px;
   border-radius: 8px;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #141821;
 }
 
@@ -206,7 +207,8 @@ button:disabled {
   color: #5b6472;
   border-radius: 10px;
   font-weight: 600;
-  padding: 12px;
+  padding: 10px 6px;
+  font-size: 0.85rem;
 }
 
 .onglet.actif {
