@@ -99,6 +99,12 @@ button:disabled {
   margin-bottom: 16px;
 }
 
+.entete-titre {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .entete h1 {
   font-size: 1.4rem;
   margin: 0;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import Login from './Login'
+import Crest from './Crest'
 import './App.css'
 
 // Ordre de base (match 1). Rotation ensuite : le 1er tombe dernier chaque match.
@@ -227,7 +228,10 @@ function Pool({ session }) {
   return (
     <div className="conteneur">
       <header className="entete">
-        <h1>Pool de Hockey 🏒</h1>
+        <div className="entete-titre">
+          <Crest taille={36} />
+          <h1>Pool de Hockey</h1>
+        </div>
         <button className="bouton-lien" onClick={() => supabase.auth.signOut()}>
           Déconnexion
         </button>

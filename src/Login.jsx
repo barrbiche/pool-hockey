@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from './lib/supabase'
+import Crest from './Crest'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -19,7 +20,10 @@ export default function Login() {
   return (
     <div className="ecran-centre">
       <form onSubmit={handleLogin} className="carte-login">
-        <h1>Pool de Hockey 🏒</h1>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>
+          <Crest taille={64} />
+        </div>
+        <h1>Pool de Hockey</h1>
         <input
           type="email"
           placeholder="Courriel"
