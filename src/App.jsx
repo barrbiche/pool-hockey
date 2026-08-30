@@ -229,7 +229,7 @@ function Pool({ session }) {
       {erreur && <p className="erreur">{erreur}</p>}
 
       {onglet === 'stats' && (
-        <section className="carte">
+        <section className="carte carte-rouge">
           <h2>Statistiques des joueurs — saison</h2>
           <p className="note-tc">TC = tours du chapeau</p>
           {chargementStats && <p className="info">Chargement...</p>}
@@ -269,7 +269,7 @@ function Pool({ session }) {
       {!match && <p className="info">Pas de match prévu pour le Canadien présentement.</p>}
 
       {match && (
-        <section className="carte">
+        <section className="carte carte-rouge">
           <h2>Prochain match vs {match.adversaire}</h2>
           <p className="date-match">
             {new Date(match.date_match).toLocaleString('fr-CA', {

@@ -130,6 +130,21 @@ button:disabled {
   text-transform: capitalize;
 }
 
+.carte-rouge {
+  background: #fdeeee;
+  border: 1px solid #f3c6c6;
+}
+
+.carte-rouge .table-stats th,
+.carte-rouge .table-stats td {
+  border-bottom: 1px solid #f3c6c6;
+}
+
+.carte-rouge .liste-choix li {
+  background: #ffffff;
+  border-color: #f3c6c6;
+}
+
 .onglets {
   display: flex;
   gap: 8px;
