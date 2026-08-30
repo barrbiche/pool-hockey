@@ -52,7 +52,7 @@ input::placeholder {
 }
 
 button {
-  background: #c8102e; /* rouge CH */
+  background: #af1e2d; /* rouge CH */
   border: none;
   color: #ffffff;
   font-weight: 700;
@@ -73,7 +73,7 @@ button:disabled {
 }
 
 .erreur {
-  color: #c8102e;
+  color: #af1e2d;
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -131,18 +131,23 @@ button:disabled {
 }
 
 .carte-rouge {
-  background: #fdeeee;
-  border: 1px solid #f3c6c6;
+  background: #fbe9eb;
+  border: 2px solid #af1e2d;
+}
+
+.carte-rouge h2,
+.carte-rouge h3 {
+  color: #af1e2d;
 }
 
 .carte-rouge .table-stats th,
 .carte-rouge .table-stats td {
-  border-bottom: 1px solid #f3c6c6;
+  border-bottom: 1px solid #f0c2c7;
 }
 
 .carte-rouge .liste-choix li {
   background: #ffffff;
-  border-color: #f3c6c6;
+  border-color: #f0c2c7;
 }
 
 .onglets {
@@ -224,7 +229,7 @@ button:disabled {
 }
 
 .ordre-choix li.moi {
-  border: 2px solid #c8102e;
+  border: 2px solid #af1e2d;
 }
 
 .compte-a-rebours {
@@ -307,5 +312,5 @@ button:disabled {
 
 .points {
   font-weight: 800;
-  color: #c8102e;
+  color: #af1e2d;
 }
