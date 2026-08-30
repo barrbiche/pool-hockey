@@ -23,6 +23,9 @@ function ordreChoixPourMatch(numeroMatch) {
   return [...ORDRE_BASE.slice(decalage), ...ORDRE_BASE.slice(0, decalage)]
 }
 
+const VAPID_PUBLIC_KEY =
+  'BPezOa7aC0WZoaKvBg6axfi3A1xB9iV8PPiyTJYDpOlD1bKLPm7Nd45t_bryyRg_KhPPJjQtxenXwVAbY78HLbA'
+
 function formaterCompteARebours(ms) {
   if (ms <= 0) return null
   const totalSecondes = Math.floor(ms / 1000)
@@ -66,6 +69,7 @@ function Pool({ session }) {
   const [onglet, setOnglet] = useState('pool')
   const [statsEquipe, setStatsEquipe] = useState([])
   const [chargementStats, setChargementStats] = useState(false)
+  const [notifsActivees, setNotifsActivees] = useState(false)
   const [calendrier, setCalendrier] = useState([])
   const [chargementCalendrier, setChargementCalendrier] = useState(false)
   const [maintenant, setMaintenant] = useState(new Date())
@@ -199,9 +203,60 @@ function Pool({ session }) {
       if (erreurChoix) throw erreurChoix
 
       setMonChoix(joueurDb.id)
-      initialiser()
+      await initialiser()
+      notifierProchainJoueur()
     } catch (err) {
       setErreur(err.message)
+    }
+  }
+
+  async function notifierProchainJoueur() {
+    // Trouver qui doit choisir après ce choix
+    const { data: choixMaj } = await supabase
+      .from('choix')
+      .select('user_id')
+      .eq('match_id', match.id)
+
+    const dejaChoisi = new Set((choixMaj || []).map((c) => c.user_id))
+    const prochain = match.ordre_choix?.find((uid) => !dejaChoisi.has(uid))
+    if (!prochain) return
+
+    try {
+      await fetch('/.netlify/functions/envoyer-notification', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: prochain,
+          titre: 'Pool de Hockey 🏒',
+          corps: "C'est ton tour de choisir un joueur !",
+        }),
+      })
+    } catch {
+      // pas grave si ça échoue, c'est juste une notif
+    }
+  }
+
+  async function activerNotifications() {
+    try {
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        setErreur('Notifications refusées. Tu peux les activer dans les réglages du navigateur.')
+        return
+      }
+
+      const registration = await navigator.serviceWorker.register('/sw.js')
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: VAPID_PUBLIC_KEY,
+      })
+
+      await fetch('/.netlify/functions/enregistrer-abonnement', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: session.user.id, subscription }),
+      })
+
+      setNotifsActivees(true)
+    } catch (err) {
+      setErreur("Impossible d'activer les notifications: " + err.message)
     }
   }
 
@@ -240,9 +295,16 @@ function Pool({ session }) {
           <Crest taille={36} />
           <h1>Pool de Hockey</h1>
         </div>
-        <button className="bouton-lien" onClick={() => supabase.auth.signOut()}>
-          Déconnexion
-        </button>
+        <div className="entete-actions">
+          {!notifsActivees && (
+            <button className="bouton-lien" onClick={activerNotifications}>
+              🔔 Activer
+            </button>
+          )}
+          <button className="bouton-lien" onClick={() => supabase.auth.signOut()}>
+            Déconnexion
+          </button>
+        </div>
       </header>
 
       <div className="onglets">
