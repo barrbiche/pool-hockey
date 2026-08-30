@@ -212,6 +212,7 @@ function Pool({ session }) {
       {onglet === 'stats' && (
         <section className="carte">
           <h2>Statistiques des joueurs — saison</h2>
+          <p className="note-tc">TC = tours du chapeau</p>
           {chargementStats && <p className="info">Chargement...</p>}
           {!chargementStats && (
             <div className="table-stats-conteneur">
@@ -223,6 +224,7 @@ function Pool({ session }) {
                     <th>B</th>
                     <th>A</th>
                     <th>Pts</th>
+                    <th>TC</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -233,6 +235,7 @@ function Pool({ session }) {
                       <td>{j.buts}</td>
                       <td>{j.passes}</td>
                       <td>{j.points}</td>
+                      <td>{j.tours_chapeau}</td>
                     </tr>
                   ))}
                 </tbody>

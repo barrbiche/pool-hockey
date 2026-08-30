@@ -132,6 +132,12 @@ button:disabled {
   border-color: #af1e2d;
 }
 
+.note-tc {
+  color: #9aa4b2;
+  font-size: 0.8rem;
+  margin-top: -8px;
+}
+
 .table-stats-conteneur {
   overflow-x: auto;
 }
