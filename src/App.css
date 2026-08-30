@@ -275,6 +275,11 @@ button:disabled {
   border: 2px solid #af1e2d;
 }
 
+.ordre-choix li.tour-actuel {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
 .compte-a-rebours {
   display: inline-block;
   background: #eef2ff;

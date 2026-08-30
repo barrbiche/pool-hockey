@@ -71,6 +71,10 @@ function Pool({ session }) {
 
   const matchCommence = match ? maintenant >= new Date(match.date_match) : false
 
+  const prochainAChoisir =
+    match?.ordre_choix?.find((uid) => !tousLesChoix.some((c) => c.user_id === uid)) || null
+  const monTour = !prochainAChoisir || prochainAChoisir === session.user.id
+
   useEffect(() => {
     const intervalle = setInterval(() => setMaintenant(new Date()), 1000)
     return () => clearInterval(intervalle)
@@ -159,6 +163,12 @@ function Pool({ session }) {
 
   async function choisirJoueur(joueurNhl) {
     setErreur('')
+
+    if (!monTour) {
+      setErreur(`⏳ ATTENDS TON TOUR TRICHEUR ! 😄 C'est à ${NOMS[prochainAChoisir]} de choisir.`)
+      return
+    }
+
     try {
       const { data: joueurDb, error: erreurJoueur } = await supabase
         .from('joueurs')
@@ -354,8 +364,15 @@ function Pool({ session }) {
               <h3>Ordre de choix ce match</h3>
               <ol className="ordre-choix">
                 {match.ordre_choix.map((uid) => (
-                  <li key={uid} className={uid === session.user.id ? 'moi' : ''}>
+                  <li
+                    key={uid}
+                    className={
+                      (uid === session.user.id ? 'moi ' : '') +
+                      (uid === prochainAChoisir ? 'tour-actuel' : '')
+                    }
+                  >
                     {NOMS[uid] || 'Inconnu'}
+                    {uid === prochainAChoisir ? ' 👈' : ''}
                   </li>
                 ))}
               </ol>
