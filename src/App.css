@@ -112,6 +112,32 @@ button:disabled {
   text-transform: capitalize;
 }
 
+.ordre-choix {
+  display: flex;
+  gap: 8px;
+  padding: 0;
+  margin: 8px 0 16px;
+  list-style: none;
+  counter-reset: rang;
+}
+
+.ordre-choix li {
+  counter-increment: rang;
+  background: #0b0e14;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.ordre-choix li::before {
+  content: counter(rang) '. ';
+  color: #9aa4b2;
+}
+
+.ordre-choix li.moi {
+  border: 1px solid #af1e2d;
+}
+
 .selecteur-joueur {
   width: 100%;
   margin: 8px 0 16px;

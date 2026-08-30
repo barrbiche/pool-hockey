@@ -3,6 +3,25 @@ import { supabase } from './lib/supabase'
 import Login from './Login'
 import './App.css'
 
+// Ordre de base (match 1). Rotation ensuite : le 1er tombe dernier chaque match.
+const ORDRE_BASE = [
+  'a8e88366-d2dd-4ecb-abde-076c8aead8e5', // Mike (frère)
+  'b5c5d9e5-1c91-4da8-ab5e-adcc40057090', // Eric
+  '06b2700c-e470-491e-b384-c77e2f3f25bb', // Père
+]
+
+const NOMS = {
+  'a8e88366-d2dd-4ecb-abde-076c8aead8e5': 'Mike',
+  'b5c5d9e5-1c91-4da8-ab5e-adcc40057090': 'Eric',
+  '06b2700c-e470-491e-b384-c77e2f3f25bb': 'Père',
+}
+
+function ordreChoixPourMatch(numeroMatch) {
+  // numeroMatch commence à 1. Rotation gauche à chaque match.
+  const decalage = (numeroMatch - 1) % 3
+  return [...ORDRE_BASE.slice(decalage), ...ORDRE_BASE.slice(0, decalage)]
+}
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [chargement, setChargement] = useState(true)
@@ -55,6 +74,14 @@ function Pool({ session }) {
         .maybeSingle()
 
       if (!matchExistant) {
+        // Compter combien de matchs existent déjà pour savoir le numéro de rotation
+        const { count } = await supabase
+          .from('matchs')
+          .select('*', { count: 'exact', head: true })
+
+        const numeroMatch = (count || 0) + 1
+        const ordre = ordreChoixPourMatch(numeroMatch)
+
         const { data: nouveauMatch, error } = await supabase
           .from('matchs')
           .insert({
@@ -62,6 +89,7 @@ function Pool({ session }) {
             date_match: dataMatch.match.date_match,
             adversaire: dataMatch.match.adversaire,
             statut: 'a_venir',
+            ordre_choix: ordre,
           })
           .select()
           .single()
@@ -162,6 +190,19 @@ function Pool({ session }) {
             })}
           </p>
 
+          {match.ordre_choix && (
+            <>
+              <h3>Ordre de choix ce match</h3>
+              <ol className="ordre-choix">
+                {match.ordre_choix.map((uid) => (
+                  <li key={uid} className={uid === session.user.id ? 'moi' : ''}>
+                    {NOMS[uid] || 'Inconnu'}
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
+
           <h3>Ton choix</h3>
           <select
             className="selecteur-joueur"
@@ -184,7 +225,7 @@ function Pool({ session }) {
             {tousLesChoix.length === 0 && <li>Personne n'a choisi encore</li>}
             {tousLesChoix.map((c) => (
               <li key={c.id}>
-                {c.user_id === session.user.id ? 'Toi' : 'Autre'} → {c.joueurs?.nom}
+                {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
               </li>
             ))}
           </ul>
@@ -196,7 +237,7 @@ function Pool({ session }) {
         <ol className="classement">
           {classement.map((c, i) => (
             <li key={c.user_id}>
-              <span>{c.user_id === session.user.id ? 'Toi' : `Joueur ${i + 1}`}</span>
+              <span>{NOMS[c.user_id] || 'Inconnu'}</span>
               <span className="points">{c.points} pts</span>
             </li>
           ))}
