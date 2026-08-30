@@ -456,6 +456,21 @@ function Pool({ session }) {
           {classement.length === 0 && <li>Aucun résultat encore</li>}
         </ol>
       </section>
+
+      <section className="carte">
+        <h2>Comment ça marche</h2>
+        <ul className="liste-regles">
+          <li>Chacun choisit un joueur du Canadien avant chaque match.</li>
+          <li>1 but = 2 points, 1 passe = 1 point, tour du chapeau = +3 points bonus.</li>
+          <li>L'ordre de choix tourne à chaque match (3-2-1) pour toute la saison.</li>
+          <li>
+            <strong>Si tu ne choisis pas 1h avant le match</strong>, le système choisit pour toi
+            automatiquement : ton joueur du match précédent (s'il est encore libre), sinon le
+            meilleur pointeur du CH encore disponible.
+          </li>
+          <li>Une fois le match commencé, plus moyen de changer de joueur.</li>
+        </ul>
+      </section>
         </>
       )}
     </div>

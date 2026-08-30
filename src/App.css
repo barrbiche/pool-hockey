@@ -382,6 +382,20 @@ button:disabled {
   color: #5b6472;
 }
 
+.liste-regles {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #141821;
+}
+
+.liste-regles li {
+  line-height: 1.4;
+}
+
 .rang-or {
   background: linear-gradient(#fff9e6, #ffffff);
   border: 2px solid #d4af37;
