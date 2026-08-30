@@ -171,7 +171,9 @@ function Pool({ session }) {
   async function choisirJoueur(joueurNhl) {
     setErreur('')
 
-    if (!monTour) {
+    const dejaChoisi = tousLesChoix.some((c) => c.user_id === session.user.id)
+
+    if (!monTour && !dejaChoisi) {
       setErreur(`⏳ ATTENDS TON TOUR TRICHEUR ! 😄 C'est à ${NOMS[prochainAChoisir]} de choisir.`)
       return
     }
