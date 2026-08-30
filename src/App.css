@@ -112,6 +112,49 @@ button:disabled {
   text-transform: capitalize;
 }
 
+.onglets {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.onglet {
+  flex: 1;
+  background: #161b26;
+  border: 1px solid #2a3141;
+  color: #9aa4b2;
+  border-radius: 10px;
+}
+
+.onglet.actif {
+  background: #af1e2d;
+  color: #fff;
+  border-color: #af1e2d;
+}
+
+.table-stats-conteneur {
+  overflow-x: auto;
+}
+
+.table-stats {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.table-stats th,
+.table-stats td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid #2a3141;
+  white-space: nowrap;
+}
+
+.table-stats th {
+  color: #9aa4b2;
+  font-weight: 600;
+}
+
 .ordre-choix {
   display: flex;
   gap: 8px;

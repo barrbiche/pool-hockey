@@ -51,6 +51,9 @@ function Pool({ session }) {
   const [classement, setClassement] = useState([])
   const [erreur, setErreur] = useState('')
   const [chargement, setChargement] = useState(true)
+  const [onglet, setOnglet] = useState('pool')
+  const [statsEquipe, setStatsEquipe] = useState([])
+  const [chargementStats, setChargementStats] = useState(false)
 
   useEffect(() => {
     initialiser()
@@ -162,6 +165,19 @@ function Pool({ session }) {
     }
   }
 
+  async function chargerStatsEquipe() {
+    setChargementStats(true)
+    try {
+      const res = await fetch('/.netlify/functions/stats-equipe')
+      const data = await res.json()
+      setStatsEquipe(data.joueurs || [])
+    } catch (err) {
+      setErreur(err.message)
+    } finally {
+      setChargementStats(false)
+    }
+  }
+
   if (chargement) return <div className="ecran-centre">Chargement...</div>
 
   return (
@@ -173,8 +189,61 @@ function Pool({ session }) {
         </button>
       </header>
 
+      <div className="onglets">
+        <button
+          className={onglet === 'pool' ? 'onglet actif' : 'onglet'}
+          onClick={() => setOnglet('pool')}
+        >
+          Pool
+        </button>
+        <button
+          className={onglet === 'stats' ? 'onglet actif' : 'onglet'}
+          onClick={() => {
+            setOnglet('stats')
+            if (statsEquipe.length === 0) chargerStatsEquipe()
+          }}
+        >
+          Stats CH
+        </button>
+      </div>
+
       {erreur && <p className="erreur">{erreur}</p>}
 
+      {onglet === 'stats' && (
+        <section className="carte">
+          <h2>Statistiques des joueurs — saison</h2>
+          {chargementStats && <p className="info">Chargement...</p>}
+          {!chargementStats && (
+            <div className="table-stats-conteneur">
+              <table className="table-stats">
+                <thead>
+                  <tr>
+                    <th>Joueur</th>
+                    <th>PJ</th>
+                    <th>B</th>
+                    <th>A</th>
+                    <th>Pts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {statsEquipe.map((j) => (
+                    <tr key={j.nom}>
+                      <td>{j.nom}</td>
+                      <td>{j.matchs_joues}</td>
+                      <td>{j.buts}</td>
+                      <td>{j.passes}</td>
+                      <td>{j.points}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {onglet === 'pool' && (
+        <>
       {!match && <p className="info">Pas de match prévu pour le Canadien présentement.</p>}
 
       {match && (
@@ -244,6 +313,8 @@ function Pool({ session }) {
           {classement.length === 0 && <li>Aucun résultat encore</li>}
         </ol>
       </section>
+        </>
+      )}
     </div>
   )
 }
