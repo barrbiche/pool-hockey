@@ -22,6 +22,17 @@ function ordreChoixPourMatch(numeroMatch) {
   return [...ORDRE_BASE.slice(decalage), ...ORDRE_BASE.slice(0, decalage)]
 }
 
+function formaterCompteARebours(ms) {
+  if (ms <= 0) return null
+  const totalSecondes = Math.floor(ms / 1000)
+  const heures = Math.floor(totalSecondes / 3600)
+  const minutes = Math.floor((totalSecondes % 3600) / 60)
+  const secondes = totalSecondes % 60
+  if (heures > 0) return `${heures}h ${minutes}m ${secondes}s`
+  if (minutes > 0) return `${minutes}m ${secondes}s`
+  return `${secondes}s`
+}
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [chargement, setChargement] = useState(true)
@@ -54,8 +65,14 @@ function Pool({ session }) {
   const [onglet, setOnglet] = useState('pool')
   const [statsEquipe, setStatsEquipe] = useState([])
   const [chargementStats, setChargementStats] = useState(false)
+  const [maintenant, setMaintenant] = useState(new Date())
 
-  const matchCommence = match ? new Date() >= new Date(match.date_match) : false
+  const matchCommence = match ? maintenant >= new Date(match.date_match) : false
+
+  useEffect(() => {
+    const intervalle = setInterval(() => setMaintenant(new Date()), 1000)
+    return () => clearInterval(intervalle)
+  }, [])
 
   useEffect(() => {
     initialiser()
@@ -263,6 +280,18 @@ function Pool({ session }) {
               minute: '2-digit',
             })}
           </p>
+
+          {!matchCommence && (
+            <p
+              className={
+                new Date(match.date_match) - maintenant < 60 * 60 * 1000
+                  ? 'compte-a-rebours urgent'
+                  : 'compte-a-rebours'
+              }
+            >
+              ⏱️ Temps restant pour choisir : {formaterCompteARebours(new Date(match.date_match) - maintenant)}
+            </p>
+          )}
 
           {match.ordre_choix && (
             <>

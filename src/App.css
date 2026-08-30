@@ -212,6 +212,24 @@ button:disabled {
   border: 2px solid #c8102e;
 }
 
+.compte-a-rebours {
+  display: inline-block;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #3730a3;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.compte-a-rebours.urgent {
+  background: #fff4e5;
+  border-color: #f0c48a;
+  color: #8a5a00;
+}
+
 .verrou {
   background: #fff4e5;
   border: 1px solid #f0c48a;
