@@ -147,9 +147,9 @@ button:disabled {
 }
 
 .onglet.actif {
-  background: #c8102e;
+  background: #2563eb;
   color: #fff;
-  border-color: #c8102e;
+  border-color: #2563eb;
 }
 
 .note-tc {
