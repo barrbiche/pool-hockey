@@ -149,16 +149,22 @@ function Pool({ session }) {
   }
 
   async function chargerClassement() {
-    const { data } = await supabase.from('resultats').select('user_id, points')
+    const { data } = await supabase
+      .from('resultats')
+      .select('user_id, points, buts, passes, tour_chapeau')
     if (!data) return
 
     const totaux = {}
     for (const r of data) {
-      totaux[r.user_id] = (totaux[r.user_id] || 0) + r.points
+      if (!totaux[r.user_id]) {
+        totaux[r.user_id] = { user_id: r.user_id, points: 0, buts: 0, passes: 0, tc: 0 }
+      }
+      totaux[r.user_id].points += r.points
+      totaux[r.user_id].buts += r.buts || 0
+      totaux[r.user_id].passes += r.passes || 0
+      totaux[r.user_id].tc += r.tour_chapeau ? 1 : 0
     }
-    const liste = Object.entries(totaux)
-      .map(([user_id, points]) => ({ user_id, points }))
-      .sort((a, b) => b.points - a.points)
+    const liste = Object.values(totaux).sort((a, b) => b.points - a.points)
     setClassement(liste)
   }
 
@@ -429,9 +435,22 @@ function Pool({ session }) {
         <h2>Classement</h2>
         <ol className="classement">
           {classement.map((c, i) => (
-            <li key={c.user_id}>
-              <span>{NOMS[c.user_id] || 'Inconnu'}</span>
-              <span className="points">{c.points} pts</span>
+            <li
+              key={c.user_id}
+              className={i === 0 ? 'rang-or' : i === 1 ? 'rang-argent' : i === 2 ? 'rang-bronze' : ''}
+            >
+              <div className="classement-ligne-haut">
+                <span className="classement-nom">
+                  {i === 0 && '🥇 '}
+                  {i === 1 && '🥈 '}
+                  {i === 2 && '🥉 '}
+                  {NOMS[c.user_id] || 'Inconnu'}
+                </span>
+                <span className="points">{c.points} pts</span>
+              </div>
+              <div className="classement-detail">
+                {c.buts} buts · {c.passes} passes · {c.tc} tours du chapeau
+              </div>
             </li>
           ))}
           {classement.length === 0 && <li>Aucun résultat encore</li>}

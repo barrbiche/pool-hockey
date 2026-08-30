@@ -357,13 +357,44 @@ button:disabled {
 
 .classement li {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 4px;
   background: #ffffff;
   border: 1px solid #dde1e8;
   padding: 12px;
   border-radius: 8px;
   color: #141821;
   font-weight: 600;
+}
+
+.classement-ligne-haut {
+  display: flex;
+  justify-content: space-between;
+}
+
+.classement-nom {
+  font-size: 1rem;
+}
+
+.classement-detail {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #5b6472;
+}
+
+.rang-or {
+  background: linear-gradient(#fff9e6, #ffffff);
+  border: 2px solid #d4af37;
+}
+
+.rang-argent {
+  background: linear-gradient(#f5f6f8, #ffffff);
+  border: 2px solid #a8adb5;
+}
+
+.rang-bronze {
+  background: linear-gradient(#fbeee2, #ffffff);
+  border: 2px solid #cd7f32;
 }
 
 .points {
