@@ -65,6 +65,8 @@ function Pool({ session }) {
   const [onglet, setOnglet] = useState('pool')
   const [statsEquipe, setStatsEquipe] = useState([])
   const [chargementStats, setChargementStats] = useState(false)
+  const [calendrier, setCalendrier] = useState([])
+  const [chargementCalendrier, setChargementCalendrier] = useState(false)
   const [maintenant, setMaintenant] = useState(new Date())
 
   const matchCommence = match ? maintenant >= new Date(match.date_match) : false
@@ -197,6 +199,19 @@ function Pool({ session }) {
     }
   }
 
+  async function chargerCalendrier() {
+    setChargementCalendrier(true)
+    try {
+      const res = await fetch('/.netlify/functions/calendrier-saison')
+      const data = await res.json()
+      setCalendrier(data.matchs || [])
+    } catch (err) {
+      setErreur(err.message)
+    } finally {
+      setChargementCalendrier(false)
+    }
+  }
+
   if (chargement) return <div className="ecran-centre">Chargement...</div>
 
   return (
@@ -224,9 +239,50 @@ function Pool({ session }) {
         >
           Stats CH
         </button>
+        <button
+          className={onglet === 'calendrier' ? 'onglet actif' : 'onglet'}
+          onClick={() => {
+            setOnglet('calendrier')
+            if (calendrier.length === 0) chargerCalendrier()
+          }}
+        >
+          Calendrier
+        </button>
       </div>
 
       {erreur && <p className="erreur">{erreur}</p>}
+
+      {onglet === 'calendrier' && (
+        <section className="carte carte-rouge">
+          <h2>Calendrier 2026-2027</h2>
+          {chargementCalendrier && <p className="info">Chargement...</p>}
+          {!chargementCalendrier && (
+            <ul className="liste-calendrier">
+              {calendrier.map((m) => (
+                <li key={m.nhl_game_id} className={m.statut === 'OFF' ? 'joue' : ''}>
+                  <span className="cal-date">
+                    {new Date(m.date_match).toLocaleDateString('fr-CA', {
+                      day: 'numeric',
+                      month: 'short',
+                    })}
+                  </span>
+                  <span className="cal-adversaire">
+                    {m.domicile ? 'vs' : '@'} {m.adversaire}
+                  </span>
+                  <span className="cal-score">
+                    {m.statut === 'OFF'
+                      ? `${m.score_mtl} - ${m.score_adversaire}`
+                      : new Date(m.date_match).toLocaleTimeString('fr-CA', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {onglet === 'stats' && (
         <section className="carte carte-rouge">
