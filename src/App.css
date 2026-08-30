@@ -5,8 +5,8 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #0b0e14;
-  color: #f2f2f2;
+  background: #0a0c10;
+  color: #ffffff;
 }
 
 .ecran-centre {
@@ -22,16 +22,18 @@ body {
   max-width: 340px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: #161b26;
-  padding: 24px;
+  gap: 14px;
+  background: #1a1f2b;
+  padding: 28px 24px;
   border-radius: 16px;
+  border: 1px solid #2e3648;
 }
 
 .carte-login h1 {
   text-align: center;
-  font-size: 1.4rem;
-  margin-bottom: 8px;
+  font-size: 1.5rem;
+  margin-bottom: 4px;
+  color: #ffffff;
 }
 
 input,
@@ -40,15 +42,20 @@ button {
   font-size: 1rem;
   padding: 14px;
   border-radius: 10px;
-  border: 1px solid #2a3141;
-  background: #0b0e14;
-  color: #f2f2f2;
+  border: 1px solid #3a4459;
+  background: #0a0c10;
+  color: #ffffff;
+}
+
+input::placeholder {
+  color: #8b93a7;
 }
 
 button {
-  background: #af1e2d; /* rouge CH */
+  background: #c8102e; /* rouge CH plus vif */
   border: none;
-  font-weight: 600;
+  color: #ffffff;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -59,20 +66,22 @@ button:disabled {
 .bouton-lien {
   background: transparent;
   border: none;
-  color: #9aa4b2;
+  color: #c3cbdc;
   padding: 4px;
   font-size: 0.85rem;
+  text-decoration: underline;
 }
 
 .erreur {
-  color: #ff6b6b;
+  color: #ff8a8a;
   font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .info {
   padding: 16px;
   text-align: center;
-  color: #9aa4b2;
+  color: #c3cbdc;
 }
 
 .conteneur {
@@ -90,12 +99,14 @@ button:disabled {
 }
 
 .entete h1 {
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   margin: 0;
+  color: #ffffff;
 }
 
 .carte {
-  background: #161b26;
+  background: #1a1f2b;
+  border: 1px solid #2e3648;
   border-radius: 16px;
   padding: 18px;
   margin-bottom: 16px;
@@ -103,12 +114,19 @@ button:disabled {
 
 .carte h2 {
   margin-top: 0;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
+  color: #ffffff;
+}
+
+.carte h3 {
+  color: #ffffff;
+  font-size: 1rem;
+  margin-bottom: 8px;
 }
 
 .date-match {
-  color: #9aa4b2;
-  font-size: 0.9rem;
+  color: #c3cbdc;
+  font-size: 0.95rem;
   text-transform: capitalize;
 }
 
@@ -120,21 +138,23 @@ button:disabled {
 
 .onglet {
   flex: 1;
-  background: #161b26;
-  border: 1px solid #2a3141;
-  color: #9aa4b2;
+  background: #1a1f2b;
+  border: 1px solid #3a4459;
+  color: #c3cbdc;
   border-radius: 10px;
+  font-weight: 600;
+  padding: 12px;
 }
 
 .onglet.actif {
-  background: #af1e2d;
+  background: #c8102e;
   color: #fff;
-  border-color: #af1e2d;
+  border-color: #c8102e;
 }
 
 .note-tc {
-  color: #9aa4b2;
-  font-size: 0.8rem;
+  color: #c3cbdc;
+  font-size: 0.85rem;
   margin-top: -8px;
 }
 
@@ -145,20 +165,21 @@ button:disabled {
 .table-stats {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .table-stats th,
 .table-stats td {
   text-align: left;
-  padding: 8px 6px;
-  border-bottom: 1px solid #2a3141;
+  padding: 10px 8px;
+  border-bottom: 1px solid #2e3648;
   white-space: nowrap;
+  color: #ffffff;
 }
 
 .table-stats th {
-  color: #9aa4b2;
-  font-weight: 600;
+  color: #c3cbdc;
+  font-weight: 700;
 }
 
 .ordre-choix {
@@ -168,23 +189,27 @@ button:disabled {
   margin: 8px 0 16px;
   list-style: none;
   counter-reset: rang;
+  flex-wrap: wrap;
 }
 
 .ordre-choix li {
   counter-increment: rang;
-  background: #0b0e14;
+  background: #0a0c10;
+  border: 1px solid #3a4459;
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 0.9rem;
+  color: #ffffff;
+  font-weight: 600;
 }
 
 .ordre-choix li::before {
   content: counter(rang) '. ';
-  color: #9aa4b2;
+  color: #c3cbdc;
 }
 
 .ordre-choix li.moi {
-  border: 1px solid #af1e2d;
+  border: 2px solid #c8102e;
 }
 
 .selecteur-joueur {
@@ -202,10 +227,13 @@ button:disabled {
 }
 
 .liste-choix li {
-  background: #0b0e14;
+  background: #0a0c10;
+  border: 1px solid #2e3648;
   padding: 10px 12px;
   border-radius: 8px;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  color: #ffffff;
+  font-weight: 500;
 }
 
 .classement {
@@ -220,12 +248,15 @@ button:disabled {
 .classement li {
   display: flex;
   justify-content: space-between;
-  background: #0b0e14;
+  background: #0a0c10;
+  border: 1px solid #2e3648;
   padding: 12px;
   border-radius: 8px;
+  color: #ffffff;
+  font-weight: 600;
 }
 
 .points {
-  font-weight: 700;
-  color: #af1e2d;
+  font-weight: 800;
+  color: #ff5470;
 }
