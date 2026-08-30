@@ -5,9 +5,9 @@ import './App.css'
 
 // Ordre de base (match 1). Rotation ensuite : le 1er tombe dernier chaque match.
 const ORDRE_BASE = [
+  '06b2700c-e470-491e-b384-c77e2f3f25bb', // Père
   'a8e88366-d2dd-4ecb-abde-076c8aead8e5', // Mike (frère)
   'b5c5d9e5-1c91-4da8-ab5e-adcc40057090', // Eric
-  '06b2700c-e470-491e-b384-c77e2f3f25bb', // Père
 ]
 
 const NOMS = {
