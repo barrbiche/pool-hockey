@@ -212,6 +212,22 @@ button:disabled {
   border: 2px solid #c8102e;
 }
 
+.verrou {
+  background: #fff4e5;
+  border: 1px solid #f0c48a;
+  color: #8a5a00;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.pas-choisi {
+  opacity: 0.6;
+  font-style: italic;
+}
+
 .selecteur-joueur {
   width: 100%;
   margin: 8px 0 16px;

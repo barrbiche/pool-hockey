@@ -55,6 +55,8 @@ function Pool({ session }) {
   const [statsEquipe, setStatsEquipe] = useState([])
   const [chargementStats, setChargementStats] = useState(false)
 
+  const matchCommence = match ? new Date() >= new Date(match.date_match) : false
+
   useEffect(() => {
     initialiser()
   }, [])
@@ -275,31 +277,44 @@ function Pool({ session }) {
             </>
           )}
 
-          <h3>Ton choix</h3>
-          <select
-            className="selecteur-joueur"
-            value={monChoix || ''}
-            onChange={(e) => {
-              const j = joueurs.find((j) => j.nhl_id === parseInt(e.target.value))
-              if (j) choisirJoueur(j)
-            }}
-          >
-            <option value="">-- Choisis un joueur --</option>
-            {joueurs.map((j) => (
-              <option key={j.nhl_id} value={j.nhl_id}>
-                #{j.numero} {j.nom} ({j.position})
-              </option>
-            ))}
-          </select>
+          {matchCommence ? (
+            <p className="verrou">🔒 Les choix sont verrouillés, le match a commencé.</p>
+          ) : (
+            <>
+              <h3>Ton choix</h3>
+              <select
+                className="selecteur-joueur"
+                value={monChoix || ''}
+                onChange={(e) => {
+                  const j = joueurs.find((j) => j.nhl_id === parseInt(e.target.value))
+                  if (j) choisirJoueur(j)
+                }}
+              >
+                <option value="">-- Choisis un joueur --</option>
+                {joueurs.map((j) => (
+                  <option key={j.nhl_id} value={j.nhl_id}>
+                    #{j.numero} {j.nom} ({j.position})
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
 
           <h3>Choix de tout le monde</h3>
           <ul className="liste-choix">
-            {tousLesChoix.length === 0 && <li>Personne n'a choisi encore</li>}
             {tousLesChoix.map((c) => (
               <li key={c.id}>
                 {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
               </li>
             ))}
+            {match.ordre_choix &&
+              match.ordre_choix
+                .filter((uid) => !tousLesChoix.some((c) => c.user_id === uid))
+                .map((uid) => (
+                  <li key={uid} className="pas-choisi">
+                    {NOMS[uid] || 'Inconnu'} → pas encore choisi
+                  </li>
+                ))}
           </ul>
         </section>
       )}
