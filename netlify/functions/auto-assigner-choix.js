@@ -52,6 +52,12 @@ export async function handler() {
 
       if (usersManquants.length === 0) continue
 
+      // Important : on assigne SEULEMENT à la prochaine personne dans l'ordre
+      // (celle dont c'est le tour), pas à tout le monde en même temps. Ça
+      // laisse une chance aux suivants de choisir eux-mêmes avant leur tour
+      // d'être aussi auto-assigné (le cron repasse toutes les 15 min).
+      const userId = usersManquants[0]
+
       // Trouver le match précédent (le plus récent avant celui-ci)
       const { data: matchPrecedent } = await supabase
         .from('matchs')
@@ -61,51 +67,48 @@ export async function handler() {
         .limit(1)
         .maybeSingle()
 
-      for (const userId of usersManquants) {
-        let joueurIdAssigne = null
+      let joueurIdAssigne = null
 
-        // 1) Essayer de reprendre le joueur du match précédent
-        if (matchPrecedent) {
-          const { data: choixPrecedent } = await supabase
-            .from('choix')
-            .select('joueur_id')
-            .eq('match_id', matchPrecedent.id)
-            .eq('user_id', userId)
-            .maybeSingle()
+      // 1) Essayer de reprendre le joueur du match précédent
+      if (matchPrecedent) {
+        const { data: choixPrecedent } = await supabase
+          .from('choix')
+          .select('joueur_id')
+          .eq('match_id', matchPrecedent.id)
+          .eq('user_id', userId)
+          .maybeSingle()
 
-          if (choixPrecedent && !joueursDejaPris.has(choixPrecedent.joueur_id)) {
-            joueurIdAssigne = choixPrecedent.joueur_id
+        if (choixPrecedent && !joueursDejaPris.has(choixPrecedent.joueur_id)) {
+          joueurIdAssigne = choixPrecedent.joueur_id
+        }
+      }
+
+      // 2) Sinon, prendre le meilleur pointeur encore libre
+      if (!joueurIdAssigne) {
+        for (const skater of classementPoints) {
+          const { data: joueurDb } = await supabase
+            .from('joueurs')
+            .upsert(
+              { nhl_id: skater.playerId, nom: `${skater.firstName.default} ${skater.lastName.default}` },
+              { onConflict: 'nhl_id' }
+            )
+            .select()
+            .single()
+
+          if (joueurDb && !joueursDejaPris.has(joueurDb.id)) {
+            joueurIdAssigne = joueurDb.id
+            break
           }
         }
+      }
 
-        // 2) Sinon, prendre le meilleur pointeur encore libre
-        if (!joueurIdAssigne) {
-          for (const skater of classementPoints) {
-            const { data: joueurDb } = await supabase
-              .from('joueurs')
-              .upsert(
-                { nhl_id: skater.playerId, nom: `${skater.firstName.default} ${skater.lastName.default}` },
-                { onConflict: 'nhl_id' }
-              )
-              .select()
-              .single()
-
-            if (joueurDb && !joueursDejaPris.has(joueurDb.id)) {
-              joueurIdAssigne = joueurDb.id
-              break
-            }
-          }
-        }
-
-        if (joueurIdAssigne) {
-          await supabase.from('choix').insert({
-            match_id: match.id,
-            user_id: userId,
-            joueur_id: joueurIdAssigne,
-          })
-          joueursDejaPris.add(joueurIdAssigne)
-          resultatsAssignations.push({ match_id: match.id, user_id: userId, joueur_id: joueurIdAssigne })
-        }
+      if (joueurIdAssigne) {
+        await supabase.from('choix').insert({
+          match_id: match.id,
+          user_id: userId,
+          joueur_id: joueurIdAssigne,
+        })
+        resultatsAssignations.push({ match_id: match.id, user_id: userId, joueur_id: joueurIdAssigne })
       }
     }
 
