@@ -120,13 +120,20 @@ function Pool({ session }) {
   async function envoyerMessage(e) {
     e.preventDefault()
     if (!nouveauMessage.trim()) return
+    const contenu = nouveauMessage.trim()
     const { error } = await supabase.from('messages_chat').insert({
       user_id: session.user.id,
-      contenu: nouveauMessage.trim(),
+      contenu,
     })
     if (!error) {
       setNouveauMessage('')
       chargerMessages()
+      fetch('/.netlify/functions/notifier-chat', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: session.user.id, contenu }),
+      }).catch(() => {
+        // pas grave si la notif échoue, le message est quand même envoyé
+      })
     }
   }
 
