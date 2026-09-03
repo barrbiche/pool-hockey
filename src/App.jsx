@@ -385,58 +385,64 @@ function Pool({ session }) {
         >
           Classement
         </button>
+        <button
+          className={onglet === 'reglements' ? 'onglet actif' : 'onglet'}
+          onClick={() => setOnglet('reglements')}
+        >
+          Règlements
+        </button>
       </div>
 
       {erreur && <p className="erreur">{erreur}</p>}
 
       {onglet === 'classement' && (
-        <>
-          <section className="carte">
-            <h2>Classement</h2>
-            <ol className="classement">
-              {classement.map((c, i) => (
-                <li
-                  key={c.user_id}
-                  className={
-                    i === 0 ? 'rang-or' : i === 1 ? 'rang-argent' : i === 2 ? 'rang-bronze' : ''
-                  }
-                >
-                  <div className="classement-ligne-haut">
-                    <span className="classement-nom">
-                      {i === 0 && '🥇 '}
-                      {i === 1 && '🥈 '}
-                      {i === 2 && '🥉 '}
-                      {NOMS[c.user_id] || 'Inconnu'}
-                    </span>
-                    <span className="points">{c.points} pts</span>
-                  </div>
-                  <div className="classement-detail">
-                    {c.buts} buts · {c.passes} passes · {c.tc} tours du chapeau
-                  </div>
-                </li>
-              ))}
-              {classement.length === 0 && <li>Aucun résultat encore</li>}
-            </ol>
-          </section>
-
-          <section className="carte">
-            <h2>Comment ça marche</h2>
-            <ul className="liste-regles">
-              <li>Chacun choisit un joueur du Canadien avant chaque match.</li>
-              <li>1 but = 2 points, 1 passe = 1 point, tour du chapeau = +3 points bonus.</li>
-              <li>L'ordre de choix tourne à chaque match (3-2-1) pour toute la saison.</li>
-              <li>
-                <strong>Si tu ne choisis pas et que c'est ton tour à 1h du match</strong>, le
-                système choisit pour toi automatiquement : ton joueur du match précédent (s'il est
-                encore libre), sinon le meilleur pointeur du CH encore disponible. Le système
-                vérifie ça aux 15 minutes, une personne à la fois selon l'ordre — donc les
-                suivants gardent leur chance de choisir eux-mêmes avant que ce soit leur tour
-                d'être auto-assignés.
+        <section className="carte">
+          <h2>Classement</h2>
+          <ol className="classement">
+            {classement.map((c, i) => (
+              <li
+                key={c.user_id}
+                className={
+                  i === 0 ? 'rang-or' : i === 1 ? 'rang-argent' : i === 2 ? 'rang-bronze' : ''
+                }
+              >
+                <div className="classement-ligne-haut">
+                  <span className="classement-nom">
+                    {i === 0 && '🥇 '}
+                    {i === 1 && '🥈 '}
+                    {i === 2 && '🥉 '}
+                    {NOMS[c.user_id] || 'Inconnu'}
+                  </span>
+                  <span className="points">{c.points} pts</span>
+                </div>
+                <div className="classement-detail">
+                  {c.buts} buts · {c.passes} passes · {c.tc} tours du chapeau
+                </div>
               </li>
-              <li>Une fois le match commencé, plus moyen de changer de joueur.</li>
-            </ul>
-          </section>
-        </>
+            ))}
+            {classement.length === 0 && <li>Aucun résultat encore</li>}
+          </ol>
+        </section>
+      )}
+
+      {onglet === 'reglements' && (
+        <section className="carte">
+          <h2>Comment ça marche</h2>
+          <ul className="liste-regles">
+            <li>Chacun choisit un joueur du Canadien avant chaque match.</li>
+            <li>1 but = 2 points, 1 passe = 1 point, tour du chapeau = +3 points bonus.</li>
+            <li>L'ordre de choix tourne à chaque match (3-2-1) pour toute la saison.</li>
+            <li>
+              <strong>Si tu ne choisis pas et que c'est ton tour à 1h du match</strong>, le
+              système choisit pour toi automatiquement : ton joueur du match précédent (s'il est
+              encore libre), sinon le meilleur pointeur du CH encore disponible. Le système
+              vérifie ça aux 15 minutes, une personne à la fois selon l'ordre — donc les suivants
+              gardent leur chance de choisir eux-mêmes avant que ce soit leur tour d'être
+              auto-assignés.
+            </li>
+            <li>Une fois le match commencé, plus moyen de changer de joueur.</li>
+          </ul>
+        </section>
       )}
 
       {onglet === 'historique' && (
