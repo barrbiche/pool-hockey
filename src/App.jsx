@@ -73,6 +73,8 @@ function Pool({ session }) {
   const [calendrier, setCalendrier] = useState([])
   const [chargementCalendrier, setChargementCalendrier] = useState(false)
   const [maintenant, setMaintenant] = useState(new Date())
+  const [historique, setHistorique] = useState([])
+  const [chargementHistorique, setChargementHistorique] = useState(false)
 
   const matchCommence = match ? maintenant >= new Date(match.date_match) : false
 
@@ -306,6 +308,22 @@ function Pool({ session }) {
     }
   }
 
+  async function chargerHistorique() {
+    setChargementHistorique(true)
+    try {
+      const { data: resultatsData } = await supabase
+        .from('resultats')
+        .select('*, joueurs(nom), matchs(date_match, adversaire)')
+        .order('calcule_le', { ascending: false })
+
+      setHistorique(resultatsData || [])
+    } catch (err) {
+      setErreur(err.message)
+    } finally {
+      setChargementHistorique(false)
+    }
+  }
+
   if (chargement) return <div className="ecran-centre">Chargement...</div>
 
   return (
@@ -352,9 +370,26 @@ function Pool({ session }) {
         >
           Calendrier
         </button>
+        <button
+          className={onglet === 'historique' ? 'onglet actif' : 'onglet'}
+          onClick={() => {
+            setOnglet('historique')
+            if (historique.length === 0) chargerHistorique()
+          }}
+        >
+          Historique
+        </button>
       </div>
 
       {erreur && <p className="erreur">{erreur}</p>}
+
+      {onglet === 'historique' && (
+        <HistoriqueOnglet
+          historique={historique}
+          chargement={chargementHistorique}
+          session={session}
+        />
+      )}
 
       {onglet === 'calendrier' && (
         <section className="carte carte-rouge">
@@ -560,5 +595,133 @@ function Pool({ session }) {
         </>
       )}
     </div>
+  )
+}
+
+function HistoriqueOnglet({ historique, chargement, session }) {
+  if (chargement) return <p className="info">Chargement...</p>
+
+  if (historique.length === 0) {
+    return (
+      <section className="carte carte-rouge">
+        <h2>Historique</h2>
+        <p className="info">Aucun résultat encore. Reviens après le premier match calculé!</p>
+      </section>
+    )
+  }
+
+  // Meilleur choix de la saison (plus haut nombre de points en un seul match)
+  const meilleurChoix = [...historique].sort((a, b) => b.points - a.points)[0]
+
+  // Stats personnelles agrégées par personne
+  const statsParPersonne = {}
+  for (const r of historique) {
+    if (!statsParPersonne[r.user_id]) {
+      statsParPersonne[r.user_id] = {
+        matchs: 0,
+        points: 0,
+        buts: 0,
+        passes: 0,
+        tc: 0,
+        joueursChoisis: {},
+      }
+    }
+    const s = statsParPersonne[r.user_id]
+    s.matchs += 1
+    s.points += r.points
+    s.buts += r.buts
+    s.passes += r.passes
+    s.tc += r.tour_chapeau ? 1 : 0
+    const nomJoueur = r.joueurs?.nom || 'Inconnu'
+    s.joueursChoisis[nomJoueur] = (s.joueursChoisis[nomJoueur] || 0) + 1
+  }
+
+  // Regrouper l'historique par match pour l'affichage chronologique
+  const parMatch = {}
+  for (const r of historique) {
+    const cle = r.match_id
+    if (!parMatch[cle]) {
+      parMatch[cle] = {
+        date: r.matchs?.date_match,
+        adversaire: r.matchs?.adversaire,
+        choix: [],
+      }
+    }
+    parMatch[cle].choix.push(r)
+  }
+  const matchsTries = Object.values(parMatch).sort(
+    (a, b) => new Date(b.date) - new Date(a.date)
+  )
+
+  return (
+    <>
+      <section className="carte carte-rouge">
+        <h2>🏆 Meilleur choix de la saison</h2>
+        <p className="meilleur-choix">
+          <strong>{NOMS[meilleurChoix.user_id] || 'Inconnu'}</strong> avec{' '}
+          <strong>{meilleurChoix.joueurs?.nom}</strong> —{' '}
+          <span className="points">{meilleurChoix.points} points</span>
+          <br />
+          <span className="meilleur-choix-detail">
+            {meilleurChoix.buts} buts, {meilleurChoix.passes} passes
+            {meilleurChoix.tour_chapeau ? ', tour du chapeau 🎩' : ''} le{' '}
+            {meilleurChoix.matchs?.date_match &&
+              new Date(meilleurChoix.matchs.date_match).toLocaleDateString('fr-CA', {
+                day: 'numeric',
+                month: 'long',
+              })}{' '}
+            vs {meilleurChoix.matchs?.adversaire}
+          </span>
+        </p>
+      </section>
+
+      <section className="carte carte-rouge">
+        <h2>Statistiques personnelles</h2>
+        {Object.entries(statsParPersonne).map(([uid, s]) => {
+          const joueurFavori = Object.entries(s.joueursChoisis).sort((a, b) => b[1] - a[1])[0]
+          return (
+            <div key={uid} className="stats-perso-bloc">
+              <h3>{NOMS[uid] || 'Inconnu'}</h3>
+              <p className="stats-perso-ligne">
+                {s.matchs} matchs · {s.points} points au total · {s.buts} buts · {s.passes} passes
+                · {s.tc} tours du chapeau
+              </p>
+              {joueurFavori && (
+                <p className="stats-perso-ligne">
+                  Joueur le plus choisi : <strong>{joueurFavori[0]}</strong> ({joueurFavori[1]}{' '}
+                  fois)
+                </p>
+              )}
+            </div>
+          )
+        })}
+      </section>
+
+      <section className="carte carte-rouge">
+        <h2>Historique par match</h2>
+        <ul className="liste-historique">
+          {matchsTries.map((m, i) => (
+            <li key={i}>
+              <div className="historique-entete">
+                vs {m.adversaire} —{' '}
+                {m.date &&
+                  new Date(m.date).toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' })}
+              </div>
+              {m.choix
+                .slice()
+                .sort((a, b) => b.points - a.points)
+                .map((c) => (
+                  <div key={c.id} className="historique-ligne">
+                    <span>
+                      {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
+                    </span>
+                    <span className="points">{c.points} pts</span>
+                  </div>
+                ))}
+            </li>
+          ))}
+        </ul>
+      </section>
+    </>
   )
 }

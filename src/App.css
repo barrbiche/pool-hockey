@@ -388,6 +388,71 @@ button:disabled {
   color: #5b6472;
 }
 
+.meilleur-choix {
+  font-size: 1rem;
+  color: #141821;
+  line-height: 1.6;
+}
+
+.meilleur-choix-detail {
+  font-size: 0.85rem;
+  color: #5b6472;
+  font-weight: 500;
+}
+
+.stats-perso-bloc {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f0c2c7;
+}
+
+.stats-perso-bloc:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.stats-perso-bloc h3 {
+  margin: 0 0 4px;
+}
+
+.stats-perso-ligne {
+  font-size: 0.85rem;
+  color: #141821;
+  margin: 2px 0;
+}
+
+.liste-historique {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.liste-historique > li {
+  background: #ffffff;
+  border: 1px solid #f0c2c7;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.historique-entete {
+  font-weight: 700;
+  color: #af1e2d;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+}
+
+.historique-ligne {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: 4px 0;
+  color: #141821;
+}
+
 .liste-regles {
   margin: 0;
   padding-left: 20px;
