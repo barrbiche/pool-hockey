@@ -237,17 +237,37 @@ function Pool({ session }) {
 
   async function activerNotifications() {
     try {
+      // Détection iOS : Apple exige que le site soit installé sur l'écran
+      // d'accueil (PWA) avant que les notifications push fonctionnent.
+      const estIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+      const estStandalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true
+
+      if (estIOS && !estStandalone) {
+        setErreur(
+          "📱 Sur iPhone, ajoute d'abord le site à l'écran d'accueil (bouton Partager → " +
+            "\"Sur l'écran d'accueil\"), puis ouvre l'app depuis l'icône et réessaie."
+        )
+        return
+      }
+
       const permission = await Notification.requestPermission()
       if (permission !== 'granted') {
         setErreur('Notifications refusées. Tu peux les activer dans les réglages du navigateur.')
         return
       }
 
-      const registration = await navigator.serviceWorker.register('/sw.js')
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: VAPID_PUBLIC_KEY,
-      })
+      await navigator.serviceWorker.register('/sw.js')
+      const registration = await navigator.serviceWorker.ready
+
+      let subscription = await registration.pushManager.getSubscription()
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: VAPID_PUBLIC_KEY,
+        })
+      }
 
       await fetch('/.netlify/functions/enregistrer-abonnement', {
         method: 'POST',
