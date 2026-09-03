@@ -4,23 +4,26 @@ export const config = {
   schedule: '*/15 * * * *', // vérifie toutes les 15 minutes
 }
 
-// À déclencher (cron) régulièrement. Pour tout match qui commence dans
-// moins d'1h, assigne automatiquement un joueur à ceux qui n'ont pas choisi :
-// 1) leur joueur du match précédent, si encore libre
-// 2) sinon, le joueur du CH avec le plus de points cette saison encore libre
+// Délais (en minutes avant le match) pour chaque position dans l'ordre de
+// choix : la 1re personne doit avoir choisi 1h30 avant le match, la 2e 1h
+// avant, la 3e 30 min avant. Une personne qui manque son délai se fait
+// auto-assigner (son joueur du match précédent, sinon le meilleur pointeur
+// encore libre), et le suivant garde son propre délai.
+const DELAIS_MINUTES = [90, 60, 30]
+
 export async function handler() {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
   try {
     const maintenant = new Date()
-    const dansUneHeure = new Date(maintenant.getTime() + 60 * 60 * 1000)
+    const dansUneHeureTrente = new Date(maintenant.getTime() + 90 * 60 * 1000)
 
-    // Matchs qui commencent dans la prochaine heure et pas encore "verrouillés"
+    // Matchs qui commencent dans les prochaines 1h30 et pas encore "verrouillés"
     const { data: matchs, error: erreurMatchs } = await supabase
       .from('matchs')
       .select('*')
       .gte('date_match', maintenant.toISOString())
-      .lte('date_match', dansUneHeure.toISOString())
+      .lte('date_match', dansUneHeureTrente.toISOString())
       .eq('statut', 'a_venir')
 
     if (erreurMatchs) throw erreurMatchs
@@ -40,6 +43,8 @@ export async function handler() {
     for (const match of matchs) {
       if (!match.ordre_choix) continue
 
+      const dateMatch = new Date(match.date_match)
+
       // Choix déjà faits pour ce match
       const { data: choixExistants } = await supabase
         .from('choix')
@@ -48,15 +53,6 @@ export async function handler() {
 
       const usersAvecChoix = new Set((choixExistants || []).map((c) => c.user_id))
       const joueursDejaPris = new Set((choixExistants || []).map((c) => c.joueur_id))
-      const usersManquants = match.ordre_choix.filter((uid) => !usersAvecChoix.has(uid))
-
-      if (usersManquants.length === 0) continue
-
-      // Important : on assigne SEULEMENT à la prochaine personne dans l'ordre
-      // (celle dont c'est le tour), pas à tout le monde en même temps. Ça
-      // laisse une chance aux suivants de choisir eux-mêmes avant leur tour
-      // d'être aussi auto-assigné (le cron repasse toutes les 15 min).
-      const userId = usersManquants[0]
 
       // Trouver le match précédent (le plus récent avant celui-ci)
       const { data: matchPrecedent } = await supabase
@@ -67,48 +63,67 @@ export async function handler() {
         .limit(1)
         .maybeSingle()
 
-      let joueurIdAssigne = null
+      // Pour chaque position dans l'ordre, vérifier si son délai est dépassé
+      for (let position = 0; position < match.ordre_choix.length; position++) {
+        const userId = match.ordre_choix[position]
+        if (usersAvecChoix.has(userId)) continue
 
-      // 1) Essayer de reprendre le joueur du match précédent
-      if (matchPrecedent) {
-        const { data: choixPrecedent } = await supabase
-          .from('choix')
-          .select('joueur_id')
-          .eq('match_id', matchPrecedent.id)
-          .eq('user_id', userId)
-          .maybeSingle()
+        const delaiMinutes = DELAIS_MINUTES[position] ?? 30
+        const heureLimite = new Date(dateMatch.getTime() - delaiMinutes * 60 * 1000)
+        if (maintenant < heureLimite) continue // délai pas encore dépassé pour cette personne
 
-        if (choixPrecedent && !joueursDejaPris.has(choixPrecedent.joueur_id)) {
-          joueurIdAssigne = choixPrecedent.joueur_id
-        }
-      }
+        let joueurIdAssigne = null
 
-      // 2) Sinon, prendre le meilleur pointeur encore libre
-      if (!joueurIdAssigne) {
-        for (const skater of classementPoints) {
-          const { data: joueurDb } = await supabase
-            .from('joueurs')
-            .upsert(
-              { nhl_id: skater.playerId, nom: `${skater.firstName.default} ${skater.lastName.default}` },
-              { onConflict: 'nhl_id' }
-            )
-            .select()
-            .single()
+        // 1) Essayer de reprendre le joueur du match précédent
+        if (matchPrecedent) {
+          const { data: choixPrecedent } = await supabase
+            .from('choix')
+            .select('joueur_id')
+            .eq('match_id', matchPrecedent.id)
+            .eq('user_id', userId)
+            .maybeSingle()
 
-          if (joueurDb && !joueursDejaPris.has(joueurDb.id)) {
-            joueurIdAssigne = joueurDb.id
-            break
+          if (choixPrecedent && !joueursDejaPris.has(choixPrecedent.joueur_id)) {
+            joueurIdAssigne = choixPrecedent.joueur_id
           }
         }
-      }
 
-      if (joueurIdAssigne) {
-        await supabase.from('choix').insert({
-          match_id: match.id,
-          user_id: userId,
-          joueur_id: joueurIdAssigne,
-        })
-        resultatsAssignations.push({ match_id: match.id, user_id: userId, joueur_id: joueurIdAssigne })
+        // 2) Sinon, prendre le meilleur pointeur encore libre
+        if (!joueurIdAssigne) {
+          for (const skater of classementPoints) {
+            const { data: joueurDb } = await supabase
+              .from('joueurs')
+              .upsert(
+                {
+                  nhl_id: skater.playerId,
+                  nom: `${skater.firstName.default} ${skater.lastName.default}`,
+                },
+                { onConflict: 'nhl_id' }
+              )
+              .select()
+              .single()
+
+            if (joueurDb && !joueursDejaPris.has(joueurDb.id)) {
+              joueurIdAssigne = joueurDb.id
+              break
+            }
+          }
+        }
+
+        if (joueurIdAssigne) {
+          await supabase.from('choix').insert({
+            match_id: match.id,
+            user_id: userId,
+            joueur_id: joueurIdAssigne,
+          })
+          joueursDejaPris.add(joueurIdAssigne)
+          usersAvecChoix.add(userId)
+          resultatsAssignations.push({
+            match_id: match.id,
+            user_id: userId,
+            joueur_id: joueurIdAssigne,
+          })
+        }
       }
     }
 

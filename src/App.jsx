@@ -433,12 +433,11 @@ function Pool({ session }) {
             <li>1 but = 2 points, 1 passe = 1 point, tour du chapeau = +3 points bonus.</li>
             <li>L'ordre de choix tourne à chaque match (3-2-1) pour toute la saison.</li>
             <li>
-              <strong>Si tu ne choisis pas et que c'est ton tour à 1h du match</strong>, le
-              système choisit pour toi automatiquement : ton joueur du match précédent (s'il est
-              encore libre), sinon le meilleur pointeur du CH encore disponible. Le système
-              vérifie ça aux 15 minutes, une personne à la fois selon l'ordre — donc les suivants
-              gardent leur chance de choisir eux-mêmes avant que ce soit leur tour d'être
-              auto-assignés.
+              <strong>Si tu ne choisis pas à temps, le système choisit pour toi</strong>{' '}
+              automatiquement : ton joueur du match précédent (s'il est encore libre), sinon le
+              meilleur pointeur du CH encore disponible. Chacun a sa propre limite : le 1er choix
+              doit être fait 1h30 avant le match, le 2e 1h avant, le 3e 30 min avant — ça laisse
+              toujours une marge de 30 minutes avant le début du match.
             </li>
             <li>Une fois le match commencé, plus moyen de changer de joueur.</li>
           </ul>
