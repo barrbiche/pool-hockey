@@ -14,7 +14,8 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(180deg, var(--ch-bleu-pale) 0%, #ffffff 220px);
+  background: linear-gradient(180deg, var(--ch-bleu-pale) 0%, var(--ch-rouge-pale) 100%);
+  background-attachment: fixed;
   color: var(--ch-bleu);
 }
 
@@ -161,7 +162,7 @@ button:disabled {
 }
 
 .carte {
-  background: linear-gradient(160deg, #ffffff 0%, var(--ch-bleu-pale) 220%);
+  background: linear-gradient(160deg, var(--ch-bleu-pale) 0%, #dbe6f7 100%);
   border: none;
   border-radius: 16px;
   padding: 18px;
@@ -192,7 +193,7 @@ button:disabled {
 }
 
 .carte-rouge {
-  background: linear-gradient(160deg, #ffffff 0%, var(--ch-rouge-pale) 220%);
+  background: linear-gradient(160deg, var(--ch-rouge-pale) 0%, #fbd7db 100%);
   border: none;
   box-shadow: 0 2px 12px rgba(175, 30, 45, 0.15);
   border-top: 4px solid var(--ch-rouge);
@@ -333,11 +334,11 @@ button:disabled {
 }
 
 .table-stats tbody tr:nth-child(odd) {
-  background: var(--ch-bleu-pale);
+  background: #ffffff;
 }
 
 .table-stats tbody tr:nth-child(even) {
-  background: #ffffff;
+  background: var(--ch-bleu-pale);
 }
 
 .table-stats tbody tr:first-child td {
