@@ -16,3 +16,16 @@ export function ordreChoixPourMatch(numeroMatch) {
   const decalage = (numeroMatch - 1) % 3
   return [...ORDRE_BASE.slice(decalage), ...ORDRE_BASE.slice(0, decalage)]
 }
+
+// Calcule la saison NHL en cours au format "20262027" et le début de saison
+// (1er juillet) pour filtrer les données par saison automatiquement, sans
+// qu'aucune mise à jour manuelle ne soit nécessaire d'année en année.
+export function saisonEnCours(date = new Date()) {
+  const mois = date.getUTCMonth() // 0 = janvier
+  const anneeDebut = mois >= 6 ? date.getUTCFullYear() : date.getUTCFullYear() - 1
+  return {
+    codeApi: `${anneeDebut}${anneeDebut + 1}`,
+    libelle: `${anneeDebut}-${anneeDebut + 1}`,
+    debutSaison: new Date(Date.UTC(anneeDebut, 6, 1)), // 1er juillet
+  }
+}

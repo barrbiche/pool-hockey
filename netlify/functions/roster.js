@@ -1,6 +1,10 @@
 // Retourne l'alignement actuel du Canadien de Montréal, trié par points
-// de la saison 2025-2026, avec la forme récente (5 derniers matchs) et le
+// de la saison précédente, avec la forme récente (5 derniers matchs) et le
 // statut de blessure (best-effort, source non-officielle gratuite).
+// Tout est calculé dynamiquement par rapport à la date du jour — aucune
+// mise à jour manuelle requise d'une année à l'autre.
+import { saisonEnCours } from './_participants.js'
+
 export async function handler() {
   try {
     const res = await fetch('https://api-web.nhle.com/v1/roster/MTL/current')
@@ -21,9 +25,14 @@ export async function handler() {
       statut_blessure: null,
     }))
 
-    // Aller chercher les points de la saison 2025-2026 (régulière)
+    // Aller chercher les points de la saison précédente (calculée dynamiquement)
     try {
-      const resStats = await fetch('https://api-web.nhle.com/v1/club-stats/MTL/20252026/2')
+      const maintenant = new Date()
+      const { codeApi } = saisonEnCours(maintenant)
+      const anneeDebutPrecedente = parseInt(codeApi.slice(0, 4)) - 1
+      const codeApiPrecedente = `${anneeDebutPrecedente}${anneeDebutPrecedente + 1}`
+
+      const resStats = await fetch(`https://api-web.nhle.com/v1/club-stats/MTL/${codeApiPrecedente}/2`)
       const dataStats = await resStats.json()
       const pointsParJoueur = {}
       for (const s of dataStats.skaters || []) {

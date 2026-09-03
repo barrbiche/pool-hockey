@@ -4,6 +4,15 @@ import Login from './Login'
 import Crest from './Crest'
 import './App.css'
 
+function saisonEnCours(date = new Date()) {
+  const mois = date.getUTCMonth()
+  const anneeDebut = mois >= 6 ? date.getUTCFullYear() : date.getUTCFullYear() - 1
+  return {
+    libelle: `${anneeDebut}-${anneeDebut + 1}`,
+    debutSaison: new Date(Date.UTC(anneeDebut, 6, 1)), // 1er juillet
+  }
+}
+
 // Ordre de base (match 1). Rotation ensuite : le 1er tombe dernier chaque match.
 const ORDRE_BASE = [
   '0918539e-788e-4ed9-9c84-b8f39b83f05c', // Père
@@ -185,9 +194,26 @@ function Pool({ session }) {
   }
 
   async function chargerClassement() {
+    const { debutSaison } = saisonEnCours()
+
+    // On filtre par la date du match (via la table matchs) pour ne compter
+    // que la saison en cours — ça "reset" automatiquement chaque nouvelle
+    // saison sans jamais effacer l'historique des saisons passées.
+    const { data: matchsSaison } = await supabase
+      .from('matchs')
+      .select('id')
+      .gte('date_match', debutSaison.toISOString())
+
+    const idsMatchsSaison = new Set((matchsSaison || []).map((m) => m.id))
+    if (idsMatchsSaison.size === 0) {
+      setClassement([])
+      return
+    }
+
     const { data } = await supabase
       .from('resultats')
-      .select('user_id, points, buts, passes, tour_chapeau')
+      .select('user_id, match_id, points, buts, passes, tour_chapeau')
+      .in('match_id', Array.from(idsMatchsSaison))
     if (!data) return
 
     const totaux = {}
@@ -349,12 +375,19 @@ function Pool({ session }) {
   async function chargerHistorique() {
     setChargementHistorique(true)
     try {
+      const { debutSaison } = saisonEnCours()
       const { data: resultatsData } = await supabase
         .from('resultats')
         .select('*, joueurs(nom), matchs(date_match, adversaire)')
         .order('calcule_le', { ascending: false })
 
-      setHistorique(resultatsData || [])
+      // Filtrer sur la saison en cours (le "reset" se fait tout seul chaque
+      // nouvelle saison, sans jamais supprimer l'historique des anciennes)
+      const filtre = (resultatsData || []).filter(
+        (r) => r.matchs?.date_match && new Date(r.matchs.date_match) >= debutSaison
+      )
+
+      setHistorique(filtre)
     } catch (err) {
       setErreur(err.message)
     } finally {
@@ -492,7 +525,7 @@ function Pool({ session }) {
 
       {onglet === 'calendrier' && (
         <section className="carte carte-rouge">
-          <h2>Calendrier 2026-2027</h2>
+          <h2>Calendrier {saisonEnCours().libelle}</h2>
           {chargementCalendrier && <p className="info">Chargement...</p>}
           {!chargementCalendrier && (
             <ul className="liste-calendrier">
