@@ -6,15 +6,15 @@ import './App.css'
 
 // Ordre de base (match 1). Rotation ensuite : le 1er tombe dernier chaque match.
 const ORDRE_BASE = [
-  '06b2700c-e470-491e-b384-c77e2f3f25bb', // Père
-  'a8e88366-d2dd-4ecb-abde-076c8aead8e5', // Mike (frère)
+  '0918539e-788e-4ed9-9c84-b8f39b83f05c', // Père
+  '58220e78-2226-4983-a026-3abefc8431a7', // Mike (frère)
   'b5c5d9e5-1c91-4da8-ab5e-adcc40057090', // Eric
 ]
 
 const NOMS = {
-  'a8e88366-d2dd-4ecb-abde-076c8aead8e5': 'Mike',
+  '58220e78-2226-4983-a026-3abefc8431a7': 'Mike',
   'b5c5d9e5-1c91-4da8-ab5e-adcc40057090': 'Eric',
-  '06b2700c-e470-491e-b384-c77e2f3f25bb': 'Père',
+  '0918539e-788e-4ed9-9c84-b8f39b83f05c': 'Père',
 }
 
 function ordreChoixPourMatch(numeroMatch) {
