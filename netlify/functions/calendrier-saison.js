@@ -4,7 +4,15 @@ export async function handler() {
     const res = await fetch('https://api-web.nhle.com/v1/club-schedule-season/MTL/now')
     const data = await res.json()
 
-    const matchs = (data.games || []).map((g) => {
+    // Dédupliquer par id de match, au cas où l'API renvoie des doublons
+    const vus = new Set()
+    const matchsUniques = (data.games || []).filter((g) => {
+      if (vus.has(g.id)) return false
+      vus.add(g.id)
+      return true
+    })
+
+    const matchs = matchsUniques.map((g) => {
       const domicile = g.homeTeam.abbrev === 'MTL'
       const adversaire = domicile ? g.awayTeam.abbrev : g.homeTeam.abbrev
       return {
