@@ -489,7 +489,7 @@ function Pool({ session }) {
                 <option value="">-- Choisis un joueur --</option>
                 {joueurs.map((j) => (
                   <option key={j.nhl_id} value={j.nhl_id}>
-                    #{j.numero} {j.nom} ({j.position})
+                    #{j.numero} {j.nom} ({j.position}) — {j.points_saison_derniere} pts 25-26
                   </option>
                 ))}
               </select>
