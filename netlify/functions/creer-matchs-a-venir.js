@@ -1,18 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
+import { ordreChoixPourMatch } from './_participants.js'
 
 export const config = {
   schedule: '0 */6 * * *', // vérifie toutes les 6 heures
-}
-
-const ORDRE_BASE = [
-  '0918539e-788e-4ed9-9c84-b8f39b83f05c', // Père
-  '58220e78-2226-4983-a026-3abefc8431a7', // Mike (frère)
-  'b5c5d9e5-1c91-4da8-ab5e-adcc40057090', // Eric
-]
-
-function ordreChoixPourMatch(numeroMatch) {
-  const decalage = (numeroMatch - 1) % 3
-  return [...ORDRE_BASE.slice(decalage), ...ORDRE_BASE.slice(0, decalage)]
 }
 
 // Cron indépendant de l'app : s'assure que tous les matchs à venir du CH
