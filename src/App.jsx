@@ -525,7 +525,10 @@ function Pool({ session }) {
       {onglet === 'stats' && (
         <section className="carte carte-rouge">
           <h2>Statistiques des joueurs — saison</h2>
-          <p className="note-tc">TC = tours du chapeau</p>
+          <p className="note-tc">
+            TC = tours du chapeau · 🔥 chaud / ❄️ froid (5 derniers matchs) · 🩹 possiblement
+            blessé (source non-officielle, à valider)
+          </p>
           {chargementStats && <p className="info">Chargement...</p>}
           {!chargementStats && (
             <div className="table-stats-conteneur">
@@ -538,17 +541,25 @@ function Pool({ session }) {
                     <th>A</th>
                     <th>Pts</th>
                     <th>TC</th>
+                    <th>Forme</th>
                   </tr>
                 </thead>
                 <tbody>
                   {statsEquipe.map((j) => (
                     <tr key={j.nom}>
-                      <td>{j.nom}</td>
+                      <td>
+                        {j.nom}
+                        {j.blesse ? ' 🩹' : ''}
+                      </td>
                       <td>{j.matchs_joues}</td>
                       <td>{j.buts}</td>
                       <td>{j.passes}</td>
                       <td>{j.points}</td>
                       <td>{j.tours_chapeau}</td>
+                      <td>
+                        {j.forme === 'chaud' && '🔥'}
+                        {j.forme === 'froid' && '❄️'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -627,11 +638,16 @@ function Pool({ session }) {
                   )
                   return (
                     <option key={j.nhl_id} value={j.nhl_id} disabled={prisParAutre}>
-                      #{j.numero} {j.nom} ({j.position}) {prisParAutre ? '— déjà pris' : ''}
+                      #{j.numero} {j.nom} ({j.position})
+                      {j.blesse ? ' 🩹' : ''}
+                      {j.forme === 'chaud' ? ' 🔥' : ''}
+                      {j.forme === 'froid' ? ' ❄️' : ''}
+                      {prisParAutre ? ' — déjà pris' : ''}
                     </option>
                   )
                 })}
               </select>
+              <p className="note-tc">🔥 chaud · ❄️ froid (5 derniers matchs) · 🩹 possiblement blessé</p>
             </>
           )}
 
