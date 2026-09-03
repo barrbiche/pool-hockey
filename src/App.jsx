@@ -623,7 +623,16 @@ function HistoriqueOnglet({ historique, chargement, session }) {
     return (
       <section className="carte carte-rouge">
         <h2>Historique</h2>
-        <p className="info">Aucun résultat encore. Reviens après le premier match calculé!</p>
+        <p className="info">
+          Cette section va afficher, une fois le premier match calculé :
+        </p>
+        <ul className="liste-regles">
+          <li>🏆 Le meilleur choix de la saison (le plus haut nombre de points en un match)</li>
+          <li>Vos statistiques personnelles cumulées (points, buts, passes, tours du chapeau)</li>
+          <li>Le joueur que chacun choisit le plus souvent</li>
+          <li>L'historique complet, match par match</li>
+        </ul>
+        <p className="info">Revenez après le premier match calculé automatiquement!</p>
       </section>
     )
   }
