@@ -184,6 +184,14 @@ function Pool({ session }) {
       return
     }
 
+    const dejaPrisParAutre = tousLesChoix.some(
+      (c) => c.user_id !== session.user.id && c.joueurs?.nom === joueurNhl.nom
+    )
+    if (dejaPrisParAutre) {
+      setErreur(`🚫 ${joueurNhl.nom} est déjà choisi par quelqu'un d'autre pour ce match!`)
+      return
+    }
+
     try {
       const { data: joueurDb, error: erreurJoueur } = await supabase
         .from('joueurs')
@@ -583,11 +591,16 @@ function Pool({ session }) {
                 }}
               >
                 <option value="">-- Choisis un joueur --</option>
-                {joueurs.map((j) => (
-                  <option key={j.nhl_id} value={j.nhl_id}>
-                    #{j.numero} {j.nom} ({j.position})
-                  </option>
-                ))}
+                {joueurs.map((j) => {
+                  const prisParAutre = tousLesChoix.some(
+                    (c) => c.user_id !== session.user.id && c.joueurs?.nom === j.nom
+                  )
+                  return (
+                    <option key={j.nhl_id} value={j.nhl_id} disabled={prisParAutre}>
+                      #{j.numero} {j.nom} ({j.position}) {prisParAutre ? '— déjà pris' : ''}
+                    </option>
+                  )
+                })}
               </select>
             </>
           )}
