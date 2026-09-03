@@ -9,6 +9,7 @@
   --ch-bleu: #14274e;
   --ch-bleu-clair: #1e3a6e;
   --ch-bleu-pale: #eaf0fb;
+  --ch-bleu-moyen: #c3d4f0;
 }
 
 body {
@@ -206,7 +207,7 @@ button:disabled {
 
 .carte-rouge .liste-choix li {
   background: #ffffff;
-  border-color: #f4d3d7;
+  border-color: #e8a7b0;
 }
 
 .liste-calendrier {
@@ -226,7 +227,7 @@ button:disabled {
   align-items: center;
   gap: 6px;
   background: #ffffff;
-  border: 1px solid #f4d3d7;
+  border: 1px solid #e8a7b0;
   padding: 8px 10px;
   border-radius: 8px;
   font-size: 0.8rem;
@@ -235,7 +236,7 @@ button:disabled {
 
 .liste-calendrier li.joue {
   opacity: 0.65;
-  background: var(--ch-bleu-pale);
+  background: var(--ch-bleu-moyen);
 }
 
 .cal-date {
@@ -338,7 +339,7 @@ button:disabled {
 }
 
 .table-stats tbody tr:nth-child(even) {
-  background: var(--ch-bleu-pale);
+  background: var(--ch-bleu-moyen);
 }
 
 .table-stats tbody tr:first-child td {
@@ -348,7 +349,7 @@ button:disabled {
 }
 
 .table-stats tbody tr:hover {
-  background: #fdeef0;
+  background: #f8c7cc;
 }
 
 .ordre-choix {
@@ -502,7 +503,7 @@ button:disabled {
 .stats-perso-bloc {
   margin-bottom: 14px;
   padding-bottom: 14px;
-  border-bottom: 1px solid #f4d3d7;
+  border-bottom: 1px solid #e8a7b0;
 }
 
 .stats-perso-bloc:last-child {
@@ -532,7 +533,7 @@ button:disabled {
 
 .liste-historique > li {
   background: #ffffff;
-  border: 1px solid #f4d3d7;
+  border: 1px solid #e8a7b0;
   border-radius: 10px;
   padding: 10px 12px;
 }
@@ -566,7 +567,7 @@ button:disabled {
   align-self: flex-start;
   max-width: 80%;
   background: #ffffff;
-  border: 1px solid #f4d3d7;
+  border: 1px solid #e8a7b0;
   border-radius: 12px;
   padding: 8px 12px;
   display: flex;
