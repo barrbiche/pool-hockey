@@ -103,6 +103,10 @@ function Pool({ session }) {
   }, [])
 
   useEffect(() => {
+    verifierAbonnementExistant()
+  }, [])
+
+  useEffect(() => {
     chargerMessages()
     const intervalleChat = setInterval(chargerMessages, 10000) // rafraîchit aux 10s
     return () => clearInterval(intervalleChat)
@@ -305,6 +309,21 @@ function Pool({ session }) {
       })
     } catch {
       // pas grave si ça échoue, c'est juste une notif
+    }
+  }
+
+  async function verifierAbonnementExistant() {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+      if (Notification.permission !== 'granted') return
+
+      const registration = await navigator.serviceWorker.getRegistration('/sw.js')
+      if (!registration) return
+
+      const subscription = await registration.pushManager.getSubscription()
+      if (subscription) setNotifsActivees(true)
+    } catch {
+      // pas grave, le bouton "Activer" reste juste disponible
     }
   }
 
