@@ -281,9 +281,28 @@ function Pool({ session }) {
 
       setMonChoix(joueurDb.id)
       await initialiser()
-      notifierProchainJoueur()
+
+      if (dejaChoisi) {
+        notifierChangementChoix(joueurNhl.nom)
+      } else {
+        notifierProchainJoueur()
+      }
     } catch (err) {
       setErreur(err.message)
+    }
+  }
+
+  async function notifierChangementChoix(nouveauNomJoueur) {
+    try {
+      await fetch('/.netlify/functions/notifier-changement', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: session.user.id,
+          nouveau_joueur: nouveauNomJoueur,
+        }),
+      })
+    } catch {
+      // pas grave si ça échoue, c'est juste une notif
     }
   }
 
