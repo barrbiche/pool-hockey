@@ -1,7 +1,40 @@
 import { createClient } from '@supabase/supabase-js'
+import webpush from 'web-push'
+import { NOMS } from './_participants.js'
 
 export const config = {
   schedule: '*/15 * * * *', // vérifie toutes les 15 minutes
+}
+
+webpush.setVapidDetails(
+  'mailto:pool-hockey@example.com',
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+)
+
+async function notifierResultatPersonnel(supabase, resultat, nomJoueurChoisi) {
+  const { data: abonnement } = await supabase
+    .from('abonnements_push')
+    .select('subscription')
+    .eq('user_id', resultat.user_id)
+    .maybeSingle()
+
+  if (!abonnement) return
+
+  const emoji = resultat.tour_chapeau ? '🎩' : resultat.points > 0 ? '🎉' : '😴'
+  const corps =
+    resultat.points > 0
+      ? `${emoji} ${nomJoueurChoisi} t'a rapporté ${resultat.points} points ce soir! (${resultat.buts} buts, ${resultat.passes} passes)`
+      : `${emoji} ${nomJoueurChoisi} n'a pas eu de but/passe ce soir — 0 point.`
+
+  try {
+    await webpush.sendNotification(
+      abonnement.subscription,
+      JSON.stringify({ titre: 'Résultat du match 🏒', corps })
+    )
+  } catch {
+    // pas grave si l'envoi échoue pour une personne, on continue
+  }
 }
 
 // Cron : vérifie tous les matchs "a_venir" ou "en_cours" dans notre DB,
@@ -70,10 +103,21 @@ export async function handler() {
             passes: stats.passes,
             tour_chapeau: tourChapeau,
             points,
+            nomJoueurChoisi: c.joueurs.nom,
           }
         })
 
-        await supabase.from('resultats').upsert(resultats, { onConflict: 'match_id,user_id' })
+        await supabase
+          .from('resultats')
+          .upsert(
+            resultats.map(({ nomJoueurChoisi, ...r }) => r),
+            { onConflict: 'match_id,user_id' }
+          )
+
+        // Envoyer une notification personnelle à chacun avec son résultat
+        for (const r of resultats) {
+          await notifierResultatPersonnel(supabase, r, r.nomJoueurChoisi)
+        }
       }
 
       await supabase.from('matchs').update({ statut: 'termine' }).eq('id', match.id)
