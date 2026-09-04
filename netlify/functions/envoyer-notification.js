@@ -24,10 +24,19 @@ export async function handler(event) {
       return { statusCode: 200, body: JSON.stringify({ envoye: false, raison: 'pas abonné' }) }
     }
 
-    await webpush.sendNotification(
-      data.subscription,
-      JSON.stringify({ titre, corps })
-    )
+    try {
+      await webpush.sendNotification(data.subscription, JSON.stringify({ titre, corps }))
+    } catch (errPush) {
+      // 410/404 = l'abonnement a expiré ou a été révoqué côté navigateur/OS
+      if (errPush.statusCode === 410 || errPush.statusCode === 404) {
+        await supabase.from('abonnements_push').delete().eq('user_id', user_id)
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ envoye: false, raison: 'abonnement expiré, réactive les notifs' }),
+        }
+      }
+      throw errPush
+    }
 
     return { statusCode: 200, body: JSON.stringify({ envoye: true }) }
   } catch (err) {

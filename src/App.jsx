@@ -308,6 +308,28 @@ function Pool({ session }) {
     }
   }
 
+  async function testerNotification() {
+    setErreur('')
+    try {
+      const res = await fetch('/.netlify/functions/envoyer-notification', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: session.user.id,
+          titre: 'Test 🏒',
+          corps: 'Si tu vois ça, les notifications fonctionnent!',
+        }),
+      })
+      const data = await res.json()
+      if (!data.envoye) {
+        setErreur(
+          `Test échoué: ${data.raison || 'raison inconnue'}. Essaie de cliquer "Activer" à nouveau.`
+        )
+      }
+    } catch (err) {
+      setErreur('Erreur lors du test: ' + err.message)
+    }
+  }
+
   async function activerNotifications() {
     try {
       // Détection iOS : Apple exige que le site soit installé sur l'écran
@@ -415,6 +437,11 @@ function Pool({ session }) {
           {!notifsActivees && (
             <button className="bouton-lien" onClick={activerNotifications}>
               🔔 Activer
+            </button>
+          )}
+          {notifsActivees && (
+            <button className="bouton-lien" onClick={testerNotification}>
+              🔔 Tester
             </button>
           )}
           <button className="bouton-lien" onClick={() => supabase.auth.signOut()}>
