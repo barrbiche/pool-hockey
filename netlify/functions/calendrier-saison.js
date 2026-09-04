@@ -4,9 +4,14 @@ export async function handler() {
     const res = await fetch('https://api-web.nhle.com/v1/club-schedule-season/MTL/now')
     const data = await res.json()
 
-    // Dédupliquer par id de match, au cas où l'API renvoie des doublons
+    // Garder seulement les vrais matchs de saison régulière ou séries
+    // (gameType 2 = régulière, 3 = séries) avec de vraies équipes connues
+    // (pas des "places réservées" pour des séries pas encore déterminées),
+    // et dédupliquer par id au cas où l'API renvoie des doublons.
     const vus = new Set()
     const matchsUniques = (data.games || []).filter((g) => {
+      if (g.gameType !== 2 && g.gameType !== 3) return false
+      if (!g.homeTeam?.abbrev || !g.awayTeam?.abbrev) return false
       if (vus.has(g.id)) return false
       vus.add(g.id)
       return true
