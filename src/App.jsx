@@ -477,11 +477,6 @@ function Pool({ session }) {
               🔔 Activer
             </button>
           )}
-          {notifsActivees && (
-            <button className="bouton-lien" onClick={testerNotification}>
-              🔔 Tester
-            </button>
-          )}
           <button className="bouton-lien" onClick={() => supabase.auth.signOut()}>
             Déconnexion
           </button>
