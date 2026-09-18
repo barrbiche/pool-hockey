@@ -602,6 +602,7 @@ function Pool({ session }) {
                     {new Date(m.date_match).toLocaleDateString('fr-CA', {
                       day: 'numeric',
                       month: 'short',
+                      timeZone: 'America/Toronto',
                     })}
                   </span>
                   <span className="cal-adversaire">
@@ -613,6 +614,7 @@ function Pool({ session }) {
                       : new Date(m.date_match).toLocaleTimeString('fr-CA', {
                           hour: '2-digit',
                           minute: '2-digit',
+                          timeZone: 'America/Toronto',
                         })}
                   </span>
                 </li>
@@ -683,6 +685,7 @@ function Pool({ session }) {
               month: 'long',
               hour: '2-digit',
               minute: '2-digit',
+              timeZone: 'America/Toronto',
             })}
           </p>
 
@@ -881,6 +884,7 @@ function HistoriqueOnglet({ historique, chargement, session }) {
               new Date(meilleurChoix.matchs.date_match).toLocaleDateString('fr-CA', {
                 day: 'numeric',
                 month: 'long',
+                timeZone: 'America/Toronto',
               })}{' '}
             vs {meilleurChoix.matchs?.adversaire}
           </span>
@@ -917,7 +921,11 @@ function HistoriqueOnglet({ historique, chargement, session }) {
               <div className="historique-entete">
                 vs {m.adversaire} —{' '}
                 {m.date &&
-                  new Date(m.date).toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' })}
+                  new Date(m.date).toLocaleDateString('fr-CA', {
+                    day: 'numeric',
+                    month: 'short',
+                    timeZone: 'America/Toronto',
+                  })}
               </div>
               {m.choix
                 .slice()
