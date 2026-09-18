@@ -35,9 +35,12 @@
 body {
   margin: 0;
   font-family: var(--font-corps);
-  background: var(--glace);
   color: var(--encre);
   -webkit-font-smoothing: antialiased;
+  background-color: var(--glace);
+  background-attachment: fixed;
+  background-repeat: repeat;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='170'%3E%3Ccircle cx='26' cy='146' r='10' fill='%230c1e3d' fill-opacity='0.05'/%3E%3Cpath d='M72 22 L122 104' stroke='%230c1e3d' stroke-opacity='0.05' stroke-width='7' stroke-linecap='round' fill='none'/%3E%3Cpath d='M116 96 q15 20 36 12' stroke='%230c1e3d' stroke-opacity='0.05' stroke-width='7' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='150' cy='40' r='6' fill='%23ce0e2d' fill-opacity='0.05'/%3E%3Cpath d='M8 60 q18 -14 34 0' stroke='%23ce0e2d' stroke-opacity='0.04' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 
 h1, h2, h3 {
@@ -498,6 +501,47 @@ button:disabled {
   font-weight: 600;
 }
 
+.liste-choix-ligne {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ===== Photos des joueurs ===== */
+.headshot {
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--blanc);
+  border: 1.5px solid #dbe6fb;
+  flex-shrink: 0;
+}
+
+.cellule-photo {
+  width: 40px;
+  padding-right: 0 !important;
+}
+
+.cellule-photo .headshot {
+  display: block;
+}
+
+.meilleur-choix-ligne {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.meilleur-choix-ligne .headshot {
+  border-width: 2px;
+  border-color: var(--rouge);
+}
+
+.historique-ligne-gauche {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ===== Classement ===== */
 .classement {
   list-style: none;
@@ -534,6 +578,33 @@ button:disabled {
   font-size: 0.8rem;
   font-weight: 500;
   color: var(--gris-texte);
+}
+
+/* ===== Barre de progression (classement) ===== */
+.barre-progression {
+  height: 8px;
+  border-radius: 999px;
+  background: #dbe6fb;
+  overflow: hidden;
+}
+
+.barre-progression-remplissage {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--bleu-vif), var(--rouge));
+  transition: width 600ms var(--transition);
+}
+
+.rang-or .barre-progression-remplissage {
+  background: linear-gradient(90deg, #d4af37, #ffd873);
+}
+
+.rang-argent .barre-progression-remplissage {
+  background: linear-gradient(90deg, var(--bleu-vif), #8fb4f5);
+}
+
+.rang-bronze .barre-progression-remplissage {
+  background: linear-gradient(90deg, var(--rouge), #ff9d6b);
 }
 
 .meilleur-choix {
@@ -634,68 +705,23 @@ button:disabled {
   color: var(--rouge);
 }
 
-/* ===== Chat ===== */
-.chat-messages {
+/* ===== Skeleton loading ===== */
+.squelette-groupe {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 300px;
-  overflow-y: auto;
-  margin-bottom: 12px;
-  padding-right: 2px;
 }
 
-.chat-bulle {
-  align-self: flex-start;
-  max-width: 80%;
-  background: var(--glace);
-  border: 1px solid #dbe6fb;
-  border-radius: 13px;
-  padding: 8px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  animation: glisse-haut 220ms var(--transition);
+.squelette-ligne {
+  border-radius: 9px;
+  background: linear-gradient(100deg, var(--glace) 20%, #dbe6fb 42%, var(--glace) 64%);
+  background-size: 300% 100%;
+  animation: scintillement 1.3s ease-in-out infinite;
 }
 
-.chat-bulle.chat-moi {
-  align-self: flex-end;
-  background: linear-gradient(135deg, var(--bleu) 0%, var(--bleu-2) 100%);
-  border: none;
-}
-
-.chat-bulle.chat-moi .chat-auteur,
-.chat-bulle.chat-moi .chat-texte {
-  color: var(--blanc);
-}
-
-.chat-auteur {
-  font-size: 0.68rem;
-  font-weight: 800;
-  color: var(--rouge);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.chat-texte {
-  font-size: 0.9rem;
-  color: var(--bleu);
-  word-break: break-word;
-}
-
-.chat-form {
-  display: flex;
-  gap: 8px;
-}
-
-.chat-form input {
-  flex: 1;
-  margin: 0;
-}
-
-.chat-form button {
-  padding: 12px 18px;
-  white-space: nowrap;
+@keyframes scintillement {
+  0% { background-position: 120% 0; }
+  100% { background-position: -20% 0; }
 }
 
 /* ===== Animations ===== */

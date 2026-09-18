@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import Login from './Login'
 import Crest from './Crest'
+import Headshot from './Headshot'
 import './App.css'
 
 function saisonEnCours(date = new Date()) {
@@ -70,6 +71,18 @@ function versHeureMontreal(dateUTC) {
 
 function formaterDateHeureMontreal(dateUTC, options) {
   return versHeureMontreal(dateUTC).toLocaleString('fr-CA', { ...options, timeZone: 'UTC' })
+}
+
+// Squelette de chargement (shimmer) affiché pendant qu'on attend les
+// données, à la place d'un simple texte "Chargement...".
+function Squelette({ lignes = 4, hauteur = 46 }) {
+  return (
+    <div className="squelette-groupe">
+      {Array.from({ length: lignes }).map((_, i) => (
+        <div key={i} className="squelette-ligne" style={{ height: hauteur }} />
+      ))}
+    </div>
+  )
 }
 
 export default function App() {
@@ -178,7 +191,7 @@ function Pool({ session }) {
 
       const { data: choixExistants } = await supabase
         .from('choix')
-        .select('*, joueurs(nom)')
+        .select('*, joueurs(nom, nhl_id)')
         .eq('match_id', matchExistant.id)
 
       setTousLesChoix(choixExistants || [])
@@ -434,7 +447,7 @@ function Pool({ session }) {
       const { debutSaison } = saisonEnCours()
       const { data: resultatsData } = await supabase
         .from('resultats')
-        .select('*, joueurs(nom), matchs(date_match, adversaire)')
+        .select('*, joueurs(nom, nhl_id), matchs(date_match, adversaire)')
         .order('calcule_le', { ascending: false })
 
       // Filtrer sur la saison en cours (le "reset" se fait tout seul chaque
@@ -451,7 +464,19 @@ function Pool({ session }) {
     }
   }
 
-  if (chargement) return <div className="ecran-centre">Chargement...</div>
+  if (chargement) {
+    return (
+      <div className="conteneur">
+        <header className="entete">
+          <div className="entete-titre">
+            <Crest taille={36} />
+            <h1>Pool de Hockey</h1>
+          </div>
+        </header>
+        <Squelette lignes={5} />
+      </div>
+    )
+  }
 
   return (
     <div className="conteneur">
@@ -527,27 +552,34 @@ function Pool({ session }) {
         <section className="carte">
           <h2>Classement</h2>
           <ol className="classement">
-            {classement.map((c, i) => (
-              <li
-                key={c.user_id}
-                className={
-                  i === 0 ? 'rang-or' : i === 1 ? 'rang-argent' : i === 2 ? 'rang-bronze' : ''
-                }
-              >
-                <div className="classement-ligne-haut">
-                  <span className="classement-nom">
-                    {i === 0 && '🥇 '}
-                    {i === 1 && '🥈 '}
-                    {i === 2 && '🥉 '}
-                    {NOMS[c.user_id] || 'Inconnu'}
-                  </span>
-                  <span className="points">{c.points} pts</span>
-                </div>
-                <div className="classement-detail">
-                  {c.buts} buts · {c.passes} passes · {c.tc} tours du chapeau
-                </div>
-              </li>
-            ))}
+            {classement.map((c, i) => {
+              const maxPoints = classement[0]?.points || 0
+              const pourcentage = maxPoints > 0 ? Math.max(4, Math.round((c.points / maxPoints) * 100)) : 0
+              return (
+                <li
+                  key={c.user_id}
+                  className={
+                    i === 0 ? 'rang-or' : i === 1 ? 'rang-argent' : i === 2 ? 'rang-bronze' : ''
+                  }
+                >
+                  <div className="classement-ligne-haut">
+                    <span className="classement-nom">
+                      {i === 0 && '🥇 '}
+                      {i === 1 && '🥈 '}
+                      {i === 2 && '🥉 '}
+                      {NOMS[c.user_id] || 'Inconnu'}
+                    </span>
+                    <span className="points">{c.points} pts</span>
+                  </div>
+                  <div className="barre-progression">
+                    <div className="barre-progression-remplissage" style={{ width: `${pourcentage}%` }} />
+                  </div>
+                  <div className="classement-detail">
+                    {c.buts} buts · {c.passes} passes · {c.tc} tours du chapeau
+                  </div>
+                </li>
+              )
+            })}
             {classement.length === 0 && <li>Aucun résultat encore</li>}
           </ol>
         </section>
@@ -583,7 +615,7 @@ function Pool({ session }) {
       {onglet === 'calendrier' && (
         <section className="carte carte-rouge">
           <h2>Calendrier {saisonEnCours().libelle}</h2>
-          {chargementCalendrier && <p className="info">Chargement...</p>}
+          {chargementCalendrier && <Squelette lignes={8} hauteur={34} />}
           {!chargementCalendrier && (
             <ul className="liste-calendrier">
               {calendrier.map((m) => (
@@ -619,12 +651,13 @@ function Pool({ session }) {
             TC = tours du chapeau · 🔥 chaud / ❄️ froid (5 derniers matchs) · 🩹 possiblement
             blessé (source non-officielle, à valider)
           </p>
-          {chargementStats && <p className="info">Chargement...</p>}
+          {chargementStats && <Squelette lignes={7} hauteur={38} />}
           {!chargementStats && (
             <div className="table-stats-conteneur">
               <table className="table-stats">
                 <thead>
                   <tr>
+                    <th></th>
                     <th>Joueur</th>
                     <th>PJ</th>
                     <th>B</th>
@@ -637,6 +670,9 @@ function Pool({ session }) {
                 <tbody>
                   {statsEquipe.map((j) => (
                     <tr key={j.nom}>
+                      <td className="cellule-photo">
+                        <Headshot nhlId={j.playerId} taille={30} />
+                      </td>
                       <td>
                         {j.nom}
                         {j.blesse ? ' 🩹' : ''}
@@ -744,8 +780,11 @@ function Pool({ session }) {
           <h3>Choix de tout le monde</h3>
           <ul className="liste-choix">
             {tousLesChoix.map((c) => (
-              <li key={c.id}>
-                {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
+              <li key={c.id} className="liste-choix-ligne">
+                <Headshot nhlId={c.joueurs?.nhl_id} taille={34} />
+                <span>
+                  {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
+                </span>
               </li>
             ))}
             {match.ordre_choix &&
@@ -767,7 +806,7 @@ function Pool({ session }) {
 }
 
 function HistoriqueOnglet({ historique, chargement, session }) {
-  if (chargement) return <p className="info">Chargement...</p>
+  if (chargement) return <Squelette lignes={5} hauteur={60} />
 
   if (historique.length === 0) {
     return (
@@ -834,22 +873,25 @@ function HistoriqueOnglet({ historique, chargement, session }) {
     <>
       <section className="carte carte-rouge">
         <h2>🏆 Meilleur choix de la saison</h2>
-        <p className="meilleur-choix">
-          <strong>{NOMS[meilleurChoix.user_id] || 'Inconnu'}</strong> avec{' '}
-          <strong>{meilleurChoix.joueurs?.nom}</strong> —{' '}
-          <span className="points">{meilleurChoix.points} points</span>
-          <br />
-          <span className="meilleur-choix-detail">
-            {meilleurChoix.buts} buts, {meilleurChoix.passes} passes
-            {meilleurChoix.tour_chapeau ? ', tour du chapeau 🎩' : ''} le{' '}
-            {meilleurChoix.matchs?.date_match &&
-              formaterDateHeureMontreal(new Date(meilleurChoix.matchs.date_match), {
-                day: 'numeric',
-                month: 'long',
-              })}{' '}
-            vs {meilleurChoix.matchs?.adversaire}
-          </span>
-        </p>
+        <div className="meilleur-choix-ligne">
+          <Headshot nhlId={meilleurChoix.joueurs?.nhl_id} taille={52} />
+          <p className="meilleur-choix">
+            <strong>{NOMS[meilleurChoix.user_id] || 'Inconnu'}</strong> avec{' '}
+            <strong>{meilleurChoix.joueurs?.nom}</strong> —{' '}
+            <span className="points">{meilleurChoix.points} points</span>
+            <br />
+            <span className="meilleur-choix-detail">
+              {meilleurChoix.buts} buts, {meilleurChoix.passes} passes
+              {meilleurChoix.tour_chapeau ? ', tour du chapeau 🎩' : ''} le{' '}
+              {meilleurChoix.matchs?.date_match &&
+                formaterDateHeureMontreal(new Date(meilleurChoix.matchs.date_match), {
+                  day: 'numeric',
+                  month: 'long',
+                })}{' '}
+              vs {meilleurChoix.matchs?.adversaire}
+            </span>
+          </p>
+        </div>
       </section>
 
       <section className="carte carte-rouge">
@@ -889,7 +931,8 @@ function HistoriqueOnglet({ historique, chargement, session }) {
                 .sort((a, b) => b.points - a.points)
                 .map((c) => (
                   <div key={c.id} className="historique-ligne">
-                    <span>
+                    <span className="historique-ligne-gauche">
+                      <Headshot nhlId={c.joueurs?.nhl_id} taille={26} />
                       {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
                     </span>
                     <span className="points">{c.points} pts</span>
