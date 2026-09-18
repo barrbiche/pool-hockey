@@ -46,6 +46,32 @@ function formaterCompteARebours(ms) {
   return `${secondes}s`
 }
 
+// Convertit une date UTC en heure de Montréal SANS dépendre du fuseau
+// horaire du navigateur (certains navigateurs comme Brave brouillent
+// volontairement ces infos pour la vie privée). On calcule nous-mêmes le
+// décalage EDT/EST selon la date, puis on affiche en 'UTC' pour éviter que
+// le navigateur réinterprète l'heure avec son propre fuseau.
+function estHeureAvanceeEst(date) {
+  // Approximation fiable pour nos besoins : l'heure avancée de l'Est (EDT,
+  // UTC-4) s'applique de mi-mars à début novembre, l'heure normale (EST,
+  // UTC-5) le reste de l'année. Un pool de hockey (saison sept-juin) tombe
+  // presque toujours en EDT sauf de novembre à mi-mars (EST).
+  const mois = date.getUTCMonth() // 0 = janvier
+  if (mois >= 3 && mois <= 9) return true // avril à octobre : toujours EDT
+  if (mois === 10) return date.getUTCDate() < 2 // début novembre, avant le changement
+  if (mois === 2) return date.getUTCDate() >= 8 // mi-mars, après le changement
+  return false // nov (après le 1er) à fév : EST
+}
+
+function versHeureMontreal(dateUTC) {
+  const decalageHeures = estHeureAvanceeEst(dateUTC) ? 4 : 5
+  return new Date(dateUTC.getTime() - decalageHeures * 60 * 60 * 1000)
+}
+
+function formaterDateHeureMontreal(dateUTC, options) {
+  return versHeureMontreal(dateUTC).toLocaleString('fr-CA', { ...options, timeZone: 'UTC' })
+}
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [chargement, setChargement] = useState(true)
@@ -599,10 +625,9 @@ function Pool({ session }) {
               {calendrier.map((m) => (
                 <li key={m.nhl_game_id} className={m.statut === 'OFF' ? 'joue' : ''}>
                   <span className="cal-date">
-                    {new Date(m.date_match).toLocaleDateString('fr-CA', {
+                    {formaterDateHeureMontreal(new Date(m.date_match), {
                       day: 'numeric',
                       month: 'short',
-                      timeZone: 'America/Toronto',
                     })}
                   </span>
                   <span className="cal-adversaire">
@@ -611,10 +636,9 @@ function Pool({ session }) {
                   <span className="cal-score">
                     {m.statut === 'OFF'
                       ? `${m.score_mtl} - ${m.score_adversaire}`
-                      : new Date(m.date_match).toLocaleTimeString('fr-CA', {
+                      : formaterDateHeureMontreal(new Date(m.date_match), {
                           hour: '2-digit',
                           minute: '2-digit',
-                          timeZone: 'America/Toronto',
                         })}
                   </span>
                 </li>
@@ -679,13 +703,12 @@ function Pool({ session }) {
         <section className="carte carte-rouge">
           <h2>Prochain match vs {match.adversaire}</h2>
           <p className="date-match">
-            {new Date(match.date_match).toLocaleString('fr-CA', {
+            {formaterDateHeureMontreal(new Date(match.date_match), {
               weekday: 'long',
               day: 'numeric',
               month: 'long',
               hour: '2-digit',
               minute: '2-digit',
-              timeZone: 'America/Toronto',
             })}
           </p>
 
@@ -881,10 +904,9 @@ function HistoriqueOnglet({ historique, chargement, session }) {
             {meilleurChoix.buts} buts, {meilleurChoix.passes} passes
             {meilleurChoix.tour_chapeau ? ', tour du chapeau 🎩' : ''} le{' '}
             {meilleurChoix.matchs?.date_match &&
-              new Date(meilleurChoix.matchs.date_match).toLocaleDateString('fr-CA', {
+              formaterDateHeureMontreal(new Date(meilleurChoix.matchs.date_match), {
                 day: 'numeric',
                 month: 'long',
-                timeZone: 'America/Toronto',
               })}{' '}
             vs {meilleurChoix.matchs?.adversaire}
           </span>
@@ -921,11 +943,7 @@ function HistoriqueOnglet({ historique, chargement, session }) {
               <div className="historique-entete">
                 vs {m.adversaire} —{' '}
                 {m.date &&
-                  new Date(m.date).toLocaleDateString('fr-CA', {
-                    day: 'numeric',
-                    month: 'short',
-                    timeZone: 'America/Toronto',
-                  })}
+                  formaterDateHeureMontreal(new Date(m.date), { day: 'numeric', month: 'short' })}
               </div>
               {m.choix
                 .slice()
