@@ -12,11 +12,22 @@ export async function handler() {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
   try {
-    const res = await fetch('https://api-web.nhle.com/v1/club-schedule/MTL/week/now')
+    const res = await fetch('https://api-web.nhle.com/v1/club-schedule-season/MTL/now')
     const data = await res.json()
-    const matchsAVenir = (data.games || []).filter(
-      (m) => m.gameState !== 'OFF' && (m.gameType === 2 || m.gameType === 3)
-    )
+    const maintenant = new Date()
+    const dansTrenteJours = new Date(maintenant.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+    const matchsAVenir = (data.games || [])
+      .filter((m) => {
+        const dateMatch = new Date(m.startTimeUTC)
+        return (
+          m.gameState !== 'OFF' &&
+          (m.gameType === 2 || m.gameType === 3) &&
+          dateMatch >= maintenant &&
+          dateMatch <= dansTrenteJours
+        )
+      })
+      .sort((a, b) => new Date(a.startTimeUTC) - new Date(b.startTimeUTC))
 
     // Compter combien de matchs existent déjà (pour la rotation)
     const { count: totalExistants } = await supabase
