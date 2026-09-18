@@ -110,8 +110,6 @@ function Pool({ session }) {
   const [maintenant, setMaintenant] = useState(new Date())
   const [historique, setHistorique] = useState([])
   const [chargementHistorique, setChargementHistorique] = useState(false)
-  const [messages, setMessages] = useState([])
-  const [nouveauMessage, setNouveauMessage] = useState('')
 
   const matchCommence = match ? maintenant >= new Date(match.date_match) : false
 
@@ -131,41 +129,6 @@ function Pool({ session }) {
   useEffect(() => {
     verifierAbonnementExistant()
   }, [])
-
-  useEffect(() => {
-    chargerMessages()
-    const intervalleChat = setInterval(chargerMessages, 10000) // rafraîchit aux 10s
-    return () => clearInterval(intervalleChat)
-  }, [])
-
-  async function chargerMessages() {
-    const { data } = await supabase
-      .from('messages_chat')
-      .select('*')
-      .order('cree_le', { ascending: true })
-      .limit(100)
-    if (data) setMessages(data)
-  }
-
-  async function envoyerMessage(e) {
-    e.preventDefault()
-    if (!nouveauMessage.trim()) return
-    const contenu = nouveauMessage.trim()
-    const { error } = await supabase.from('messages_chat').insert({
-      user_id: session.user.id,
-      contenu,
-    })
-    if (!error) {
-      setNouveauMessage('')
-      chargerMessages()
-      fetch('/.netlify/functions/notifier-chat', {
-        method: 'POST',
-        body: JSON.stringify({ user_id: session.user.id, contenu }),
-      }).catch(() => {
-        // pas grave si la notif échoue, le message est quand même envoyé
-      })
-    }
-  }
 
   async function initialiser() {
     setChargement(true)
@@ -796,32 +759,6 @@ function Pool({ session }) {
           </ul>
         </section>
       )}
-
-      <section className="carte carte-rouge">
-        <h2>💬 Jasette</h2>
-        <div className="chat-messages">
-          {messages.length === 0 && <p className="info">Aucun message encore, dis allo!</p>}
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={m.user_id === session.user.id ? 'chat-bulle chat-moi' : 'chat-bulle'}
-            >
-              <span className="chat-auteur">{NOMS[m.user_id] || 'Inconnu'}</span>
-              <span className="chat-texte">{m.contenu}</span>
-            </div>
-          ))}
-        </div>
-        <form onSubmit={envoyerMessage} className="chat-form">
-          <input
-            type="text"
-            placeholder="Écris un message..."
-            value={nouveauMessage}
-            onChange={(e) => setNouveauMessage(e.target.value)}
-            maxLength={500}
-          />
-          <button type="submit">Envoyer</button>
-        </form>
-      </section>
         </>
       )}
       </div>
