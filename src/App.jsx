@@ -559,6 +559,7 @@ function Pool({ session }) {
 
       {erreur && <p className="erreur">{erreur}</p>}
 
+      <div key={onglet} className="contenu-onglet">
       {onglet === 'classement' && (
         <section className="carte">
           <h2>Classement</h2>
@@ -823,6 +824,7 @@ function Pool({ session }) {
       </section>
         </>
       )}
+      </div>
     </div>
   )
 }
