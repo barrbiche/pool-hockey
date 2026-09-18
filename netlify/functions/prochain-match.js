@@ -7,10 +7,15 @@ export async function handler() {
     const maintenant = new Date()
     const matchs = data.games || []
 
-    // Trouve le match d'aujourd'hui ou le prochain à venir
+    // Trouve le match d'aujourd'hui ou le prochain à venir — seulement
+    // saison régulière (2) ou séries (3), jamais la pré-saison (1)
     const prochain = matchs.find((m) => {
       const dateMatch = new Date(m.startTimeUTC)
-      return dateMatch >= new Date(maintenant.toDateString()) && m.gameState !== 'OFF'
+      return (
+        dateMatch >= new Date(maintenant.toDateString()) &&
+        m.gameState !== 'OFF' &&
+        (m.gameType === 2 || m.gameType === 3)
+      )
     })
 
     if (!prochain) {

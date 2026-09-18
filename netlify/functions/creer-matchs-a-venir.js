@@ -14,7 +14,9 @@ export async function handler() {
   try {
     const res = await fetch('https://api-web.nhle.com/v1/club-schedule/MTL/week/now')
     const data = await res.json()
-    const matchsAVenir = (data.games || []).filter((m) => m.gameState !== 'OFF')
+    const matchsAVenir = (data.games || []).filter(
+      (m) => m.gameState !== 'OFF' && (m.gameType === 2 || m.gameType === 3)
+    )
 
     // Compter combien de matchs existent déjà (pour la rotation)
     const { count: totalExistants } = await supabase

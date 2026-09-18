@@ -23,7 +23,7 @@ export async function handler() {
     const resSaison = await fetch('https://api-web.nhle.com/v1/club-schedule-season/MTL/now')
     const dataSaison = await resSaison.json()
     const matchsTermines = (dataSaison.games || [])
-      .filter((g) => g.gameState === 'OFF')
+      .filter((g) => g.gameState === 'OFF' && (g.gameType === 2 || g.gameType === 3))
       .sort((a, b) => new Date(a.startTimeUTC) - new Date(b.startTimeUTC))
 
     // Aller chercher les boxscores en parallèle (par lots pour ne pas surcharger)
