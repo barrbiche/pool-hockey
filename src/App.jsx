@@ -228,6 +228,7 @@ function Pool({ session }) {
   const [match, setMatch] = useState(null)
   const [joueurs, setJoueurs] = useState([])
   const [alignementEnErreur, setAlignementEnErreur] = useState(false)
+  const [raisonAlignement, setRaisonAlignement] = useState('')
   const [tousLesChoix, setTousLesChoix] = useState([])
   const [classement, setClassement] = useState([])
   const [erreur, setErreur] = useState('')
@@ -281,15 +282,20 @@ function Pool({ session }) {
   // une liste vide sans explication.
   async function chargerAlignement() {
     setAlignementEnErreur(false)
+    setRaisonAlignement('')
     try {
       const res = await fetch('/.netlify/functions/roster')
       const data = await res.json()
       const liste = data.joueurs || []
       setJoueurs(liste)
-      if (liste.length === 0) setAlignementEnErreur(true)
-    } catch {
+      if (liste.length === 0) {
+        setAlignementEnErreur(true)
+        setRaisonAlignement(data.raison || data.error || `HTTP ${res.status}`)
+      }
+    } catch (err) {
       setJoueurs([])
       setAlignementEnErreur(true)
+      setRaisonAlignement(err.message)
     }
   }
 
@@ -950,6 +956,9 @@ function Pool({ session }) {
                     parfois mal — c'est temporaire.
                   </p>
                   <button onClick={chargerAlignement}>🔄 Réessayer</button>
+                  {raisonAlignement && (
+                    <p className="alignement-raison">Détail technique : {raisonAlignement}</p>
+                  )}
                 </div>
               ) : (
                 <SelecteurJoueur
