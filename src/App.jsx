@@ -6,6 +6,7 @@ import Headshot from './Headshot'
 import LogoEquipe from './LogoEquipe'
 import { IconeFeu, IconeGlace, IconePlasteur } from './Icones'
 import SelecteurJoueur from './SelecteurJoueur'
+import Pastille from './Pastille'
 import './App.css'
 
 function saisonEnCours(date = new Date()) {
@@ -168,7 +169,12 @@ function Alerte({ message, onFermer }) {
   // minuterie ne reparte pas à zéro à chaque re-rendu de la page (le
   // compte à rebours en provoque un à la seconde).
   const fermerRef = useRef(onFermer)
-  fermerRef.current = onFermer
+
+  // Mis à jour après chaque rendu (jamais pendant), pour rester correct
+  // avec le rendu concurrent de React.
+  useEffect(() => {
+    fermerRef.current = onFermer
+  })
 
   useEffect(() => {
     const minuterie = setTimeout(() => fermerRef.current(), DUREE_ALERTE_MS)
@@ -187,6 +193,83 @@ function Alerte({ message, onFermer }) {
         ×
       </button>
       <span className="alerte-jauge" />
+    </div>
+  )
+}
+
+// Tableau de pointage pendant et après le match. Affiche un point rouge
+// qui bat quand c'est en direct, et la période en cours.
+function libellePeriode(periode, typePeriode, termine) {
+  if (typePeriode === 'SO') return termine ? 'Fusillade' : 'Fusillade en cours'
+  if (typePeriode === 'OT') return termine ? 'Prolongation' : 'Prolongation'
+  if (!periode) return termine ? 'Terminé' : ''
+  if (termine) return 'Terminé'
+  return `${periode}${periode === 1 ? 're' : 'e'} période`
+}
+
+function TableauDirect({ infos, adversaire }) {
+  if (!infos) return null
+  const termine = matchTermine(infos.statut)
+  const scoreMtl = infos.score_mtl ?? 0
+  const scoreAdv = infos.score_adversaire ?? 0
+  const gagne = termine && scoreMtl > scoreAdv
+
+  return (
+    <div className={infos.en_direct ? 'direct direct-actif' : 'direct'}>
+      <div className="direct-entete">
+        {infos.en_direct && <span className="direct-point" aria-hidden="true" />}
+        <span className="direct-etiquette">
+          {infos.en_direct ? 'EN DIRECT' : termine ? 'FINAL' : 'MATCH COMMENCÉ'}
+        </span>
+        {libellePeriode(infos.periode, infos.type_periode, termine) && (
+          <span className="direct-periode">
+            · {libellePeriode(infos.periode, infos.type_periode, termine)}
+          </span>
+        )}
+      </div>
+      <div className="direct-pointage">
+        <span className="direct-equipe">
+          <LogoEquipe abbrev="MTL" taille={30} />
+          MTL
+        </span>
+        <span className={gagne ? 'direct-score gagnant' : 'direct-score'}>{scoreMtl}</span>
+        <span className="direct-tiret">—</span>
+        <span className={termine && !gagne && scoreAdv > scoreMtl ? 'direct-score gagnant' : 'direct-score'}>
+          {scoreAdv}
+        </span>
+        <span className="direct-equipe">
+          <LogoEquipe abbrev={adversaire} taille={30} />
+          {adversaire}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// Podium : la 1re place sur le bloc le plus haut au centre, l'argent à
+// gauche, le bronze à droite. Les blocs poussent du bas en s'affichant.
+function Podium({ classement }) {
+  const [premier, deuxieme, troisieme] = classement
+  // Ordre visuel du podium (2 - 1 - 3), pas l'ordre du classement
+  const marches = [
+    { place: 2, entree: deuxieme, medaille: '🥈', classe: 'argent' },
+    { place: 1, entree: premier, medaille: '🥇', classe: 'or' },
+    { place: 3, entree: troisieme, medaille: '🥉', classe: 'bronze' },
+  ].filter((m) => m.entree)
+
+  return (
+    <div className="podium">
+      {marches.map((m) => (
+        <div key={m.place} className="podium-colonne">
+          <span className="podium-medaille">{m.medaille}</span>
+          <Pastille userId={m.entree.user_id} nom={NOMS[m.entree.user_id]} taille={38} />
+          <span className="podium-nom">{NOMS[m.entree.user_id] || 'Inconnu'}</span>
+          <div className={`podium-bloc podium-${m.classe}`}>
+            <span className="podium-points">{m.entree.points}</span>
+            <span className="podium-pts-label">PTS</span>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -227,6 +310,7 @@ export default function App() {
 function Pool({ session }) {
   const [match, setMatch] = useState(null)
   const [joueurs, setJoueurs] = useState([])
+  const [infosNhl, setInfosNhl] = useState(null)
   const [alignementEnErreur, setAlignementEnErreur] = useState(false)
   const [raisonAlignement, setRaisonAlignement] = useState('')
   const [tousLesChoix, setTousLesChoix] = useState([])
@@ -269,6 +353,25 @@ function Pool({ session }) {
     return () => clearInterval(intervalle)
   }, [])
 
+  // Une fois le match commencé, on va rechercher le pointage chaque minute
+  // pour que le badge EN DIRECT reste à jour sans recharger la page. On
+  // arrête dès que le match est terminé.
+  useEffect(() => {
+    if (!matchCommence) return
+    if (infosNhl && matchTermine(infosNhl.statut)) return
+
+    const intervalle = setInterval(async () => {
+      try {
+        const res = await fetch('/.netlify/functions/prochain-match')
+        const data = await res.json()
+        if (data.match) setInfosNhl(data.match)
+      } catch {
+        // pas grave, on retentera dans une minute
+      }
+    }, 60000)
+    return () => clearInterval(intervalle)
+  }, [matchCommence, infosNhl?.statut])
+
   useEffect(() => {
     initialiser()
   }, [])
@@ -309,6 +412,10 @@ function Pool({ session }) {
         setChargement(false)
         return
       }
+
+      // Infos fraîches venant de la NHL (pointage, période, en direct) —
+      // la ligne en base ne contient que ce qui est figé.
+      setInfosNhl(dataMatch.match)
 
       let { data: matchExistant } = await supabase
         .from('matchs')
@@ -716,37 +823,45 @@ function Pool({ session }) {
       {onglet === 'classement' && (
         <section className="carte">
           <h2>Classement</h2>
-          <ol className="classement">
-            {classement.map((c, i) => {
-              const maxPoints = classement[0]?.points || 0
-              const pourcentage = maxPoints > 0 ? Math.max(4, Math.round((c.points / maxPoints) * 100)) : 0
-              return (
-                <li
-                  key={c.user_id}
-                  className={
-                    i === 0 ? 'rang-or' : i === 1 ? 'rang-argent' : i === 2 ? 'rang-bronze' : ''
-                  }
-                >
-                  <div className="classement-ligne-haut">
-                    <span className="classement-nom">
-                      {i === 0 && '🥇 '}
-                      {i === 1 && '🥈 '}
-                      {i === 2 && '🥉 '}
-                      {NOMS[c.user_id] || 'Inconnu'}
-                    </span>
-                    <span className="points">{c.points} pts</span>
-                  </div>
-                  <div className="barre-progression">
-                    <div className="barre-progression-remplissage" style={{ width: `${pourcentage}%` }} />
-                  </div>
-                  <div className="classement-detail">
-                    {c.buts} buts · {c.passes} passes · {c.tc} tours du chapeau
-                  </div>
-                </li>
-              )
-            })}
-            {classement.length === 0 && <li>Aucun résultat encore</li>}
-          </ol>
+          {classement.length === 0 ? (
+            <p className="info">Aucun résultat encore</p>
+          ) : (
+            <>
+              <Podium classement={classement} />
+              <ol className="classement">
+                {classement.map((c, i) => {
+                  const maxPoints = classement[0]?.points || 0
+                  const pourcentage =
+                    maxPoints > 0 ? Math.max(4, Math.round((c.points / maxPoints) * 100)) : 0
+                  return (
+                    <li
+                      key={c.user_id}
+                      className={
+                        i === 0 ? 'rang-or' : i === 1 ? 'rang-argent' : i === 2 ? 'rang-bronze' : ''
+                      }
+                    >
+                      <div className="classement-ligne-haut">
+                        <span className="classement-nom">
+                          <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={26} />
+                          {NOMS[c.user_id] || 'Inconnu'}
+                        </span>
+                        <span className="points">{c.points} pts</span>
+                      </div>
+                      <div className="barre-progression">
+                        <div
+                          className="barre-progression-remplissage"
+                          style={{ width: `${pourcentage}%` }}
+                        />
+                      </div>
+                      <div className="classement-detail">
+                        {c.buts} buts · {c.passes} passes · {c.tc} tours du chapeau
+                      </div>
+                    </li>
+                  )
+                })}
+              </ol>
+            </>
+          )}
         </section>
       )}
 
@@ -908,6 +1023,7 @@ function Pool({ session }) {
                       (uid === prochainAChoisir ? 'tour-actuel' : '')
                     }
                   >
+                    <Pastille userId={uid} nom={NOMS[uid]} taille={20} />
                     {NOMS[uid] || 'Inconnu'}
                     {uid === prochainAChoisir ? ' 👈' : ''}
                   </li>
@@ -917,7 +1033,10 @@ function Pool({ session }) {
           )}
 
           {matchCommence ? (
-            <p className="verrou">🔒 Les choix sont verrouillés, le match a commencé.</p>
+            <>
+              <TableauDirect infos={infosNhl} adversaire={match.adversaire} />
+              <p className="verrou">🔒 Les choix sont verrouillés, le match a commencé.</p>
+            </>
           ) : (
             <>
               <h3>Ton choix</h3>
@@ -982,6 +1101,7 @@ function Pool({ session }) {
           <ul className="liste-choix">
             {tousLesChoix.map((c) => (
               <li key={c.id} className="liste-choix-ligne">
+                <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={24} />
                 <Headshot nhlId={c.joueurs?.nhl_id} taille={34} />
                 <span>
                   {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
@@ -992,8 +1112,9 @@ function Pool({ session }) {
               match.ordre_choix
                 .filter((uid) => !tousLesChoix.some((c) => c.user_id === uid))
                 .map((uid) => (
-                  <li key={uid} className="pas-choisi">
-                    {NOMS[uid] || 'Inconnu'} → pas encore choisi
+                  <li key={uid} className="pas-choisi liste-choix-ligne">
+                    <Pastille userId={uid} nom={NOMS[uid]} taille={24} />
+                    <span>{NOMS[uid] || 'Inconnu'} → pas encore choisi</span>
                   </li>
                 ))}
           </ul>
@@ -1101,7 +1222,9 @@ function HistoriqueOnglet({ historique, chargement, session }) {
           const joueurFavori = Object.entries(s.joueursChoisis).sort((a, b) => b[1] - a[1])[0]
           return (
             <div key={uid} className="stats-perso-bloc">
-              <h3>{NOMS[uid] || 'Inconnu'}</h3>
+              <h3 className="stats-perso-titre">
+                <Pastille userId={uid} nom={NOMS[uid]} taille={24} /> {NOMS[uid] || 'Inconnu'}
+              </h3>
               <p className="stats-perso-ligne">
                 {s.matchs} matchs · {s.points} points au total · {s.buts} buts · {s.passes} passes
                 · {s.tc} tours du chapeau
@@ -1133,6 +1256,7 @@ function HistoriqueOnglet({ historique, chargement, session }) {
                 .map((c) => (
                   <div key={c.id} className="historique-ligne">
                     <span className="historique-ligne-gauche">
+                      <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={20} />
                       <Headshot nhlId={c.joueurs?.nhl_id} taille={26} />
                       {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
                     </span>
