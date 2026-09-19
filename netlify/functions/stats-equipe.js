@@ -1,6 +1,8 @@
 // Retourne les statistiques de la saison pour tous les joueurs du Canadien,
 // incluant le nombre de tours du chapeau, la forme récente (5 derniers
 // matchs) et le statut de blessure (best-effort, source non-officielle).
+import { matchTermine } from './_participants.js'
+
 export async function handler() {
   try {
     const resStats = await fetch('https://api-web.nhle.com/v1/club-stats/MTL/now')
@@ -23,7 +25,7 @@ export async function handler() {
     const resSaison = await fetch('https://api-web.nhle.com/v1/club-schedule-season/MTL/now')
     const dataSaison = await resSaison.json()
     const matchsTermines = (dataSaison.games || [])
-      .filter((g) => g.gameState === 'OFF' && (g.gameType === 2 || g.gameType === 3))
+      .filter((g) => matchTermine(g.gameState) && (g.gameType === 2 || g.gameType === 3))
       .sort((a, b) => new Date(a.startTimeUTC) - new Date(b.startTimeUTC))
 
     // Aller chercher les boxscores en parallèle (par lots pour ne pas surcharger)

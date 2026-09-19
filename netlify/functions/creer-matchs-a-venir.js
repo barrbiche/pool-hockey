@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { ordreChoixPourMatch } from './_participants.js'
+import { ordreChoixPourMatch, matchTermine } from './_participants.js'
 
 export const config = {
   schedule: '0 */6 * * *', // vérifie toutes les 6 heures
@@ -21,7 +21,7 @@ export async function handler() {
       .filter((m) => {
         const dateMatch = new Date(m.startTimeUTC)
         return (
-          m.gameState !== 'OFF' &&
+          !matchTermine(m.gameState) &&
           (m.gameType === 2 || m.gameType === 3) &&
           dateMatch >= maintenant &&
           dateMatch <= dansTrenteJours

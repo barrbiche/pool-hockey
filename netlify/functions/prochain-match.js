@@ -2,6 +2,8 @@
 // Utilise le calendrier complet de la saison plutôt que juste 7 jours
 // d'avance, pour que ça affiche toujours le prochain match peu importe le
 // nombre de jours qui restent avant (ex: avant le début de saison).
+import { matchTermine } from './_participants.js'
+
 export async function handler() {
   try {
     const res = await fetch('https://api-web.nhle.com/v1/club-schedule-season/MTL/now')
@@ -16,7 +18,7 @@ export async function handler() {
       .filter(
         (m) =>
           new Date(m.startTimeUTC) >= new Date(maintenant.toDateString()) &&
-          m.gameState !== 'OFF' &&
+          !matchTermine(m.gameState) &&
           (m.gameType === 2 || m.gameType === 3)
       )
       .sort((a, b) => new Date(a.startTimeUTC) - new Date(b.startTimeUTC))

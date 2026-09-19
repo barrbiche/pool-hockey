@@ -17,6 +17,13 @@ export function ordreChoixPourMatch(numeroMatch) {
   return [...ORDRE_BASE.slice(decalage), ...ORDRE_BASE.slice(0, decalage)]
 }
 
+// L'API de la NHL utilise DEUX états pour un match terminé : "FINAL" juste
+// après la fin, puis "OFF" une fois le pointage officialisé. Oublier "FINAL"
+// fait que le match paraît encore à venir pendant quelques heures.
+export function matchTermine(gameState) {
+  return gameState === 'OFF' || gameState === 'FINAL'
+}
+
 // Calcule la saison NHL en cours au format "20262027" et le début de saison
 // (1er juillet) pour filtrer les données par saison automatiquement, sans
 // qu'aucune mise à jour manuelle ne soit nécessaire d'année en année.
