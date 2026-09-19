@@ -358,6 +358,49 @@ button:disabled {
 
 .cal-adversaire {
   font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* ===== Logos d'équipes ===== */
+.logo-equipe {
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* ===== Affrontement (CH vs adversaire) ===== */
+.affrontement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin: 4px 0 12px;
+}
+
+.affrontement-equipe {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 64px;
+}
+
+.affrontement-nom {
+  font-family: var(--font-titre);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--bleu);
+  letter-spacing: 0.5px;
+}
+
+.affrontement-vs {
+  font-family: var(--font-titre);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--rouge);
+  letter-spacing: 1px;
 }
 
 .cal-score {
@@ -754,6 +797,103 @@ button:disabled {
 .points {
   font-weight: 800;
   color: var(--rouge);
+}
+
+/* ===== Carte du joueur choisi ===== */
+.carte-joueur-choisi {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(120deg, var(--glace) 0%, var(--blanc) 100%);
+  border: 2px solid var(--rouge);
+  border-radius: var(--rayon);
+  padding: 14px 16px;
+  margin: 8px 0 14px;
+  box-shadow: 0 4px 14px rgba(206, 14, 45, 0.15);
+  animation: glisse-haut 300ms var(--transition);
+}
+
+.carte-joueur-choisi .headshot {
+  border: 3px solid var(--rouge);
+  box-shadow: 0 3px 10px rgba(12, 30, 61, 0.2);
+}
+
+.carte-joueur-infos {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.carte-joueur-nom {
+  font-family: var(--font-titre);
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--bleu);
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+@media (max-width: 400px) {
+  .carte-joueur-choisi {
+    gap: 12px;
+    padding: 12px 13px;
+  }
+  .carte-joueur-choisi .headshot {
+    width: 74px !important;
+    height: 74px !important;
+  }
+  .carte-joueur-nom {
+    font-size: 1.15rem;
+  }
+}
+
+.carte-joueur-meta {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gris-texte);
+}
+
+.carte-joueur-forme {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 2px 0;
+}
+
+.carte-joueur-forme.chaud { color: #d1560a; }
+.carte-joueur-forme.froid { color: var(--bleu-vif); }
+.carte-joueur-forme.blesse { color: var(--rouge-fonce); }
+
+/* ===== Confettis ===== */
+.confettis {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.confetti {
+  position: absolute;
+  top: -16px;
+  width: 9px;
+  height: 15px;
+  border-radius: 2px;
+  opacity: 0;
+  animation-name: tombe-confetti;
+  animation-timing-function: cubic-bezier(0.25, 0.6, 0.45, 1);
+  animation-fill-mode: forwards;
+}
+
+@keyframes tombe-confetti {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--derive, 0), 105vh) rotate(var(--rot, 720deg));
+  }
 }
 
 /* ===== Skeleton loading ===== */

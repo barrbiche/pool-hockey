@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
 import Login from './Login'
 import Crest from './Crest'
 import Headshot from './Headshot'
+import LogoEquipe from './LogoEquipe'
 import './App.css'
 
 function saisonEnCours(date = new Date()) {
@@ -73,6 +74,44 @@ function formaterDateHeureMontreal(dateUTC, options) {
   return versHeureMontreal(dateUTC).toLocaleString('fr-CA', { ...options, timeZone: 'UTC' })
 }
 
+// Confettis de célébration, en CSS pur (aucune librairie externe). Les
+// morceaux sont générés une seule fois au montage pour qu'ils ne sautillent
+// pas quand le reste de la page se rafraîchit (le compte à rebours
+// re-rend la page à chaque seconde).
+const COULEURS_CONFETTIS = ['#ce0e2d', '#0c1e3d', '#ffffff', '#d4af37', '#2f5bb8']
+
+function Confettis() {
+  const [morceaux] = useState(() =>
+    Array.from({ length: 50 }, (_, i) => ({
+      gauche: Math.random() * 100,
+      delai: Math.random() * 0.7,
+      duree: 2.4 + Math.random() * 1.6,
+      couleur: COULEURS_CONFETTIS[i % COULEURS_CONFETTIS.length],
+      rotation: 360 + Math.random() * 720,
+      derive: Math.random() * 120 - 60,
+    }))
+  )
+
+  return (
+    <div className="confettis" aria-hidden="true">
+      {morceaux.map((m, i) => (
+        <span
+          key={i}
+          className="confetti"
+          style={{
+            left: `${m.gauche}%`,
+            background: m.couleur,
+            animationDelay: `${m.delai}s`,
+            animationDuration: `${m.duree}s`,
+            '--rot': `${m.rotation}deg`,
+            '--derive': `${m.derive}px`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 // Squelette de chargement (shimmer) affiché pendant qu'on attend les
 // données, à la place d'un simple texte "Chargement...".
 function Squelette({ lignes = 4, hauteur = 46 }) {
@@ -123,12 +162,27 @@ function Pool({ session }) {
   const [maintenant, setMaintenant] = useState(new Date())
   const [historique, setHistorique] = useState([])
   const [chargementHistorique, setChargementHistorique] = useState(false)
+  const [celebration, setCelebration] = useState(false)
+  const celebrationVictoireFaite = useRef(false)
+
+  // Lance les confettis pour quelques secondes
+  function lancerCelebration() {
+    setCelebration(true)
+    setTimeout(() => setCelebration(false), 4200)
+  }
 
   const matchCommence = match ? maintenant >= new Date(match.date_match) : false
 
   const prochainAChoisir =
     match?.ordre_choix?.find((uid) => !tousLesChoix.some((c) => c.user_id === uid)) || null
   const monTour = !prochainAChoisir || prochainAChoisir === session.user.id
+
+  // Mon choix pour ce match, enrichi des infos de l'alignement (numéro,
+  // position, forme) pour la carte du joueur choisi.
+  const maLigneDeChoix = tousLesChoix.find((c) => c.user_id === session.user.id)
+  const monJoueurDetails = maLigneDeChoix?.joueurs?.nhl_id
+    ? joueurs.find((j) => j.nhl_id === maLigneDeChoix.joueurs.nhl_id)
+    : null
 
   useEffect(() => {
     const intervalle = setInterval(() => setMaintenant(new Date()), 1000)
@@ -283,6 +337,7 @@ function Pool({ session }) {
 
       setMonChoix(joueurDb.id)
       await initialiser()
+      lancerCelebration()
 
       if (dejaChoisi) {
         notifierChangementChoix(joueurNhl.nom)
@@ -457,6 +512,18 @@ function Pool({ session }) {
       )
 
       setHistorique(filtre)
+
+      // Confettis si on a gagné le dernier match calculé — une seule fois
+      // par visite, pour que ça reste une surprise et pas un tic.
+      if (!celebrationVictoireFaite.current && filtre.length > 0) {
+        const dernierMatchId = filtre[0].match_id
+        const lignesDuDernier = filtre.filter((r) => r.match_id === dernierMatchId)
+        const gagnant = [...lignesDuDernier].sort((a, b) => b.points - a.points)[0]
+        if (gagnant && gagnant.user_id === session.user.id && gagnant.points > 0) {
+          celebrationVictoireFaite.current = true
+          lancerCelebration()
+        }
+      }
     } catch (err) {
       setErreur(err.message)
     } finally {
@@ -480,6 +547,7 @@ function Pool({ session }) {
 
   return (
     <div className="conteneur">
+      {celebration && <Confettis />}
       <header className="entete">
         <div className="entete-titre">
           <Crest taille={36} />
@@ -627,6 +695,7 @@ function Pool({ session }) {
                     })}
                   </span>
                   <span className="cal-adversaire">
+                    <LogoEquipe abbrev={m.adversaire} taille={22} />
                     {m.domicile ? 'vs' : '@'} {m.adversaire}
                   </span>
                   <span className="cal-score">
@@ -701,7 +770,18 @@ function Pool({ session }) {
 
       {match && (
         <section className="carte carte-rouge">
-          <h2>Prochain match vs {match.adversaire}</h2>
+          <h2>Prochain match</h2>
+          <div className="affrontement">
+            <div className="affrontement-equipe">
+              <Crest taille={54} />
+              <span className="affrontement-nom">MTL</span>
+            </div>
+            <span className="affrontement-vs">VS</span>
+            <div className="affrontement-equipe">
+              <LogoEquipe abbrev={match.adversaire} taille={54} />
+              <span className="affrontement-nom">{match.adversaire}</span>
+            </div>
+          </div>
           <p className="date-match">
             {formaterDateHeureMontreal(new Date(match.date_match), {
               weekday: 'long',
@@ -749,6 +829,28 @@ function Pool({ session }) {
           ) : (
             <>
               <h3>Ton choix</h3>
+              {maLigneDeChoix && (
+                <div className="carte-joueur-choisi">
+                  <Headshot nhlId={maLigneDeChoix.joueurs?.nhl_id} taille={90} />
+                  <div className="carte-joueur-infos">
+                    <span className="carte-joueur-nom">{maLigneDeChoix.joueurs?.nom}</span>
+                    {monJoueurDetails && (
+                      <span className="carte-joueur-meta">
+                        #{monJoueurDetails.numero} · {monJoueurDetails.position}
+                      </span>
+                    )}
+                    {monJoueurDetails?.forme === 'chaud' && (
+                      <span className="carte-joueur-forme chaud">🔥 En feu</span>
+                    )}
+                    {monJoueurDetails?.forme === 'froid' && (
+                      <span className="carte-joueur-forme froid">❄️ Tranquille</span>
+                    )}
+                    {monJoueurDetails?.blesse && (
+                      <span className="carte-joueur-forme blesse">🩹 Possiblement blessé</span>
+                    )}
+                  </div>
+                </div>
+              )}
               <select
                 className="selecteur-joueur"
                 value={monChoix || ''}
