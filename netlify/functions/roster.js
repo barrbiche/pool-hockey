@@ -10,20 +10,46 @@
 // mieux vaut une liste sans les icônes 🔥❄️ qu'une liste vide.
 import { saisonEnCours } from './_participants.js'
 
-// fetch avec limite de temps stricte : retourne null au lieu de rester
-// pendu si la source ne répond pas.
+// fetch avec limite de temps stricte. Retourne { data, raison } : la
+// raison sert au diagnostic quand ça échoue, pour ne jamais être aveugle.
 async function fetchJson(url, delaiMs) {
   const controleur = new AbortController()
   const minuterie = setTimeout(() => controleur.abort(), delaiMs)
   try {
-    const res = await fetch(url, { signal: controleur.signal })
-    if (!res.ok) return null
-    return await res.json()
-  } catch {
-    return null
+    const res = await fetch(url, {
+      signal: controleur.signal,
+      headers: {
+        // Certaines API refusent les requêtes sans User-Agent identifiable.
+        'User-Agent': 'pool-hockey/1.0',
+        Accept: 'application/json',
+      },
+    })
+    if (!res.ok) return { data: null, raison: `HTTP ${res.status} ${res.statusText}` }
+    return { data: await res.json(), raison: null }
+  } catch (err) {
+    const estDelai = err.name === 'AbortError'
+    return {
+      data: null,
+      raison: estDelai ? `délai dépassé après ${delaiMs} ms` : `réseau: ${err.message}`,
+    }
   } finally {
     clearTimeout(minuterie)
   }
+}
+
+// Le chargement de l'alignement est l'appel critique : on lui donne deux
+// chances avant d'abandonner, une panne passagère étant fréquente.
+async function chargerAlignement(delaiParEssai) {
+  let derniereRaison = 'inconnue'
+  for (let essai = 1; essai <= 2; essai++) {
+    const { data, raison } = await fetchJson(
+      'https://api-web.nhle.com/v1/roster/MTL/current',
+      delaiParEssai
+    )
+    if (data) return { data, raison: null }
+    derniereRaison = `essai ${essai}: ${raison}`
+  }
+  return { data: null, raison: derniereRaison }
 }
 
 // Laisse une tâche s'exécuter au maximum `delaiMs`, sinon abandonne et
@@ -45,7 +71,7 @@ async function formeRecente(joueurs) {
     const resultats = await Promise.all(
       lot.map((j) => fetchJson(`https://api-web.nhle.com/v1/player/${j.nhl_id}/game-log/now`, 2500))
     )
-    resultats.forEach((data, i) => {
+    resultats.forEach(({ data }, i) => {
       const derniers5 = (data?.gameLog || []).slice(0, 5)
       if (derniers5.length === 0) return
       const totalPoints = derniers5.reduce((acc, g) => acc + (g.points || 0), 0)
@@ -62,7 +88,7 @@ async function pointsSaisonPrecedente(joueurs, delaiMs) {
   const { codeApi } = saisonEnCours(new Date())
   const anneeDebutPrecedente = parseInt(codeApi.slice(0, 4)) - 1
   const codeApiPrecedente = `${anneeDebutPrecedente}${anneeDebutPrecedente + 1}`
-  const dataStats = await fetchJson(
+  const { data: dataStats } = await fetchJson(
     `https://api-web.nhle.com/v1/club-stats/MTL/${codeApiPrecedente}/2`,
     delaiMs
   )
@@ -79,7 +105,7 @@ async function pointsSaisonPrecedente(joueurs, delaiMs) {
 
 // Blessures (source non-officielle ESPN, best-effort)
 async function blessures(joueurs, delaiMs) {
-  const data = await fetchJson(
+  const { data } = await fetchJson(
     'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/mtl/injuries',
     delaiMs
   )
@@ -97,19 +123,27 @@ async function blessures(joueurs, delaiMs) {
 }
 
 export async function handler() {
-  // Échéance globale bien en dessous de la coupure de ~10s de Netlify.
+  // Échéance globale sous la coupure de ~10s de Netlify. L'alignement a
+  // droit à deux essais de 4 s : c'est l'appel sans lequel rien ne marche,
+  // et l'API du NHL est lente depuis les serveurs de Netlify.
   const debut = Date.now()
-  const LIMITE_MS = 7000
+  const LIMITE_MS = 8500
   const tempsRestant = () => LIMITE_MS - (Date.now() - debut)
 
   try {
-    const data = await fetchJson('https://api-web.nhle.com/v1/roster/MTL/current', 5000)
+    const { data, raison } = await chargerAlignement(4000)
     if (!data) {
       return {
         statusCode: 503,
-        headers: { 'Content-Type': 'application/json' },
+        // Surtout ne pas mettre un échec en cache: il serait resservi
+        // à tout le monde pendant 15 minutes.
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
         body: JSON.stringify({
           error: "L'API de la NHL ne répond pas présentement.",
+          // Raison technique exacte, pour pouvoir diagnostiquer au lieu de
+          // deviner quand ça se reproduit.
+          raison,
+          duree_ms: Date.now() - debut,
           joueurs: [],
         }),
       }
@@ -134,7 +168,9 @@ export async function handler() {
     if (joueurs.length === 0) {
       return {
         statusCode: 503,
-        headers: { 'Content-Type': 'application/json' },
+        // Surtout ne pas mettre un échec en cache: il serait resservi
+        // à tout le monde pendant 15 minutes.
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
         body: JSON.stringify({ error: 'Alignement vide reçu de la NHL.', joueurs: [] }),
       }
     }
@@ -155,13 +191,22 @@ export async function handler() {
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        // L'alignement du CH change quelques fois par saison, pas aux
+        // 10 secondes. On laisse le réseau de Netlify garder la réponse
+        // 15 minutes : les visites suivantes sont servies instantanément
+        // sans toucher à l'API du NHL, qui est lente et capricieuse depuis
+        // les serveurs de Netlify. C'est ce qui rend la liste fiable.
+        'Cache-Control': 'public, max-age=60',
+        'Netlify-CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=3600',
+      },
       body: JSON.stringify({ joueurs }),
     }
   } catch (err) {
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       body: JSON.stringify({ error: err.message, joueurs: [] }),
     }
   }
