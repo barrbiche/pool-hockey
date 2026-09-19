@@ -773,7 +773,7 @@ function Pool({ session }) {
           <h2>Prochain match</h2>
           <div className="affrontement">
             <div className="affrontement-equipe">
-              <Crest taille={54} />
+              <LogoEquipe abbrev="MTL" taille={54} />
               <span className="affrontement-nom">MTL</span>
             </div>
             <span className="affrontement-vs">VS</span>
