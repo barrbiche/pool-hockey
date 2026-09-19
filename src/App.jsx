@@ -74,6 +74,13 @@ function formaterDateHeureMontreal(dateUTC, options) {
   return versHeureMontreal(dateUTC).toLocaleString('fr-CA', { ...options, timeZone: 'UTC' })
 }
 
+// L'API de la NHL utilise DEUX états pour un match terminé : "FINAL" juste
+// après la fin, puis "OFF" une fois le pointage officialisé. Il faut les
+// deux, sinon le score n'apparaît pas pendant les heures qui suivent.
+function matchTermine(statut) {
+  return statut === 'OFF' || statut === 'FINAL'
+}
+
 // Confettis de célébration, en CSS pur (aucune librairie externe). Les
 // morceaux sont générés une seule fois au montage pour qu'ils ne sautillent
 // pas quand le reste de la page se rafraîchit (le compte à rebours
@@ -687,7 +694,7 @@ function Pool({ session }) {
           {!chargementCalendrier && (
             <ul className="liste-calendrier">
               {calendrier.map((m) => (
-                <li key={m.nhl_game_id} className={m.statut === 'OFF' ? 'joue' : ''}>
+                <li key={m.nhl_game_id} className={matchTermine(m.statut) ? 'joue' : ''}>
                   <span className="cal-date">
                     {formaterDateHeureMontreal(new Date(m.date_match), {
                       day: 'numeric',
@@ -699,7 +706,7 @@ function Pool({ session }) {
                     {m.domicile ? 'vs' : '@'} {m.adversaire}
                   </span>
                   <span className="cal-score">
-                    {m.statut === 'OFF'
+                    {matchTermine(m.statut)
                       ? `${m.score_mtl} - ${m.score_adversaire}`
                       : formaterDateHeureMontreal(new Date(m.date_match), {
                           hour: '2-digit',
