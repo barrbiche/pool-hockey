@@ -569,11 +569,128 @@ button:disabled {
   font-style: italic;
 }
 
-.selecteur-joueur {
-  width: 100%;
+/* ===== Sélecteur de joueur (menu maison) ===== */
+.selecteur {
   margin: 8px 0 16px;
+}
+
+.selecteur-bouton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--blanc) !important;
+  color: var(--encre) !important;
+  border: 1.5px solid var(--bleu);
+  border-radius: 10px;
+  padding: 11px 13px;
+  font-size: 1rem;
   font-weight: 600;
-  border: 1.5px solid var(--bleu) !important;
+  box-shadow: none !important;
+  text-align: left;
+}
+
+.selecteur-valeur {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.selecteur-valeur-texte {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selecteur-fleche {
+  color: var(--rouge);
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: transform var(--transition);
+  flex-shrink: 0;
+}
+
+.selecteur-fleche.ouverte {
+  transform: rotate(180deg);
+}
+
+.selecteur-liste {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
+  max-height: 340px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--blanc);
+  border: 1.5px solid var(--bleu);
+  border-radius: 10px;
+  box-shadow: var(--ombre);
+  animation: glisse-haut 180ms var(--transition);
+}
+
+.selecteur-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent !important;
+  color: var(--encre) !important;
+  border: none;
+  box-shadow: none !important;
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.selecteur-option:hover:not(:disabled) {
+  background: var(--glace) !important;
+}
+
+.selecteur-option.actif {
+  background: #fff0f1 !important;
+  outline: 1.5px solid var(--rouge);
+}
+
+.selecteur-option.pris {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.selecteur-option-nom {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selecteur-numero {
+  color: var(--rouge);
+  font-weight: 800;
+}
+
+.selecteur-position {
+  color: var(--gris-texte);
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
+.selecteur-option-icones {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.selecteur-pris {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--gris-texte);
+  text-transform: uppercase;
 }
 
 .liste-choix {

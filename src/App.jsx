@@ -5,6 +5,7 @@ import Crest from './Crest'
 import Headshot from './Headshot'
 import LogoEquipe from './LogoEquipe'
 import { IconeFeu, IconeGlace, IconePlasteur } from './Icones'
+import SelecteurJoueur from './SelecteurJoueur'
 import './App.css'
 
 function saisonEnCours(date = new Date()) {
@@ -865,30 +866,15 @@ function Pool({ session }) {
                   </div>
                 </div>
               )}
-              <select
-                className="selecteur-joueur"
-                value={monChoix || ''}
-                onChange={(e) => {
-                  const j = joueurs.find((j) => j.nhl_id === parseInt(e.target.value))
-                  if (j) choisirJoueur(j)
-                }}
-              >
-                <option value="">-- Choisis un joueur --</option>
-                {joueurs.map((j) => {
-                  const prisParAutre = tousLesChoix.some(
-                    (c) => c.user_id !== session.user.id && c.joueurs?.nom === j.nom
-                  )
-                  return (
-                    <option key={j.nhl_id} value={j.nhl_id} disabled={prisParAutre}>
-                      #{j.numero} {j.nom} ({j.position})
-                      {j.blesse ? ' 🩹' : ''}
-                      {j.forme === 'chaud' ? ' 🔥' : ''}
-                      {j.forme === 'froid' ? ' ❄️' : ''}
-                      {prisParAutre ? ' — déjà pris' : ''}
-                    </option>
-                  )
-                })}
-              </select>
+              <SelecteurJoueur
+                joueurs={joueurs}
+                nomsPris={tousLesChoix
+                  .filter((c) => c.user_id !== session.user.id)
+                  .map((c) => c.joueurs?.nom)
+                  .filter(Boolean)}
+                nhlIdChoisi={maLigneDeChoix?.joueurs?.nhl_id || null}
+                onChoisir={choisirJoueur}
+              />
               <p className="note-tc">
                 <IconeFeu /> chaud · <IconeGlace /> froid (5 derniers matchs) ·{' '}
                 <IconePlasteur /> possiblement blessé
