@@ -33,20 +33,33 @@ export async function handler() {
       }
     }
 
-    const adversaireEstDom = prochain.homeTeam.abbrev === 'MTL'
-    const adversaire = adversaireEstDom
-      ? prochain.awayTeam.abbrev
-      : prochain.homeTeam.abbrev
+    const mtlEstDomicile = prochain.homeTeam.abbrev === 'MTL'
+    const adversaire = mtlEstDomicile ? prochain.awayTeam.abbrev : prochain.homeTeam.abbrev
+
+    // "LIVE" = match en cours, "CRIT" = fin de match serrée (dernières
+    // minutes d'un match d'un but ou moins, ou prolongation).
+    const enDirect = prochain.gameState === 'LIVE' || prochain.gameState === 'CRIT'
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        // Un match en cours change aux minutes : jamais de cache. Sinon on
+        // peut garder la réponse une minute.
+        'Cache-Control': enDirect ? 'no-store' : 'public, max-age=60',
+      },
       body: JSON.stringify({
         match: {
           nhl_game_id: prochain.id,
           date_match: prochain.startTimeUTC,
           adversaire,
           statut: prochain.gameState,
+          domicile: mtlEstDomicile,
+          en_direct: enDirect,
+          score_mtl: mtlEstDomicile ? prochain.homeTeam.score : prochain.awayTeam.score,
+          score_adversaire: mtlEstDomicile ? prochain.awayTeam.score : prochain.homeTeam.score,
+          periode: prochain.periodDescriptor?.number ?? null,
+          type_periode: prochain.periodDescriptor?.periodType ?? null,
         },
       }),
     }
