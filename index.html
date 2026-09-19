@@ -16,6 +16,23 @@
       rel="stylesheet"
     />
     <title>Pool de Hockey</title>
+    <script>
+      // Applique le thème AVANT le premier affichage, sinon le site
+      // apparaîtrait une fraction de seconde en clair avant de basculer.
+      // "auto" (ou rien de choisi) suit le réglage du téléphone.
+      ;(function () {
+        try {
+          var choix = localStorage.getItem('theme')
+          var sombre =
+            choix === 'sombre' ||
+            ((!choix || choix === 'auto') &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.setAttribute('data-theme', sombre ? 'dark' : 'light')
+        } catch (e) {
+          // navigation privée : on reste en clair, sans casser la page
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
