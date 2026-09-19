@@ -7,6 +7,7 @@ import LogoEquipe from './LogoEquipe'
 import { IconeFeu, IconeGlace, IconePlasteur } from './Icones'
 import SelecteurJoueur from './SelecteurJoueur'
 import Pastille from './Pastille'
+import BoutonTheme from './Theme'
 import './App.css'
 
 function saisonEnCours(date = new Date()) {
@@ -758,6 +759,7 @@ function Pool({ session }) {
           <h1>Pool de Hockey</h1>
         </div>
         <div className="entete-actions">
+          <BoutonTheme />
           {!notifsActivees && (
             <button className="bouton-lien" onClick={activerNotifications}>
               🔔 Activer

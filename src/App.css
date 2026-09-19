@@ -36,36 +36,38 @@
   --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ===== Mode sombre : suit le réglage du téléphone ===== */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fond-page: #060b14;
-    --surface: #101a2c;
-    --surface-2: #18243a;
-    --bordure: #25334e;
-    --bordure-forte: #35476b;
+/* ===== Mode sombre =====
+   L'attribut data-theme est posé sur <html> par le petit script de
+   index.html, AVANT le premier affichage : il vaut 'dark' ou 'light'
+   selon le choix enregistré, ou selon le réglage du téléphone quand
+   le choix est 'auto'. Piloter le thème par un attribut plutôt que
+   par une media query permet de le forcer depuis le site. */
+:root[data-theme='dark'] {
+  --fond-page: #060b14;
+  --surface: #101a2c;
+  --surface-2: #18243a;
+  --bordure: #25334e;
+  --bordure-forte: #35476b;
 
-    /* Le bleu marine sert de couleur de titre : il doit s'éclaircir,
-       sinon il devient illisible sur fond foncé. */
-    --bleu: #8fb4f5;
-    --rouge: #ff3d5c;
-    --rouge-fonce: #ff93a3;
+  /* Le bleu marine sert de couleur de titre : il doit s'éclaircir,
+     sinon il devient illisible sur fond foncé. */
+  --bleu: #8fb4f5;
+  --rouge: #ff3d5c;
+  --rouge-fonce: #ff93a3;
 
-    --encre: #e6ecf8;
-    --gris-texte: #95a5c4;
+  --encre: #e6ecf8;
+  --gris-texte: #95a5c4;
 
-    --teinte-rouge: #2a1219;
-    --teinte-rouge-2: #3a1a24;
-    --teinte-jaune: #2a2314;
-    --teinte-or: #2e2612;
-    --teinte-argent: #1d2639;
-    --teinte-bronze: #2f1d13;
-    --bordure-rouge: #5d2732;
+  --teinte-rouge: #2a1219;
+  --teinte-rouge-2: #3a1a24;
+  --teinte-jaune: #2a2314;
+  --teinte-or: #2e2612;
+  --teinte-argent: #1d2639;
+  --teinte-bronze: #2f1d13;
+  --bordure-rouge: #5d2732;
 
-    --ombre: 0 4px 16px rgba(0, 0, 0, 0.5);
-    --ombre-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
-  }
-
+  --ombre: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --ombre-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -191,6 +193,24 @@ button:disabled {
 
 .bouton-lien:hover {
   color: var(--blanc);
+}
+
+.bouton-theme {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bouton-theme-texte {
+  font-size: 0.78rem;
+}
+
+@media (max-width: 400px) {
+  /* Sur écran étroit, on garde juste l'icône pour laisser la place au
+     reste de l'en-tête. */
+  .bouton-theme-texte {
+    display: none;
+  }
 }
 
 /* Erreur simple (page de connexion) */
@@ -1537,53 +1557,52 @@ button:disabled {
 }
 
 /* ===== Mode sombre : surcharges de règles =====
-   Placées à la fin du fichier : à spécificité égale, c'est la dernière
-   règle qui gagne. Plus haut, elles se faisaient écraser. */
-@media (prefers-color-scheme: dark) {
-  /* Le filigrane de hockey est dessiné en bleu marine : invisible sur
-     fond foncé. On le repasse en traits pâles. */
-  body {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='170'%3E%3Ccircle cx='26' cy='146' r='10' fill='%23ffffff' fill-opacity='0.04'/%3E%3Cpath d='M72 22 L122 104' stroke='%23ffffff' stroke-opacity='0.04' stroke-width='7' stroke-linecap='round' fill='none'/%3E%3Cpath d='M116 96 q15 20 36 12' stroke='%23ffffff' stroke-opacity='0.04' stroke-width='7' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='150' cy='40' r='6' fill='%23ff3d5c' fill-opacity='0.07'/%3E%3Cpath d='M8 60 q18 -14 34 0' stroke='%23ff3d5c' stroke-opacity='0.05' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  }
+   Sélecteurs préfixés par :root[data-theme='dark'], donc plus
+   spécifiques que les règles de base : elles gagnent peu importe
+   leur position dans le fichier. */
+/* Le filigrane de hockey est dessiné en bleu marine : invisible sur
+   fond foncé. On le repasse en traits pâles. */
+:root[data-theme='dark'] body {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='170'%3E%3Ccircle cx='26' cy='146' r='10' fill='%23ffffff' fill-opacity='0.04'/%3E%3Cpath d='M72 22 L122 104' stroke='%23ffffff' stroke-opacity='0.04' stroke-width='7' stroke-linecap='round' fill='none'/%3E%3Cpath d='M116 96 q15 20 36 12' stroke='%23ffffff' stroke-opacity='0.04' stroke-width='7' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='150' cy='40' r='6' fill='%23ff3d5c' fill-opacity='0.07'/%3E%3Cpath d='M8 60 q18 -14 34 0' stroke='%23ff3d5c' stroke-opacity='0.05' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+}
 
-  /* Les fonds jaunes gardent un texte foncé : le texte clair serait
-     illisible dessus. */
-  .verrou {
-    background: linear-gradient(135deg, #5c4a12, #7a6318);
-    border-color: #a68a2a;
-    color: #ffeaa8;
-  }
+/* Les fonds jaunes gardent un texte foncé : le texte clair serait
+   illisible dessus. */
+:root[data-theme='dark'] .verrou {
+  background: linear-gradient(135deg, #5c4a12, #7a6318);
+  border-color: #a68a2a;
+  color: #ffeaa8;
+}
 
-  .ordre-choix li.tour-actuel {
-    color: #3a2c00;
-  }
+:root[data-theme='dark'] .ordre-choix li.tour-actuel {
+  color: #3a2c00;
+}
 
-  .alignement-erreur {
-    border-color: #7a6318;
-  }
+:root[data-theme='dark'] .alignement-erreur {
+  border-color: #7a6318;
+}
 
-  .alignement-erreur p {
-    color: #ffdf94;
-  }
+:root[data-theme='dark'] .alignement-erreur p {
+  color: #ffdf94;
+}
 
-  .alignement-raison {
-    color: #b39a5e !important;
-  }
+:root[data-theme='dark'] .alignement-raison {
+  color: #b39a5e !important;
+}
 
-  .table-stats tbody tr:first-child td {
-    color: var(--rouge);
-  }
+:root[data-theme='dark'] .table-stats tbody tr:first-child td {
+  color: var(--rouge);
+}
 
-  input::placeholder {
-    color: #6b7c9c;
-  }
+:root[data-theme='dark'] input::placeholder {
+  color: #6b7c9c;
+}
 
-  /* Les photos et logos gagnent un contour plus doux sur fond foncé */
-  .headshot {
-    background: var(--surface-2);
-  }
+/* Les photos et logos gagnent un contour plus doux sur fond foncé */
+:root[data-theme='dark'] .headshot {
+  background: var(--surface-2);
+}
 
-  .carte-joueur-forme.chaud {
-    color: #ff9147;
-  }
+:root[data-theme='dark'] .carte-joueur-forme.chaud {
+  color: #ff9147;
 }
