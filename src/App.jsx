@@ -158,6 +158,39 @@ function Confettis() {
   )
 }
 
+// Avertissement affiché en haut de la page. Se referme tout seul après
+// quelques secondes (une petite barre montre le temps qui reste) ou
+// immédiatement avec le bouton ×.
+const DUREE_ALERTE_MS = 9000
+
+function Alerte({ message, onFermer }) {
+  // On garde la fonction de fermeture dans une référence pour que la
+  // minuterie ne reparte pas à zéro à chaque re-rendu de la page (le
+  // compte à rebours en provoque un à la seconde).
+  const fermerRef = useRef(onFermer)
+  fermerRef.current = onFermer
+
+  useEffect(() => {
+    const minuterie = setTimeout(() => fermerRef.current(), DUREE_ALERTE_MS)
+    return () => clearTimeout(minuterie)
+  }, [message])
+
+  return (
+    <div className="alerte" role="alert">
+      <p className="alerte-texte">{message}</p>
+      <button
+        type="button"
+        className="alerte-fermer"
+        onClick={() => fermerRef.current()}
+        aria-label="Fermer l'avertissement"
+      >
+        ×
+      </button>
+      <span className="alerte-jauge" />
+    </div>
+  )
+}
+
 // Squelette de chargement (shimmer) affiché pendant qu'on attend les
 // données, à la place d'un simple texte "Chargement...".
 function Squelette({ lignes = 4, hauteur = 46 }) {
@@ -671,7 +704,7 @@ function Pool({ session }) {
         </button>
       </div>
 
-      {erreur && <p className="erreur">{erreur}</p>}
+      {erreur && <Alerte key={erreur} message={erreur} onFermer={() => setErreur('')} />}
 
       <div key={onglet} className="contenu-onglet">
       {onglet === 'classement' && (

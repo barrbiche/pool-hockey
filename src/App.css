@@ -146,7 +146,7 @@ button:disabled {
   color: var(--blanc);
 }
 
-/* ===== Erreur ===== */
+/* Erreur simple (page de connexion) */
 .erreur {
   color: var(--rouge-fonce);
   font-size: 0.9rem;
@@ -155,7 +155,75 @@ button:disabled {
   border: 1px solid #ffc9ce;
   padding: 11px 14px;
   border-radius: 10px;
+  margin: 0;
   animation: glisse-haut 220ms var(--transition);
+}
+
+/* ===== Avertissement (fermable) ===== */
+.alerte {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--blanc);
+  border: 1px solid #ffc9ce;
+  border-left: 4px solid var(--rouge);
+  border-radius: 11px;
+  padding: 12px 10px 13px 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 14px rgba(206, 14, 45, 0.13);
+  animation: glisse-haut 240ms var(--transition);
+}
+
+.alerte-texte {
+  flex: 1;
+  margin: 0;
+  color: var(--rouge-fonce);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.alerte-fermer {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  line-height: 1;
+  border-radius: 50%;
+  background: transparent !important;
+  color: var(--rouge) !important;
+  border: none;
+  box-shadow: none !important;
+  opacity: 0.65;
+  transition: opacity var(--transition), background var(--transition);
+}
+
+.alerte-fermer:hover {
+  opacity: 1;
+  background: #ffe9ec !important;
+}
+
+/* Petite barre qui se vide : montre que l'avertissement va disparaître */
+.alerte-jauge {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(90deg, var(--rouge), #ff8fa0);
+  transform-origin: left center;
+  animation: vide-jauge 9s linear forwards;
+}
+
+@keyframes vide-jauge {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
 }
 
 .info {
