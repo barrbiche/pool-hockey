@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
 import Login from './Login'
 import Crest from './Crest'
@@ -39,15 +39,52 @@ function ordreChoixPourMatch(numeroMatch) {
 const VAPID_PUBLIC_KEY =
   'BPezOa7aC0WZoaKvBg6axfi3A1xB9iV8PPiyTJYDpOlD1bKLPm7Nd45t_bryyRg_KhPPJjQtxenXwVAbY78HLbA'
 
-function formaterCompteARebours(ms) {
+// Découpe le temps restant en jours / heures / minutes / secondes, pour
+// l'afficher en blocs séparés à la manière d'une horloge d'aréna.
+function partiesCompteARebours(ms) {
   if (ms <= 0) return null
-  const totalSecondes = Math.floor(ms / 1000)
-  const heures = Math.floor(totalSecondes / 3600)
-  const minutes = Math.floor((totalSecondes % 3600) / 60)
-  const secondes = totalSecondes % 60
-  if (heures > 0) return `${heures}h ${minutes}m ${secondes}s`
-  if (minutes > 0) return `${minutes}m ${secondes}s`
-  return `${secondes}s`
+  const total = Math.floor(ms / 1000)
+  return {
+    jours: Math.floor(total / 86400),
+    heures: Math.floor((total % 86400) / 3600),
+    minutes: Math.floor((total % 3600) / 60),
+    secondes: total % 60,
+  }
+}
+
+// Chrono style tableau de pointage : panneau sombre, chiffres lumineux,
+// deux-points qui clignotent à la seconde. Passe au rouge quand ça presse.
+function Chrono({ ms, urgent }) {
+  const p = partiesCompteARebours(ms)
+  if (!p) return null
+
+  const blocs = [
+    ...(p.jours > 0 ? [{ cle: 'j', valeur: p.jours, label: 'JRS' }] : []),
+    { cle: 'h', valeur: p.heures, label: 'HRS' },
+    { cle: 'm', valeur: p.minutes, label: 'MIN' },
+    { cle: 's', valeur: p.secondes, label: 'SEC' },
+  ]
+
+  return (
+    <div className={urgent ? 'chrono urgent' : 'chrono'}>
+      <div className="chrono-titre">Temps restant pour choisir</div>
+      <div className="chrono-blocs">
+        {blocs.map((b, i) => (
+          <Fragment key={b.cle}>
+            {i > 0 && <span className="chrono-sep">:</span>}
+            <span className="chrono-groupe">
+              <span className="chrono-bloc">
+                <span className="chrono-chiffres">
+                  {String(b.valeur).padStart(2, '0')}
+                </span>
+              </span>
+              <span className="chrono-label">{b.label}</span>
+            </span>
+          </Fragment>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // Convertit une date UTC en heure de Montréal SANS dépendre du fuseau
@@ -157,7 +194,6 @@ export default function App() {
 function Pool({ session }) {
   const [match, setMatch] = useState(null)
   const [joueurs, setJoueurs] = useState([])
-  const [monChoix, setMonChoix] = useState(null)
   const [tousLesChoix, setTousLesChoix] = useState([])
   const [classement, setClassement] = useState([])
   const [erreur, setErreur] = useState('')
@@ -258,8 +294,6 @@ function Pool({ session }) {
         .eq('match_id', matchExistant.id)
 
       setTousLesChoix(choixExistants || [])
-      const mienChoix = (choixExistants || []).find((c) => c.user_id === session.user.id)
-      if (mienChoix) setMonChoix(mienChoix.joueur_id)
 
       await chargerClassement()
     } catch (err) {
@@ -344,7 +378,6 @@ function Pool({ session }) {
 
       if (erreurChoix) throw erreurChoix
 
-      setMonChoix(joueurDb.id)
       await initialiser()
       lancerCelebration()
 
@@ -802,15 +835,10 @@ function Pool({ session }) {
           </p>
 
           {!matchCommence && (
-            <p
-              className={
-                new Date(match.date_match) - maintenant < 60 * 60 * 1000
-                  ? 'compte-a-rebours urgent'
-                  : 'compte-a-rebours'
-              }
-            >
-              ⏱️ Temps restant pour choisir : {formaterCompteARebours(new Date(match.date_match) - maintenant)}
-            </p>
+            <Chrono
+              ms={new Date(match.date_match) - maintenant}
+              urgent={new Date(match.date_match) - maintenant < 60 * 60 * 1000}
+            />
           )}
 
           {match.ordre_choix && (
