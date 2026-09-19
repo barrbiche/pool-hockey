@@ -257,12 +257,24 @@ button:disabled {
   font-weight: 700;
   padding: 10px 4px;
   font-size: 0.74rem;
-  transition: color var(--transition);
+  transition: color var(--transition), background var(--transition);
+}
+
+/* Au survol : franchement rouge. Sans cette règle, l'ombre rouge diffuse
+   des boutons génériques donne un halo rosé sur le fond blanc. */
+.onglet:hover:not(.actif) {
+  background: #ffe9ec;
+  color: var(--rouge);
+  box-shadow: none;
 }
 
 .onglet.actif {
   background: linear-gradient(135deg, var(--bleu) 0%, var(--bleu-2) 100%);
   color: var(--blanc);
+  box-shadow: 0 3px 10px rgba(12, 30, 61, 0.35);
+}
+
+.onglet.actif:hover {
   box-shadow: 0 3px 10px rgba(12, 30, 61, 0.35);
 }
 
