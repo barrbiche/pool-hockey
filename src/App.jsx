@@ -194,6 +194,7 @@ export default function App() {
 function Pool({ session }) {
   const [match, setMatch] = useState(null)
   const [joueurs, setJoueurs] = useState([])
+  const [alignementEnErreur, setAlignementEnErreur] = useState(false)
   const [tousLesChoix, setTousLesChoix] = useState([])
   const [classement, setClassement] = useState([])
   const [erreur, setErreur] = useState('')
@@ -242,6 +243,23 @@ function Pool({ session }) {
     verifierAbonnementExistant()
   }, [])
 
+  // L'alignement vient de l'API du NHL via notre fonction. Quand elle est
+  // lente ou indisponible, on veut le dire clairement plutôt que d'afficher
+  // une liste vide sans explication.
+  async function chargerAlignement() {
+    setAlignementEnErreur(false)
+    try {
+      const res = await fetch('/.netlify/functions/roster')
+      const data = await res.json()
+      const liste = data.joueurs || []
+      setJoueurs(liste)
+      if (liste.length === 0) setAlignementEnErreur(true)
+    } catch {
+      setJoueurs([])
+      setAlignementEnErreur(true)
+    }
+  }
+
   async function initialiser() {
     setChargement(true)
     try {
@@ -284,9 +302,7 @@ function Pool({ session }) {
       }
       setMatch(matchExistant)
 
-      const resRoster = await fetch('/.netlify/functions/roster')
-      const dataRoster = await resRoster.json()
-      setJoueurs(dataRoster.joueurs || [])
+      await chargerAlignement()
 
       const { data: choixExistants } = await supabase
         .from('choix')
@@ -894,15 +910,25 @@ function Pool({ session }) {
                   </div>
                 </div>
               )}
-              <SelecteurJoueur
-                joueurs={joueurs}
-                nomsPris={tousLesChoix
-                  .filter((c) => c.user_id !== session.user.id)
-                  .map((c) => c.joueurs?.nom)
-                  .filter(Boolean)}
-                nhlIdChoisi={maLigneDeChoix?.joueurs?.nhl_id || null}
-                onChoisir={choisirJoueur}
-              />
+              {alignementEnErreur ? (
+                <div className="alignement-erreur">
+                  <p>
+                    ⚠️ La liste des joueurs n'a pas pu être chargée. L'API de la NHL répond
+                    parfois mal — c'est temporaire.
+                  </p>
+                  <button onClick={chargerAlignement}>🔄 Réessayer</button>
+                </div>
+              ) : (
+                <SelecteurJoueur
+                  joueurs={joueurs}
+                  nomsPris={tousLesChoix
+                    .filter((c) => c.user_id !== session.user.id)
+                    .map((c) => c.joueurs?.nom)
+                    .filter(Boolean)}
+                  nhlIdChoisi={maLigneDeChoix?.joueurs?.nhl_id || null}
+                  onChoisir={choisirJoueur}
+                />
+              )}
               <p className="note-tc">
                 <IconeFeu /> chaud · <IconeGlace /> froid (5 derniers matchs) ·{' '}
                 <IconePlasteur /> possiblement blessé
