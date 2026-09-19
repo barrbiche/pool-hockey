@@ -864,6 +864,53 @@ button:disabled {
 .carte-joueur-forme.froid { color: var(--bleu-vif); }
 .carte-joueur-forme.blesse { color: var(--rouge-fonce); }
 
+/* ===== Icônes animées (forme des joueurs) ===== */
+.icone-anim {
+  display: inline-block;
+  will-change: transform;
+}
+
+/* Le feu danse et vacille */
+.icone-feu {
+  animation: danse-feu 1.1s ease-in-out infinite;
+  transform-origin: 50% 85%;
+}
+
+@keyframes danse-feu {
+  0%, 100% { transform: scale(1) rotate(-4deg); }
+  25% { transform: scale(1.14) rotate(3deg); }
+  50% { transform: scale(0.95) rotate(-2deg); }
+  75% { transform: scale(1.08) rotate(5deg); }
+}
+
+/* Le flocon tourne lentement et scintille */
+.icone-glace {
+  animation: brille-glace 3.4s ease-in-out infinite;
+}
+
+@keyframes brille-glace {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.18) rotate(180deg);
+    filter: brightness(1.45) drop-shadow(0 0 5px rgba(120, 190, 255, 0.9));
+  }
+}
+
+/* Le plasteur fait un petit élancement, avec une pause entre chaque */
+.icone-plasteur {
+  animation: elance-plasteur 2.6s ease-in-out infinite;
+}
+
+@keyframes elance-plasteur {
+  0%, 68%, 100% { transform: scale(1) rotate(0deg); }
+  76% { transform: scale(1.22) rotate(-9deg); }
+  84% { transform: scale(1.06) rotate(7deg); }
+  92% { transform: scale(1.12) rotate(-3deg); }
+}
+
 /* ===== Confettis ===== */
 .confettis {
   position: fixed;

@@ -4,6 +4,7 @@ import Login from './Login'
 import Crest from './Crest'
 import Headshot from './Headshot'
 import LogoEquipe from './LogoEquipe'
+import { IconeFeu, IconeGlace, IconePlasteur } from './Icones'
 import './App.css'
 
 function saisonEnCours(date = new Date()) {
@@ -724,8 +725,8 @@ function Pool({ session }) {
         <section className="carte carte-rouge">
           <h2>Statistiques des joueurs — saison</h2>
           <p className="note-tc">
-            TC = tours du chapeau · 🔥 chaud / ❄️ froid (5 derniers matchs) · 🩹 possiblement
-            blessé (source non-officielle, à valider)
+            TC = tours du chapeau · <IconeFeu /> chaud / <IconeGlace /> froid (5 derniers matchs) ·{' '}
+            <IconePlasteur /> possiblement blessé (source non-officielle, à valider)
           </p>
           {chargementStats && <Squelette lignes={7} hauteur={38} />}
           {!chargementStats && (
@@ -751,7 +752,7 @@ function Pool({ session }) {
                       </td>
                       <td>
                         {j.nom}
-                        {j.blesse ? ' 🩹' : ''}
+                        {j.blesse ? <> <IconePlasteur /></> : ''}
                       </td>
                       <td>{j.matchs_joues}</td>
                       <td>{j.buts}</td>
@@ -759,8 +760,8 @@ function Pool({ session }) {
                       <td>{j.points}</td>
                       <td>{j.tours_chapeau}</td>
                       <td>
-                        {j.forme === 'chaud' && '🔥'}
-                        {j.forme === 'froid' && '❄️'}
+                        {j.forme === 'chaud' && <IconeFeu />}
+                        {j.forme === 'froid' && <IconeGlace />}
                       </td>
                     </tr>
                   ))}
@@ -847,13 +848,19 @@ function Pool({ session }) {
                       </span>
                     )}
                     {monJoueurDetails?.forme === 'chaud' && (
-                      <span className="carte-joueur-forme chaud">🔥 En feu</span>
+                      <span className="carte-joueur-forme chaud">
+                        <IconeFeu /> En feu
+                      </span>
                     )}
                     {monJoueurDetails?.forme === 'froid' && (
-                      <span className="carte-joueur-forme froid">❄️ Tranquille</span>
+                      <span className="carte-joueur-forme froid">
+                        <IconeGlace /> Tranquille
+                      </span>
                     )}
                     {monJoueurDetails?.blesse && (
-                      <span className="carte-joueur-forme blesse">🩹 Possiblement blessé</span>
+                      <span className="carte-joueur-forme blesse">
+                        <IconePlasteur /> Possiblement blessé
+                      </span>
                     )}
                   </div>
                 </div>
@@ -882,7 +889,10 @@ function Pool({ session }) {
                   )
                 })}
               </select>
-              <p className="note-tc">🔥 chaud · ❄️ froid (5 derniers matchs) · 🩹 possiblement blessé</p>
+              <p className="note-tc">
+                <IconeFeu /> chaud · <IconeGlace /> froid (5 derniers matchs) ·{' '}
+                <IconePlasteur /> possiblement blessé
+              </p>
             </>
           )}
 
