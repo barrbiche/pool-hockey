@@ -3,7 +3,7 @@ import webpush from 'web-push'
 import { ORDRE_BASE, NOMS } from './_participants.js'
 
 webpush.setVapidDetails(
-  'mailto:pool-hockey@example.com',
+  'mailto:eric.vanier.piquette@gmail.com',
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 )

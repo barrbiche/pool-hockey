@@ -29,12 +29,29 @@ export async function handler() {
       })
       .sort((a, b) => new Date(a.startTimeUTC) - new Date(b.startTimeUTC))
 
-    // Compter combien de matchs existent déjà (pour la rotation)
-    const { count: totalExistants } = await supabase
+    // Numéro du dernier match déjà créé. On le lit dans la colonne
+    // numero_match plutôt que de compter les lignes : un match effacé
+    // (test, reprise, match reporté) ferait reculer le compte et
+    // décalerait la rotation 3-2-1 pour tout le reste de la saison, en
+    // silence. Un numéro écrit explicitement ne bouge jamais.
+    const { data: dernier } = await supabase
       .from('matchs')
-      .select('*', { count: 'exact', head: true })
+      .select('numero_match')
+      .order('numero_match', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle()
 
-    let compteur = totalExistants || 0
+    let compteur = dernier?.numero_match ?? 0
+
+    // Filet pour la toute première exécution après l'ajout de la colonne :
+    // si des matchs existent déjà sans numéro, on repart du compte total
+    // pour ne pas réattribuer des numéros déjà utilisés.
+    if (compteur === 0) {
+      const { count: totalExistants } = await supabase
+        .from('matchs')
+        .select('*', { count: 'exact', head: true })
+      compteur = totalExistants || 0
+    }
     const matchsCrees = []
 
     for (const m of matchsAVenir) {
@@ -58,6 +75,7 @@ export async function handler() {
         adversaire,
         statut: 'a_venir',
         ordre_choix: ordre,
+        numero_match: compteur,
       })
 
       matchsCrees.push(m.id)

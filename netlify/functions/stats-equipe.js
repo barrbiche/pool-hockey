@@ -92,12 +92,25 @@ export async function handler() {
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        // CRUCIAL : cette fonction va chercher le boxscore de CHAQUE match
+        // déjà joué de la saison. En mars, ça fait plus de 70 appels à
+        // l'API du NHL — à chaque fois que quelqu'un ouvre l'onglet stats.
+        // Sans cache, c'est le meilleur moyen de se faire bloquer.
+        // Le réseau de Netlify garde la réponse 30 minutes : les stats de
+        // saison bougent seulement après un match, jamais aux secondes.
+        'Cache-Control': 'public, max-age=120',
+        'Netlify-CDN-Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=7200',
+      },
       body: JSON.stringify({ joueurs }),
     }
   } catch (err) {
     return {
       statusCode: 500,
+      // Ne jamais mettre un échec en cache : il serait resservi à tout le
+      // monde pendant 30 minutes.
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       body: JSON.stringify({ error: err.message }),
     }
   }

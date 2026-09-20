@@ -7,7 +7,7 @@ export const config = {
 }
 
 webpush.setVapidDetails(
-  'mailto:pool-hockey@example.com',
+  'mailto:eric.vanier.piquette@gmail.com',
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 )
@@ -44,11 +44,17 @@ export async function handler() {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
   try {
-    // Matchs qu'on n'a pas encore marqués "terminé"
+    // Matchs qu'on n'a pas encore marqués "terminé" ET qui sont déjà
+    // commencés. Sans le filtre sur la date, on interrogeait l'API du NHL
+    // pour la vingtaine de matchs créés d'avance, aux 15 minutes, pour rien
+    // — environ 2000 appels inutiles par jour, avec le risque de se faire
+    // limiter par l'API juste au mauvais moment.
     const { data: matchs, error: erreurMatchs } = await supabase
       .from('matchs')
       .select('*')
       .neq('statut', 'termine')
+      .lt('date_match', new Date().toISOString())
+      .order('date_match', { ascending: true })
 
     if (erreurMatchs) throw erreurMatchs
     if (!matchs || matchs.length === 0) {

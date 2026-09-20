@@ -6,7 +6,7 @@ export const config = {
 }
 
 webpush.setVapidDetails(
-  'mailto:pool-hockey@example.com',
+  'mailto:eric.vanier.piquette@gmail.com',
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 )
