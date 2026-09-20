@@ -13,12 +13,16 @@ export async function handler() {
     const matchs = data.games || []
 
     // Trouve le prochain match à venir — seulement saison régulière (2)
-    // ou séries (3), jamais la pré-saison (1), trié par date
+    // ou séries (3), jamais la pré-saison (1), trié par date. Les matchs
+    // reportés (PPD), annulés (CNCL) et suspendus (SUSP) sont écartés :
+    // sans ça, le site annoncerait comme « prochain match » une partie
+    // qui n'aura pas lieu, et tout le monde choisirait un joueur pour rien.
     const matchsAVenir = matchs
       .filter(
         (m) =>
           new Date(m.startTimeUTC) >= new Date(maintenant.toDateString()) &&
           !matchTermine(m.gameState) &&
+          !['PPD', 'CNCL', 'SUSP'].includes(m.gameState) &&
           (m.gameType === 2 || m.gameType === 3)
       )
       .sort((a, b) => new Date(a.startTimeUTC) - new Date(b.startTimeUTC))

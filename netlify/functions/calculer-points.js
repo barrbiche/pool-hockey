@@ -70,7 +70,23 @@ export async function handler() {
       )
       const boxscore = await resBox.json()
 
+      // Reporté, annulé ou suspendu : ce match ne se terminera jamais.
+      // Sans ça, on redemanderait son boxscore aux 15 minutes jusqu'à la
+      // fin de la saison. Son numéro reste consommé, la rotation continue.
+      if (['PPD', 'CNCL', 'SUSP'].includes(boxscore.gameState)) {
+        await supabase.from('matchs').update({ statut: 'reporte' }).eq('id', match.id)
+        continue
+      }
+
       if (boxscore.gameState !== 'OFF' && boxscore.gameState !== 'FINAL') {
+        // Filet de sécurité : un match commencé depuis plus de 24h qui
+        // n'est toujours pas terminé n'arrivera plus. Plutôt que de
+        // l'interroger indéfiniment, on le sort du circuit — le cron
+        // creer-matchs-a-venir le remettra à jour s'il revient.
+        const debutMatch = new Date(match.date_match).getTime()
+        if (Date.now() - debutMatch > 24 * 60 * 60 * 1000) {
+          await supabase.from('matchs').update({ statut: 'reporte' }).eq('id', match.id)
+        }
         continue // match pas encore terminé, on skip
       }
 
