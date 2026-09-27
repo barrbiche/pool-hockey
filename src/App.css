@@ -3,6 +3,7 @@
   --rouge: #ce0e2d;
   --rouge-fonce: #8f0a1f;
   --rouge-vif: #ff2d4d;
+  --vert: #12793f;
   --bleu: #0c1e3d;
   --bleu-2: #16305c;
   --bleu-vif: #2f5bb8;
@@ -54,6 +55,7 @@
   --bleu: #8fb4f5;
   --rouge: #ff3d5c;
   --rouge-fonce: #ff93a3;
+  --vert: #4ade80;
 
   --encre: #e6ecf8;
   --gris-texte: #95a5c4;
@@ -1044,6 +1046,28 @@ button:disabled {
   font-size: 1.05rem;
 }
 
+.classement-droite {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Flèche de tendance : mouvement de rang depuis le dernier match calculé. */
+.tendance {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.tendance-hausse { color: var(--vert); }
+.tendance-baisse { color: var(--rouge-fonce); }
+
+/* Badge « en série » : le plus de points dans les 3 derniers matchs. */
+.badge-serie {
+  margin-left: 2px;
+  font-size: 0.9rem;
+  animation: pouls-doux 1.4s ease-in-out infinite;
+}
+
 .classement-detail {
   font-size: 0.8rem;
   font-weight: 500;
@@ -1550,6 +1574,14 @@ button:disabled {
 @keyframes glisse-haut {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Entrée en cascade : chaque ligne d'une liste apparaît un peu après la
+   précédente (délai posé en style inline, voir App.jsx). "backwards"
+   garde la ligne invisible avant que son tour arrive, au lieu qu'elles
+   soient toutes visibles puis animées d'un coup. */
+.cascade-item {
+  animation: glisse-haut 320ms var(--transition) backwards;
 }
 
 .conteneur {

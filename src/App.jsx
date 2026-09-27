@@ -472,9 +472,11 @@ function Pool({ session }) {
     // On filtre par la date du match (via la table matchs) pour ne compter
     // que la saison en cours — ça "reset" automatiquement chaque nouvelle
     // saison sans jamais effacer l'historique des saisons passées.
+    // La date sert aussi à retrouver le match le plus récent, pour les
+    // flèches de tendance et le badge « en série ».
     const { data: matchsSaison } = await supabase
       .from('matchs')
-      .select('id')
+      .select('id, date_match')
       .gte('date_match', debutSaison.toISOString())
 
     const idsMatchsSaison = new Set((matchsSaison || []).map((m) => m.id))
@@ -489,17 +491,62 @@ function Pool({ session }) {
       .in('match_id', Array.from(idsMatchsSaison))
     if (!data) return
 
-    const totaux = {}
-    for (const r of data) {
-      if (!totaux[r.user_id]) {
-        totaux[r.user_id] = { user_id: r.user_id, points: 0, buts: 0, passes: 0, tc: 0 }
+    function totaliser(lignes) {
+      const totaux = {}
+      for (const r of lignes) {
+        if (!totaux[r.user_id]) {
+          totaux[r.user_id] = { user_id: r.user_id, points: 0, buts: 0, passes: 0, tc: 0 }
+        }
+        totaux[r.user_id].points += r.points
+        totaux[r.user_id].buts += r.buts || 0
+        totaux[r.user_id].passes += r.passes || 0
+        totaux[r.user_id].tc += r.tour_chapeau ? 1 : 0
       }
-      totaux[r.user_id].points += r.points
-      totaux[r.user_id].buts += r.buts || 0
-      totaux[r.user_id].passes += r.passes || 0
-      totaux[r.user_id].tc += r.tour_chapeau ? 1 : 0
+      return Object.values(totaux).sort((a, b) => b.points - a.points)
     }
-    const liste = Object.values(totaux).sort((a, b) => b.points - a.points)
+
+    const liste = totaliser(data)
+
+    // Matchs déjà calculés, du plus récent au plus vieux (par date, pas par
+    // ordre d'arrivée des résultats).
+    const idsAvecResultats = new Set(data.map((r) => r.match_id))
+    const matchsCalculesTries = (matchsSaison || [])
+      .filter((m) => idsAvecResultats.has(m.id))
+      .sort((a, b) => new Date(b.date_match) - new Date(a.date_match))
+
+    // Flèches de tendance : rang avant/après le dernier match calculé.
+    const dernierMatchId = matchsCalculesTries[0]?.id
+    const listeAvantDernier = totaliser(data.filter((r) => r.match_id !== dernierMatchId))
+    const rangAvant = {}
+    listeAvantDernier.forEach((c, i) => {
+      rangAvant[c.user_id] = i
+    })
+
+    // Badge « en série » : qui a le plus de points dans les 3 derniers
+    // matchs calculés. Seulement si c'est net (pas d'égalité) et qu'on a
+    // au moins 2 matchs de recul pour que « série » veuille dire quelque
+    // chose.
+    const troisDerniersIds = new Set(matchsCalculesTries.slice(0, 3).map((m) => m.id))
+    const totauxRecents = {}
+    for (const r of data) {
+      if (!troisDerniersIds.has(r.match_id)) continue
+      totauxRecents[r.user_id] = (totauxRecents[r.user_id] || 0) + r.points
+    }
+    let idEnSerie = null
+    if (matchsCalculesTries.length >= 2) {
+      const tries = Object.entries(totauxRecents).sort((a, b) => b[1] - a[1])
+      if (tries.length > 0 && tries[0][1] > 0 && (tries.length === 1 || tries[0][1] !== tries[1][1])) {
+        idEnSerie = tries[0][0]
+      }
+    }
+
+    liste.forEach((c, i) => {
+      const avant = rangAvant[c.user_id]
+      // positif = a monté au classement, négatif = a descendu, 0/undefined = pas de changement à montrer
+      c.tendance = avant === undefined ? 0 : avant - i
+      c.enSerie = c.user_id === idEnSerie
+    })
+
     setClassement(liste)
   }
 
@@ -839,15 +886,37 @@ function Pool({ session }) {
                     <li
                       key={c.user_id}
                       className={
-                        i === 0 ? 'rang-or' : i === 1 ? 'rang-argent' : i === 2 ? 'rang-bronze' : ''
+                        'cascade-item ' +
+                        (i === 0 ? 'rang-or' : i === 1 ? 'rang-argent' : i === 2 ? 'rang-bronze' : '')
                       }
+                      style={{ animationDelay: `${i * 70}ms` }}
                     >
                       <div className="classement-ligne-haut">
                         <span className="classement-nom">
                           <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={26} />
                           {NOMS[c.user_id] || 'Inconnu'}
+                          {c.enSerie && (
+                            <span
+                              className="badge-serie"
+                              title="Le plus de points dans les 3 derniers matchs"
+                            >
+                              🔥
+                            </span>
+                          )}
                         </span>
-                        <span className="points">{c.points} pts</span>
+                        <span className="classement-droite">
+                          {c.tendance > 0 && (
+                            <span className="tendance tendance-hausse" title="A gagné des rangs">
+                              ▲
+                            </span>
+                          )}
+                          {c.tendance < 0 && (
+                            <span className="tendance tendance-baisse" title="A perdu des rangs">
+                              ▼
+                            </span>
+                          )}
+                          <span className="points">{c.points} pts</span>
+                        </span>
                       </div>
                       <div className="barre-progression">
                         <div
@@ -900,8 +969,12 @@ function Pool({ session }) {
           {chargementCalendrier && <Squelette lignes={8} hauteur={34} />}
           {!chargementCalendrier && (
             <ul className="liste-calendrier">
-              {calendrier.map((m) => (
-                <li key={m.nhl_game_id} className={matchTermine(m.statut) ? 'joue' : ''}>
+              {calendrier.map((m, i) => (
+                <li
+                  key={m.nhl_game_id}
+                  className={'cascade-item ' + (matchTermine(m.statut) ? 'joue' : '')}
+                  style={{ animationDelay: `${Math.min(i, 20) * 25}ms` }}
+                >
                   <span className="cal-date">
                     {formaterDateHeureMontreal(new Date(m.date_match), {
                       day: 'numeric',
@@ -951,8 +1024,12 @@ function Pool({ session }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {statsEquipe.map((j) => (
-                    <tr key={j.nom}>
+                  {statsEquipe.map((j, i) => (
+                    <tr
+                      key={j.nom}
+                      className="cascade-item"
+                      style={{ animationDelay: `${Math.min(i, 20) * 25}ms` }}
+                    >
                       <td className="cellule-photo">
                         <Headshot nhlId={j.playerId} taille={30} />
                       </td>
