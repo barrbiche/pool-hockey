@@ -7,7 +7,7 @@ export const config = {
 }
 
 webpush.setVapidDetails(
-  'mailto:eric.vanier.piquette@gmail.com',
+  'mailto:pool-hockey@example.com',
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 )
@@ -44,17 +44,15 @@ export async function handler() {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
   try {
-    // Matchs qu'on n'a pas encore marqués "terminé" ET qui sont déjà
-    // commencés. Sans le filtre sur la date, on interrogeait l'API du NHL
-    // pour la vingtaine de matchs créés d'avance, aux 15 minutes, pour rien
-    // — environ 2000 appels inutiles par jour, avec le risque de se faire
-    // limiter par l'API juste au mauvais moment.
+    // Matchs qu'on n'a pas encore marqués "terminé" ET déjà commencés.
+    // Un match dans 3 semaines ne peut pas être "OFF" : inutile d'appeler
+    // l'API de la NHL pour lui à chaque passage du cron (aux 15 minutes).
+    const maintenant = new Date().toISOString()
     const { data: matchs, error: erreurMatchs } = await supabase
       .from('matchs')
       .select('*')
       .neq('statut', 'termine')
-      .lt('date_match', new Date().toISOString())
-      .order('date_match', { ascending: true })
+      .lte('date_match', maintenant)
 
     if (erreurMatchs) throw erreurMatchs
     if (!matchs || matchs.length === 0) {
@@ -70,23 +68,7 @@ export async function handler() {
       )
       const boxscore = await resBox.json()
 
-      // Reporté, annulé ou suspendu : ce match ne se terminera jamais.
-      // Sans ça, on redemanderait son boxscore aux 15 minutes jusqu'à la
-      // fin de la saison. Son numéro reste consommé, la rotation continue.
-      if (['PPD', 'CNCL', 'SUSP'].includes(boxscore.gameState)) {
-        await supabase.from('matchs').update({ statut: 'reporte' }).eq('id', match.id)
-        continue
-      }
-
       if (boxscore.gameState !== 'OFF' && boxscore.gameState !== 'FINAL') {
-        // Filet de sécurité : un match commencé depuis plus de 24h qui
-        // n'est toujours pas terminé n'arrivera plus. Plutôt que de
-        // l'interroger indéfiniment, on le sort du circuit — le cron
-        // creer-matchs-a-venir le remettra à jour s'il revient.
-        const debutMatch = new Date(match.date_match).getTime()
-        if (Date.now() - debutMatch > 24 * 60 * 60 * 1000) {
-          await supabase.from('matchs').update({ statut: 'reporte' }).eq('id', match.id)
-        }
         continue // match pas encore terminé, on skip
       }
 

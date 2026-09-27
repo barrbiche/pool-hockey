@@ -35,19 +35,17 @@ export async function handler() {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        // Le calendrier de la saison ne change pratiquement jamais (un
-        // match reporté de temps en temps). On le laisse en cache 15 min
-        // sur le réseau de Netlify plutôt que de redemander à l'API du NHL
-        // à chaque ouverture de l'onglet.
-        'Cache-Control': 'public, max-age=120',
-        'Netlify-CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=7200',
+        // Le calendrier ne change qu'après un match : pas besoin de le
+        // redemander à la NHL à chaque ouverture de l'onglet Calendrier.
+        'Cache-Control': 'public, max-age=60',
+        'Netlify-CDN-Cache-Control': 'public, s-maxage=900, stale-while-revalidate=3600',
       },
       body: JSON.stringify({ matchs }),
     }
   } catch (err) {
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      headers: { 'Cache-Control': 'no-store' },
       body: JSON.stringify({ error: err.message }),
     }
   }
