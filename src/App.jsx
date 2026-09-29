@@ -312,6 +312,7 @@ function Pool({ session }) {
   const [match, setMatch] = useState(null)
   const [joueurs, setJoueurs] = useState([])
   const [infosNhl, setInfosNhl] = useState(null)
+  const [rafraichissementEnCours, setRafraichissementEnCours] = useState(false)
   const [alignementEnErreur, setAlignementEnErreur] = useState(false)
   const [raisonAlignement, setRaisonAlignement] = useState('')
   const [tousLesChoix, setTousLesChoix] = useState([])
@@ -338,6 +339,14 @@ function Pool({ session }) {
 
   const matchCommence = match ? maintenant >= new Date(match.date_match) : false
 
+  // Si le pointage fraîchement demandé (bouton 🔄) dit que le match est
+  // vraiment en cours ou fini, on se fie à ça même si l'horloge du
+  // téléphone n'a pas encore atteint l'heure prévue — au cas où le match
+  // aurait démarré un peu avant/après l'heure enregistrée.
+  const matchDemarrePourVrai =
+    !!infosNhl && ['LIVE', 'CRIT', 'FINAL', 'OFF'].includes(infosNhl.statut)
+  const jumbotronMontreLePointage = matchCommence || matchDemarrePourVrai
+
   const prochainAChoisir =
     match?.ordre_choix?.find((uid) => !tousLesChoix.some((c) => c.user_id === uid)) || null
   const monTour = !prochainAChoisir || prochainAChoisir === session.user.id
@@ -354,24 +363,25 @@ function Pool({ session }) {
     return () => clearInterval(intervalle)
   }, [])
 
-  // Une fois le match commencé, on va rechercher le pointage chaque minute
-  // pour que le badge EN DIRECT reste à jour sans recharger la page. On
-  // arrête dès que le match est terminé.
-  useEffect(() => {
-    if (!matchCommence) return
-    if (infosNhl && matchTermine(infosNhl.statut)) return
+  // Va chercher le pointage à jour tout de suite, sans attendre le prochain
+  // passage automatique. Sert à l'intervalle ci-dessous ET au bouton
+  // 🔄 manuel du tableau en direct.
+  async function rafraichirPointage() {
+    setRafraichissementEnCours(true)
+    try {
+      const res = await fetch('/.netlify/functions/prochain-match')
+      const data = await res.json()
+      if (data.match) setInfosNhl(data.match)
+    } catch {
+      // pas grave, on retentera au prochain passage
+    } finally {
+      setRafraichissementEnCours(false)
+    }
+  }
 
-    const intervalle = setInterval(async () => {
-      try {
-        const res = await fetch('/.netlify/functions/prochain-match')
-        const data = await res.json()
-        if (data.match) setInfosNhl(data.match)
-      } catch {
-        // pas grave, on retentera dans une minute
-      }
-    }, 60000)
-    return () => clearInterval(intervalle)
-  }, [matchCommence, infosNhl?.statut])
+  // Plus aucun rafraîchissement automatique pendant un match : le pointage
+  // vient du chargement de la page et du bouton 🔄 manuel sur le tableau
+  // en direct, point final. Zéro appel à la NHL tant que personne ne clique.
 
   useEffect(() => {
     initialiser()
@@ -1083,7 +1093,7 @@ function Pool({ session }) {
             })}
           </p>
 
-          {!matchCommence && (
+          {!jumbotronMontreLePointage && (
             <Chrono
               ms={new Date(match.date_match) - maintenant}
               urgent={new Date(match.date_match) - maintenant < 60 * 60 * 1000}
@@ -1111,7 +1121,7 @@ function Pool({ session }) {
             </>
           )}
 
-          {matchCommence ? (
+          {jumbotronMontreLePointage ? (
             <>
               <TableauDirect infos={infosNhl} adversaire={match.adversaire} />
               <p className="verrou">🔒 Les choix sont verrouillés, le match a commencé.</p>
@@ -1197,6 +1207,20 @@ function Pool({ session }) {
                   </li>
                 ))}
           </ul>
+
+          <div className="actualiser-bloc">
+            <button
+              className="bouton-actualiser"
+              onClick={rafraichirPointage}
+              disabled={rafraichissementEnCours}
+            >
+              {rafraichissementEnCours ? '⏳ Mise à jour...' : '🔄 Actualiser le score'}
+            </button>
+            <p className="actualiser-note">
+              Pas besoin de cliquer souvent — le score se met à jour tout seul à chaque fois que
+              tu rouvres la page.
+            </p>
+          </div>
         </section>
       )}
         </>

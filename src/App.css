@@ -1088,6 +1088,50 @@ button:disabled {
   border-color: rgba(255, 60, 60, 0.4);
 }
 
+/* Bloc du bouton d'actualisation manuelle : toujours visible sous
+   « Choix de tout le monde », peu importe si le match est commencé ou
+   non. Basé sur les jetons de couleur, donc suit automatiquement le
+   thème clair/sombre. */
+.actualiser-bloc {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bordure);
+  text-align: center;
+}
+
+.bouton-actualiser {
+  background: var(--surface-2);
+  border: 1px solid var(--bordure-forte);
+  color: var(--bleu);
+  font-family: var(--font-corps);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.bouton-actualiser:hover:not(:disabled) {
+  background: var(--bordure);
+}
+
+.bouton-actualiser:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.bouton-actualiser:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.actualiser-note {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: var(--gris-texte);
+  line-height: 1.4;
+}
+
 .direct-entete {
   display: flex;
   align-items: center;
