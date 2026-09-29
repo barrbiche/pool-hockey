@@ -822,6 +822,13 @@ function Pool({ session }) {
               🔔 Activer
             </button>
           )}
+          <button
+            className="bouton-lien"
+            onClick={() => window.location.reload()}
+            title="Recharger la page pour voir les dernières informations"
+          >
+            🔄 Actualiser la page
+          </button>
           <button className="bouton-lien" onClick={() => supabase.auth.signOut()}>
             Déconnexion
           </button>
@@ -1214,11 +1221,13 @@ function Pool({ session }) {
               onClick={rafraichirPointage}
               disabled={rafraichissementEnCours}
             >
-              {rafraichissementEnCours ? '⏳ Mise à jour...' : '🔄 Actualiser le score'}
+              {rafraichissementEnCours ? '⏳ Mise à jour en cours...' : '🔄 Mise à jour'}
             </button>
             <p className="actualiser-note">
-              Pas besoin de cliquer souvent — le score se met à jour tout seul à chaque fois que
-              tu rouvres la page.
+              À utiliser seulement si le score ou les points ne semblent pas à jour. Ce bouton
+              aide à garder l'information à jour sur le site, sans surcharger l'API de la NHL —
+              question de ne pas risquer de s'en faire couper l'accès aux données automatiques du
+              site.
             </p>
           </div>
         </section>
