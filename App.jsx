@@ -208,7 +208,7 @@ function libellePeriode(periode, typePeriode, termine) {
   return `${periode}${periode === 1 ? 're' : 'e'} période`
 }
 
-function TableauDirect({ infos, adversaire, onRafraichir, rafraichissement }) {
+function TableauDirect({ infos, adversaire }) {
   if (!infos) return null
   const termine = matchTermine(infos.statut)
   const scoreMtl = infos.score_mtl ?? 0
@@ -243,17 +243,6 @@ function TableauDirect({ infos, adversaire, onRafraichir, rafraichissement }) {
           {adversaire}
         </span>
       </div>
-      {!termine && onRafraichir && (
-        <div className="direct-actualiser-bloc">
-          <button className="direct-rafraichir" onClick={onRafraichir} disabled={rafraichissement}>
-            {rafraichissement ? '⏳ Mise à jour...' : '🔄 Actualiser le score'}
-          </button>
-          <p className="direct-actualiser-note">
-            Pas besoin de cliquer souvent — le score se met à jour tout seul à chaque fois que tu
-            rouvres la page.
-          </p>
-        </div>
-      )}
     </div>
   )
 }
@@ -349,6 +338,14 @@ function Pool({ session }) {
   }
 
   const matchCommence = match ? maintenant >= new Date(match.date_match) : false
+
+  // Si le pointage fraîchement demandé (bouton 🔄) dit que le match est
+  // vraiment en cours ou fini, on se fie à ça même si l'horloge du
+  // téléphone n'a pas encore atteint l'heure prévue — au cas où le match
+  // aurait démarré un peu avant/après l'heure enregistrée.
+  const matchDemarrePourVrai =
+    !!infosNhl && ['LIVE', 'CRIT', 'FINAL', 'OFF'].includes(infosNhl.statut)
+  const jumbotronMontreLePointage = matchCommence || matchDemarrePourVrai
 
   const prochainAChoisir =
     match?.ordre_choix?.find((uid) => !tousLesChoix.some((c) => c.user_id === uid)) || null
@@ -1096,7 +1093,7 @@ function Pool({ session }) {
             })}
           </p>
 
-          {!matchCommence && (
+          {!jumbotronMontreLePointage && (
             <Chrono
               ms={new Date(match.date_match) - maintenant}
               urgent={new Date(match.date_match) - maintenant < 60 * 60 * 1000}
@@ -1124,14 +1121,9 @@ function Pool({ session }) {
             </>
           )}
 
-          {matchCommence ? (
+          {jumbotronMontreLePointage ? (
             <>
-              <TableauDirect
-                infos={infosNhl}
-                adversaire={match.adversaire}
-                onRafraichir={rafraichirPointage}
-                rafraichissement={rafraichissementEnCours}
-              />
+              <TableauDirect infos={infosNhl} adversaire={match.adversaire} />
               <p className="verrou">🔒 Les choix sont verrouillés, le match a commencé.</p>
             </>
           ) : (
@@ -1215,6 +1207,22 @@ function Pool({ session }) {
                   </li>
                 ))}
           </ul>
+
+          <div className="actualiser-bloc">
+            <button
+              className="bouton-actualiser"
+              onClick={rafraichirPointage}
+              disabled={rafraichissementEnCours}
+            >
+              {rafraichissementEnCours ? '⏳ Mise à jour en cours...' : '🔄 Mise à jour'}
+            </button>
+            <p className="actualiser-note">
+              À utiliser seulement si le score ou les points ne semblent pas à jour. Ce bouton
+              aide à garder l'information à jour sur le site, sans surcharger l'API de la NHL —
+              question de ne pas risquer de s'en faire couper l'accès aux données automatiques du
+              site.
+            </p>
+          </div>
         </section>
       )}
         </>
