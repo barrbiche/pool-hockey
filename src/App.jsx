@@ -1337,10 +1337,6 @@ function HistoriqueOnglet({ historique, chargement, session }) {
               <h3 className="stats-perso-titre">
                 <Pastille userId={uid} nom={NOMS[uid]} taille={24} /> {NOMS[uid] || 'Inconnu'}
               </h3>
-              <p className="stats-perso-ligne">
-                {s.matchs} matchs · {s.points} points au total · {s.buts} buts · {s.passes} passes
-                · {s.tc} tours du chapeau
-              </p>
               {joueurFavori && (
                 <p className="stats-perso-ligne">
                   Joueur le plus choisi : <strong>{joueurFavori[0]}</strong> ({joueurFavori[1]}{' '}
@@ -1357,7 +1353,7 @@ function HistoriqueOnglet({ historique, chargement, session }) {
         <ul className="liste-historique">
           {matchsTries.map((m, i) => (
             <li key={i}>
-              <details open={i === 0}>
+              <details>
                 <summary className="historique-entete">
                   <span>
                     vs {m.adversaire} —{' '}
