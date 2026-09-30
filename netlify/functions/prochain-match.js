@@ -10,19 +10,24 @@ export async function handler() {
     const data = await res.json()
 
     const maintenant = new Date()
+
+    // Marge de 6h avant "maintenant" : assez pour couvrir un match encore en
+    // direct (avec prolongation/fusillade) qui a débuté plus tôt, mais assez
+    // court pour ignorer les vieux matchs. On compare à l'heure réelle, pas
+    // à "minuit" du calendrier : minuit UTC tombe à 20h heure de l'Est, donc
+    // comparer à la date du jour en UTC faisait passer un match commencé à
+    // 19h pour un match "d'hier" dès que l'horloge UTC changeait de jour —
+    // souvent en pleine 1ère période.
+    const seuil = new Date(maintenant.getTime() - 6 * 60 * 60 * 1000)
     const matchs = data.games || []
 
     // Trouve le prochain match à venir — seulement saison régulière (2)
-    // ou séries (3), jamais la pré-saison (1), trié par date. Les matchs
-    // reportés (PPD), annulés (CNCL) et suspendus (SUSP) sont écartés :
-    // sans ça, le site annoncerait comme « prochain match » une partie
-    // qui n'aura pas lieu, et tout le monde choisirait un joueur pour rien.
+    // ou séries (3), jamais la pré-saison (1), trié par date
     const matchsAVenir = matchs
       .filter(
         (m) =>
-          new Date(m.startTimeUTC) >= new Date(maintenant.toDateString()) &&
+          new Date(m.startTimeUTC) >= seuil &&
           !matchTermine(m.gameState) &&
-          !['PPD', 'CNCL', 'SUSP'].includes(m.gameState) &&
           (m.gameType === 2 || m.gameType === 3)
       )
       .sort((a, b) => new Date(a.startTimeUTC) - new Date(b.startTimeUTC))
