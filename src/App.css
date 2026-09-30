@@ -648,6 +648,40 @@ button:focus-visible {
   background: var(--teinte-rouge-2);
 }
 
+/* ===== Classement LNH ===== */
+.classement-nhl-division {
+  margin-bottom: 20px;
+}
+
+.classement-nhl-division:last-child {
+  margin-bottom: 0;
+}
+
+.classement-nhl-titre-division {
+  font-family: var(--font-titre);
+  text-transform: uppercase;
+  color: var(--rouge);
+  font-size: 1.05rem;
+  letter-spacing: 0.3px;
+  margin: 0 0 8px;
+}
+
+.classement-nhl-equipe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Équipe du Canadien : accent rouge à gauche de la ligne, peu importe le
+   thème ou le rang, pour la repérer d'un coup d'œil dans sa division. */
+.ligne-mtl td {
+  font-weight: 800;
+}
+
+.ligne-mtl td:first-child {
+  box-shadow: inset 4px 0 0 var(--rouge);
+}
+
 /* ===== Ordre de choix ===== */
 .ordre-choix {
   display: flex;

@@ -328,6 +328,8 @@ function Pool({ session }) {
   const [maintenant, setMaintenant] = useState(new Date())
   const [historique, setHistorique] = useState([])
   const [chargementHistorique, setChargementHistorique] = useState(false)
+  const [classementNhl, setClassementNhl] = useState([])
+  const [chargementClassementNhl, setChargementClassementNhl] = useState(false)
   const [celebration, setCelebration] = useState(false)
   const celebrationVictoireFaite = useRef(false)
 
@@ -758,6 +760,19 @@ function Pool({ session }) {
     }
   }
 
+  async function chargerClassementNhl() {
+    setChargementClassementNhl(true)
+    try {
+      const res = await fetch('/.netlify/functions/classement-nhl')
+      const data = await res.json()
+      setClassementNhl(data.equipes || [])
+    } catch (err) {
+      setErreur(err.message)
+    } finally {
+      setChargementClassementNhl(false)
+    }
+  }
+
   async function chargerHistorique() {
     setChargementHistorique(true)
     try {
@@ -874,6 +889,15 @@ function Pool({ session }) {
           onClick={() => setOnglet('classement')}
         >
           Classement
+        </button>
+        <button
+          className={onglet === 'classement-nhl' ? 'onglet actif' : 'onglet'}
+          onClick={() => {
+            setOnglet('classement-nhl')
+            if (classementNhl.length === 0) chargerClassementNhl()
+          }}
+        >
+          Classement LNH
         </button>
         <button
           className={onglet === 'reglements' ? 'onglet actif' : 'onglet'}
@@ -1014,6 +1038,64 @@ function Pool({ session }) {
               ))}
             </ul>
           )}
+        </section>
+      )}
+
+      {onglet === 'classement-nhl' && (
+        <section className="carte carte-rouge">
+          <h2>Classement LNH</h2>
+          {chargementClassementNhl && <Squelette lignes={8} hauteur={34} />}
+          {!chargementClassementNhl &&
+            (() => {
+              const parDivision = {}
+              for (const e of classementNhl) {
+                if (!parDivision[e.division]) parDivision[e.division] = []
+                parDivision[e.division].push(e)
+              }
+              const ordrePrefere = ['Atlantique', 'Métropolitaine', 'Centrale', 'Pacifique']
+              const divisions = [
+                ...ordrePrefere.filter((d) => parDivision[d]),
+                ...Object.keys(parDivision).filter((d) => !ordrePrefere.includes(d)),
+              ]
+              return divisions.map((div) => (
+                <div key={div} className="classement-nhl-division">
+                  <h3 className="classement-nhl-titre-division">{div}</h3>
+                  <div className="table-stats-conteneur">
+                    <table className="table-stats">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Équipe</th>
+                          <th>PJ</th>
+                          <th>V</th>
+                          <th>D</th>
+                          <th>DP</th>
+                          <th>Pts</th>
+                          <th>Diff</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {parDivision[div].map((e) => (
+                          <tr key={e.abbrev} className={e.abbrev === 'MTL' ? 'ligne-mtl' : ''}>
+                            <td>{e.rang_division}</td>
+                            <td className="classement-nhl-equipe">
+                              <LogoEquipe abbrev={e.abbrev} taille={22} />
+                              {e.nom}
+                            </td>
+                            <td>{e.matchs_joues}</td>
+                            <td>{e.victoires}</td>
+                            <td>{e.defaites}</td>
+                            <td>{e.defaites_prolongation}</td>
+                            <td>{e.points}</td>
+                            <td>{e.differentiel > 0 ? `+${e.differentiel}` : e.differentiel}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))
+            })()}
         </section>
       )}
 
