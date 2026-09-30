@@ -21,6 +21,18 @@ export async function handler() {
       blesse: false,
     }))
 
+    // Si la NHL retourne une liste vide (pépin passager, fréquent depuis
+    // les serveurs de Netlify), surtout ne pas mettre ça en cache : ça
+    // resservirait une page "Stats CH" vide à tout le monde pendant
+    // jusqu'à 1h à cause du stale-while-revalidate plus bas.
+    if (joueurs.length === 0) {
+      return {
+        statusCode: 503,
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+        body: JSON.stringify({ error: 'Liste de joueurs vide reçue de la NHL.', joueurs: [] }),
+      }
+    }
+
     // Récupérer le calendrier de la saison pour trouver les matchs terminés
     const resSaison = await fetch('https://api-web.nhle.com/v1/club-schedule-season/MTL/now')
     const dataSaison = await resSaison.json()
