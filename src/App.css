@@ -168,6 +168,10 @@ button {
   cursor: pointer;
   transition: transform 100ms ease, box-shadow var(--transition), opacity var(--transition);
   box-shadow: 0 2px 8px rgba(206, 14, 45, 0.3);
+  /* Enlève le flash gris que les téléphones ajoutent par défaut au toucher :
+     sans ça, un bouton peut sembler "clignoter" ou disparaître une fraction
+     de seconde au clic sur mobile. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 button:hover {
@@ -181,6 +185,11 @@ button:active {
 button:disabled {
   opacity: 0.55;
   box-shadow: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--bleu-vif);
+  outline-offset: 2px;
 }
 
 .bouton-lien {
@@ -1393,16 +1402,51 @@ button:disabled {
   background: var(--surface-2);
   border: 1px solid var(--bordure-rouge);
   border-radius: 11px;
-  padding: 11px 13px;
+  overflow: hidden;
 }
 
+/* Passer à display: flex enlève le triangle par défaut du <summary> dans
+   les navigateurs modernes (Chrome, Firefox) — pas besoin de le cacher
+   séparément. */
 .historique-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   font-weight: 700;
   color: var(--rouge);
-  margin-bottom: 6px;
   font-size: 0.95rem;
   font-family: var(--font-titre);
   text-transform: uppercase;
+  padding: 11px 13px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background var(--transition);
+}
+
+.historique-entete::marker {
+  content: '';
+}
+
+.historique-entete:hover {
+  background: var(--bordure);
+}
+
+.historique-chevron {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--gris-texte);
+  transition: transform var(--transition);
+}
+
+details[open] > .historique-entete .historique-chevron {
+  transform: rotate(180deg);
+}
+
+.historique-contenu {
+  padding: 2px 13px 11px;
+  border-top: 1px solid var(--bordure);
 }
 
 .historique-ligne {

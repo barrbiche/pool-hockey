@@ -827,7 +827,7 @@ function Pool({ session }) {
             onClick={() => window.location.reload()}
             title="Recharger la page pour voir les dernières informations"
           >
-            🔄 Actualiser la page
+            🔄 Bouton à Pa!
           </button>
           <button className="bouton-lien" onClick={() => supabase.auth.signOut()}>
             Déconnexion
@@ -1357,24 +1357,35 @@ function HistoriqueOnglet({ historique, chargement, session }) {
         <ul className="liste-historique">
           {matchsTries.map((m, i) => (
             <li key={i}>
-              <div className="historique-entete">
-                vs {m.adversaire} —{' '}
-                {m.date &&
-                  formaterDateHeureMontreal(new Date(m.date), { day: 'numeric', month: 'short' })}
-              </div>
-              {m.choix
-                .slice()
-                .sort((a, b) => b.points - a.points)
-                .map((c) => (
-                  <div key={c.id} className="historique-ligne">
-                    <span className="historique-ligne-gauche">
-                      <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={20} />
-                      <Headshot nhlId={c.joueurs?.nhl_id} taille={26} />
-                      {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
-                    </span>
-                    <span className="points">{c.points} pts</span>
-                  </div>
-                ))}
+              <details open={i === 0}>
+                <summary className="historique-entete">
+                  <span>
+                    vs {m.adversaire} —{' '}
+                    {m.date &&
+                      formaterDateHeureMontreal(new Date(m.date), {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                  </span>
+                  <span className="historique-chevron">▼</span>
+                </summary>
+                <div className="historique-contenu">
+                  {m.choix
+                    .slice()
+                    .sort((a, b) => b.points - a.points)
+                    .map((c) => (
+                      <div key={c.id} className="historique-ligne">
+                        <span className="historique-ligne-gauche">
+                          <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={20} />
+                          <Headshot nhlId={c.joueurs?.nhl_id} taille={26} />
+                          {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
+                        </span>
+                        <span className="points">{c.points} pts</span>
+                      </div>
+                    ))}
+                </div>
+              </details>
             </li>
           ))}
         </ul>
