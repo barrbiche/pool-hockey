@@ -682,6 +682,11 @@ button:focus-visible {
   box-shadow: inset 4px 0 0 var(--rouge);
 }
 
+.recherche-stats-ligue {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
 /* ===== Ordre de choix ===== */
 .ordre-choix {
   display: flex;

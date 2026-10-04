@@ -330,6 +330,9 @@ function Pool({ session }) {
   const [chargementHistorique, setChargementHistorique] = useState(false)
   const [classementNhl, setClassementNhl] = useState([])
   const [chargementClassementNhl, setChargementClassementNhl] = useState(false)
+  const [statsLigue, setStatsLigue] = useState([])
+  const [chargementStatsLigue, setChargementStatsLigue] = useState(false)
+  const [rechercheStatsLigue, setRechercheStatsLigue] = useState('')
   const [celebration, setCelebration] = useState(false)
   const celebrationVictoireFaite = useRef(false)
 
@@ -773,6 +776,19 @@ function Pool({ session }) {
     }
   }
 
+  async function chargerStatsLigue() {
+    setChargementStatsLigue(true)
+    try {
+      const res = await fetch('/.netlify/functions/stats-ligue')
+      const data = await res.json()
+      setStatsLigue(data.joueurs || [])
+    } catch (err) {
+      setErreur(err.message)
+    } finally {
+      setChargementStatsLigue(false)
+    }
+  }
+
   async function chargerHistorique() {
     setChargementHistorique(true)
     try {
@@ -898,6 +914,15 @@ function Pool({ session }) {
           }}
         >
           Classement LNH
+        </button>
+        <button
+          className={onglet === 'stats-ligue' ? 'onglet actif' : 'onglet'}
+          onClick={() => {
+            setOnglet('stats-ligue')
+            if (statsLigue.length === 0) chargerStatsLigue()
+          }}
+        >
+          Stats LNH
         </button>
         <button
           className={onglet === 'reglements' ? 'onglet actif' : 'onglet'}
@@ -1095,6 +1120,76 @@ function Pool({ session }) {
                   </div>
                 </div>
               ))
+            })()}
+        </section>
+      )}
+
+      {onglet === 'stats-ligue' && (
+        <section className="carte carte-rouge">
+          <h2>Statistiques des joueurs — LNH</h2>
+          <p className="note-tc">
+            Tous les patineurs de la ligue, triés par points. Pas de tours du chapeau ni de
+            forme récente ici (ça, c'est juste pour le Canadien, dans Stats CH).
+          </p>
+          <input
+            type="text"
+            className="recherche-stats-ligue"
+            placeholder="Chercher un joueur ou une équipe..."
+            value={rechercheStatsLigue}
+            onChange={(e) => setRechercheStatsLigue(e.target.value)}
+          />
+          {chargementStatsLigue && <Squelette lignes={8} hauteur={34} />}
+          {!chargementStatsLigue &&
+            (() => {
+              const q = rechercheStatsLigue.trim().toLowerCase()
+              const avecRang = statsLigue.map((j, i) => ({ ...j, rang: i + 1 }))
+              const filtre = q
+                ? avecRang.filter(
+                    (j) => j.nom.toLowerCase().includes(q) || j.equipe.toLowerCase().includes(q)
+                  )
+                : avecRang
+              return (
+                <div className="table-stats-conteneur">
+                  <table className="table-stats">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Joueur</th>
+                        <th>Équipe</th>
+                        <th>Pos</th>
+                        <th>PJ</th>
+                        <th>B</th>
+                        <th>A</th>
+                        <th>Pts</th>
+                        <th>+/-</th>
+                        <th>PUN</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtre.map((j) => (
+                        <tr key={j.playerId} className={j.equipe === 'MTL' ? 'ligne-mtl' : ''}>
+                          <td>{j.rang}</td>
+                          <td>{j.nom}</td>
+                          <td className="classement-nhl-equipe">
+                            <LogoEquipe abbrev={j.equipe} taille={18} />
+                            {j.equipe}
+                          </td>
+                          <td>{j.position}</td>
+                          <td>{j.matchs_joues}</td>
+                          <td>{j.buts}</td>
+                          <td>{j.passes}</td>
+                          <td>{j.points}</td>
+                          <td>{j.plus_minus > 0 ? `+${j.plus_minus}` : j.plus_minus}</td>
+                          <td>{j.pun}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {filtre.length === 0 && (
+                    <p className="info">Aucun joueur trouvé pour "{rechercheStatsLigue}".</p>
+                  )}
+                </div>
+              )
             })()}
         </section>
       )}
