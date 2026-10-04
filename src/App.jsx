@@ -122,6 +122,46 @@ function matchTermine(statut) {
   return statut === 'OFF' || statut === 'FINAL'
 }
 
+// ===== Tri des tableaux (cliquer sur un en-tête de colonne) =====
+// Au premier clic sur une colonne de texte (nom, équipe) : ordre A-Z.
+// Au premier clic sur une colonne de chiffres (buts, points...) : la plus
+// grande valeur en premier, ce qui est ce qu'on veut voir la plupart du
+// temps ("qui a le plus de buts"). Un deuxième clic sur la même colonne
+// inverse le sens.
+function basculerColonneTri(triActuel, colonne, estTexte) {
+  if (triActuel?.colonne === colonne) {
+    return { colonne, direction: triActuel.direction === 'asc' ? 'desc' : 'asc' }
+  }
+  return { colonne, direction: estTexte ? 'asc' : 'desc' }
+}
+
+function appliquerTri(liste, tri, valeurColonne) {
+  if (!tri) return liste
+  const triee = [...liste].sort((a, b) => {
+    const va = valeurColonne(a, tri.colonne)
+    const vb = valeurColonne(b, tri.colonne)
+    if (typeof va === 'string' || typeof vb === 'string') {
+      return String(va ?? '').localeCompare(String(vb ?? ''))
+    }
+    return (va ?? 0) - (vb ?? 0)
+  })
+  return tri.direction === 'desc' ? triee.reverse() : triee
+}
+
+// En-tête de colonne cliquable, avec la petite flèche qui indique le tri actif.
+function ThTriable({ colonne, tri, onTrier, estTexte, enfant }) {
+  const actif = tri?.colonne === colonne
+  return (
+    <th
+      className="th-triable"
+      onClick={() => onTrier(basculerColonneTri(tri, colonne, estTexte))}
+    >
+      {enfant}
+      <span className="fleche-tri">{actif ? (tri.direction === 'asc' ? ' ▲' : ' ▼') : ''}</span>
+    </th>
+  )
+}
+
 // Confettis de célébration, en CSS pur (aucune librairie externe). Les
 // morceaux sont générés une seule fois au montage pour qu'ils ne sautillent
 // pas quand le reste de la page se rafraîchit (le compte à rebours
@@ -333,6 +373,9 @@ function Pool({ session }) {
   const [statsLigue, setStatsLigue] = useState([])
   const [chargementStatsLigue, setChargementStatsLigue] = useState(false)
   const [rechercheStatsLigue, setRechercheStatsLigue] = useState('')
+  const [triStats, setTriStats] = useState(null)
+  const [triStatsLigue, setTriStatsLigue] = useState(null)
+  const [triClassementNhl, setTriClassementNhl] = useState(null)
   const [celebration, setCelebration] = useState(false)
   const celebrationVictoireFaite = useRef(false)
 
@@ -1090,31 +1133,33 @@ function Pool({ session }) {
                       <thead>
                         <tr>
                           <th>#</th>
-                          <th>Équipe</th>
-                          <th>PJ</th>
-                          <th>V</th>
-                          <th>D</th>
-                          <th>DP</th>
-                          <th>Pts</th>
-                          <th>Diff</th>
+                          <ThTriable colonne="nom" tri={triClassementNhl} onTrier={setTriClassementNhl} estTexte enfant="Équipe" />
+                          <ThTriable colonne="matchs_joues" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="PJ" />
+                          <ThTriable colonne="victoires" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="V" />
+                          <ThTriable colonne="defaites" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="D" />
+                          <ThTriable colonne="defaites_prolongation" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="DP" />
+                          <ThTriable colonne="points" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="Pts" />
+                          <ThTriable colonne="differentiel" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="Diff" />
                         </tr>
                       </thead>
                       <tbody>
-                        {parDivision[div].map((e) => (
-                          <tr key={e.abbrev} className={e.abbrev === 'MTL' ? 'ligne-mtl' : ''}>
-                            <td>{e.rang_division}</td>
-                            <td className="classement-nhl-equipe">
-                              <LogoEquipe abbrev={e.abbrev} taille={22} />
-                              {e.nom}
-                            </td>
-                            <td>{e.matchs_joues}</td>
-                            <td>{e.victoires}</td>
-                            <td>{e.defaites}</td>
-                            <td>{e.defaites_prolongation}</td>
-                            <td>{e.points}</td>
-                            <td>{e.differentiel > 0 ? `+${e.differentiel}` : e.differentiel}</td>
-                          </tr>
-                        ))}
+                        {appliquerTri(parDivision[div], triClassementNhl, (e, col) => e[col]).map(
+                          (e, i) => (
+                            <tr key={e.abbrev} className={e.abbrev === 'MTL' ? 'ligne-mtl' : ''}>
+                              <td>{triClassementNhl ? i + 1 : e.rang_division}</td>
+                              <td className="classement-nhl-equipe">
+                                <LogoEquipe abbrev={e.abbrev} taille={22} />
+                                {e.nom}
+                              </td>
+                              <td>{e.matchs_joues}</td>
+                              <td>{e.victoires}</td>
+                              <td>{e.defaites}</td>
+                              <td>{e.defaites_prolongation}</td>
+                              <td>{e.points}</td>
+                              <td>{e.differentiel > 0 ? `+${e.differentiel}` : e.differentiel}</td>
+                            </tr>
+                          )
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -1142,31 +1187,34 @@ function Pool({ session }) {
           {!chargementStatsLigue &&
             (() => {
               const q = rechercheStatsLigue.trim().toLowerCase()
-              const avecRang = statsLigue.map((j, i) => ({ ...j, rang: i + 1 }))
               const filtre = q
-                ? avecRang.filter(
+                ? statsLigue.filter(
                     (j) => j.nom.toLowerCase().includes(q) || j.equipe.toLowerCase().includes(q)
                   )
-                : avecRang
+                : statsLigue
+              const trie = appliquerTri(filtre, triStatsLigue, (j, col) => j[col]).map((j, i) => ({
+                ...j,
+                rang: i + 1,
+              }))
               return (
                 <div className="table-stats-conteneur">
                   <table className="table-stats">
                     <thead>
                       <tr>
                         <th>#</th>
-                        <th>Joueur</th>
-                        <th>Équipe</th>
-                        <th>Pos</th>
-                        <th>PJ</th>
-                        <th>B</th>
-                        <th>A</th>
-                        <th>Pts</th>
-                        <th>+/-</th>
-                        <th>PUN</th>
+                        <ThTriable colonne="nom" tri={triStatsLigue} onTrier={setTriStatsLigue} estTexte enfant="Joueur" />
+                        <ThTriable colonne="equipe" tri={triStatsLigue} onTrier={setTriStatsLigue} estTexte enfant="Équipe" />
+                        <ThTriable colonne="position" tri={triStatsLigue} onTrier={setTriStatsLigue} estTexte enfant="Pos" />
+                        <ThTriable colonne="matchs_joues" tri={triStatsLigue} onTrier={setTriStatsLigue} enfant="PJ" />
+                        <ThTriable colonne="buts" tri={triStatsLigue} onTrier={setTriStatsLigue} enfant="B" />
+                        <ThTriable colonne="passes" tri={triStatsLigue} onTrier={setTriStatsLigue} enfant="A" />
+                        <ThTriable colonne="points" tri={triStatsLigue} onTrier={setTriStatsLigue} enfant="Pts" />
+                        <ThTriable colonne="plus_minus" tri={triStatsLigue} onTrier={setTriStatsLigue} enfant="+/-" />
+                        <ThTriable colonne="pun" tri={triStatsLigue} onTrier={setTriStatsLigue} enfant="PUN" />
                       </tr>
                     </thead>
                     <tbody>
-                      {filtre.map((j) => (
+                      {trie.map((j) => (
                         <tr key={j.playerId} className={j.equipe === 'MTL' ? 'ligne-mtl' : ''}>
                           <td>{j.rang}</td>
                           <td>{j.nom}</td>
@@ -1208,17 +1256,19 @@ function Pool({ session }) {
                 <thead>
                   <tr>
                     <th></th>
-                    <th>Joueur</th>
-                    <th>PJ</th>
-                    <th>B</th>
-                    <th>A</th>
-                    <th>Pts</th>
-                    <th>TC</th>
-                    <th>Forme</th>
+                    <ThTriable colonne="nom" tri={triStats} onTrier={setTriStats} estTexte enfant="Joueur" />
+                    <ThTriable colonne="matchs_joues" tri={triStats} onTrier={setTriStats} enfant="PJ" />
+                    <ThTriable colonne="buts" tri={triStats} onTrier={setTriStats} enfant="B" />
+                    <ThTriable colonne="passes" tri={triStats} onTrier={setTriStats} enfant="A" />
+                    <ThTriable colonne="points" tri={triStats} onTrier={setTriStats} enfant="Pts" />
+                    <ThTriable colonne="tours_chapeau" tri={triStats} onTrier={setTriStats} enfant="TC" />
+                    <ThTriable colonne="forme" tri={triStats} onTrier={setTriStats} enfant="Forme" />
                   </tr>
                 </thead>
                 <tbody>
-                  {statsEquipe.map((j, i) => (
+                  {appliquerTri(statsEquipe, triStats, (j, col) =>
+                    col === 'forme' ? { chaud: 1, froid: -1 }[j.forme] || 0 : j[col]
+                  ).map((j, i) => (
                     <tr
                       key={j.nom}
                       className="cascade-item"

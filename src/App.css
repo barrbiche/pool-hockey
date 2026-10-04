@@ -626,6 +626,21 @@ button:focus-visible {
 .table-stats thead th:first-child { border-radius: 10px 0 0 0; }
 .table-stats thead th:last-child { border-radius: 0 10px 0 0; }
 
+.table-stats thead th.th-triable {
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition);
+}
+
+.table-stats thead th.th-triable:hover {
+  background: linear-gradient(135deg, var(--bleu-2) 0%, var(--bleu-vif) 100%);
+}
+
+.fleche-tri {
+  display: inline-block;
+  color: var(--teinte-jaune);
+}
+
 .table-stats tbody td {
   text-align: left;
   padding: 10px;
