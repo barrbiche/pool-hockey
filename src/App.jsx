@@ -507,6 +507,7 @@ function Pool({ session }) {
   const [joueurs, setJoueurs] = useState([])
   const [infosNhl, setInfosNhl] = useState(null)
   const [rafraichissementEnCours, setRafraichissementEnCours] = useState(false)
+  const [majGlobaleEnCours, setMajGlobaleEnCours] = useState(false)
   const [alignementEnErreur, setAlignementEnErreur] = useState(false)
   const [raisonAlignement, setRaisonAlignement] = useState('')
   const [tousLesChoix, setTousLesChoix] = useState([])
@@ -580,6 +581,22 @@ function Pool({ session }) {
       // pas grave, on retentera au prochain passage
     } finally {
       setRafraichissementEnCours(false)
+    }
+  }
+
+  // Bouton d'en-tête "Tout mettre à jour" : force le calcul des points (ce
+  // qui va chercher le boxscore à l'API de la NHL, au cas où le cron
+  // automatique des 15 minutes n'aurait pas encore tourné), puis recharge
+  // la page au complet pour que chaque onglet reparte à zéro et relise des
+  // données fraîches dès qu'on clique dessus.
+  async function toutMettreAJour() {
+    setMajGlobaleEnCours(true)
+    try {
+      await fetch('/.netlify/functions/calculer-points')
+    } catch {
+      // pas grave, on recharge quand même avec ce qu'on a déjà
+    } finally {
+      window.location.reload()
     }
   }
 
@@ -1056,10 +1073,11 @@ function Pool({ session }) {
           )}
           <button
             className="bouton-lien"
-            onClick={() => window.location.reload()}
-            title="Recharger la page pour voir les dernières informations"
+            onClick={toutMettreAJour}
+            disabled={majGlobaleEnCours}
+            title="Calcule les points du match (si terminé) et recharge tout le site avec les dernières infos de la NHL"
           >
-            🔄 Bouton à Pa!
+            {majGlobaleEnCours ? '⏳ Mise à jour...' : '🔄 Bouton à Pa!'}
           </button>
           <button className="bouton-lien" onClick={() => supabase.auth.signOut()}>
             Déconnexion
