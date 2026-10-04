@@ -148,6 +148,160 @@ function appliquerTri(liste, tri, valeurColonne) {
   return tri.direction === 'desc' ? triee.reverse() : triee
 }
 
+// Retrouve le dernier match joué à partir des lignes brutes d'historique
+// (même regroupement que HistoriqueOnglet, en gardant juste le plus récent).
+function dernierMatchDeHistorique(historique) {
+  if (!historique || historique.length === 0) return null
+  const parMatch = {}
+  for (const r of historique) {
+    const cle = r.match_id
+    if (!parMatch[cle]) {
+      parMatch[cle] = { date: r.matchs?.date_match, adversaire: r.matchs?.adversaire, choix: [] }
+    }
+    parMatch[cle].choix.push(r)
+  }
+  const matchs = Object.values(parMatch).sort((a, b) => new Date(b.date) - new Date(a.date))
+  return matchs[0] || null
+}
+
+// Construit le petit résumé texte à coller dans le groupe de texto : le
+// classement actuel, et le détail du dernier match s'il y en a un.
+function genererResumeClassement(classement, dernierMatch) {
+  const medailles = ['🥇', '🥈', '🥉']
+  const lignesClassement = classement.map((c, i) => {
+    const rang = medailles[i] || `${i + 1}.`
+    return `${rang} ${NOMS[c.user_id] || 'Inconnu'} — ${c.points} pts`
+  })
+
+  let texte = `🏒 POOL DE HOCKEY — CLASSEMENT\n\n${lignesClassement.join('\n')}`
+
+  if (dernierMatch) {
+    const dateTexte = dernierMatch.date
+      ? formaterDateHeureMontreal(new Date(dernierMatch.date), { day: 'numeric', month: 'long' })
+      : ''
+    const lignesChoix = dernierMatch.choix
+      .slice()
+      .sort((a, b) => b.points - a.points)
+      .map((c) => `• ${NOMS[c.user_id] || 'Inconnu'} → ${c.joueurs?.nom || '?'} (${c.points} pts)`)
+    texte += `\n\nDernier match : vs ${dernierMatch.adversaire}${dateTexte ? ` (${dateTexte})` : ''}\n${lignesChoix.join('\n')}`
+  }
+
+  return texte
+}
+
+// Petite fenêtre qui affiche le résumé généré, avec un bouton pour le
+// copier dans le presse-papier (ou le sélectionner à la main si le
+// navigateur refuse l'accès au presse-papier).
+function PartageResume({ texte, onFermer }) {
+  const [copie, setCopie] = useState(false)
+  const zoneRef = useRef(null)
+
+  if (!texte) return null
+
+  async function copier() {
+    try {
+      await navigator.clipboard.writeText(texte)
+      setCopie(true)
+      setTimeout(() => setCopie(false), 2000)
+    } catch {
+      zoneRef.current?.select()
+    }
+  }
+
+  return (
+    <div className="fiche-joueur-fond" onClick={onFermer}>
+      <div className="partage-resume-carte" onClick={(e) => e.stopPropagation()}>
+        <button className="fiche-joueur-fermer" onClick={onFermer} aria-label="Fermer">
+          ✕
+        </button>
+        <h3 className="partage-resume-titre">Résumé à partager</h3>
+        <textarea ref={zoneRef} className="partage-resume-zone" readOnly value={texte} />
+        <button className="bouton-copier" onClick={copier}>
+          {copie ? '✓ Copié dans le presse-papier' : '📋 Copier'}
+        </button>
+        <p className="partage-resume-astuce">Colle ça dans votre groupe de texto!</p>
+      </div>
+    </div>
+  )
+}
+
+// Grande carte avec photo + stats d'un joueur, ouverte en cliquant sur son
+// nom dans Stats CH ou Stats LNH. Les champs optionnels (tours_chapeau,
+// forme, plus_minus, pun...) ne s'affichent que s'ils existent, pour servir
+// les deux tableaux sans dupliquer le composant.
+function FicheJoueur({ joueur, onFermer }) {
+  if (!joueur) return null
+  return (
+    <div className="fiche-joueur-fond" onClick={onFermer}>
+      <div className="fiche-joueur-carte" onClick={(e) => e.stopPropagation()}>
+        <button className="fiche-joueur-fermer" onClick={onFermer} aria-label="Fermer">
+          ✕
+        </button>
+        <Headshot nhlId={joueur.playerId} taille={96} />
+        <h3 className="fiche-joueur-nom">{joueur.nom}</h3>
+        <p className="fiche-joueur-sous-titre">
+          {joueur.equipe && <LogoEquipe abbrev={joueur.equipe} taille={20} />}
+          {joueur.equipe}
+          {joueur.position ? ` · ${joueur.position}` : ''}
+        </p>
+        <div className="fiche-joueur-stats">
+          <div className="fiche-joueur-case">
+            <span className="fiche-joueur-valeur">{joueur.matchs_joues}</span>
+            <span className="fiche-joueur-label">PJ</span>
+          </div>
+          <div className="fiche-joueur-case">
+            <span className="fiche-joueur-valeur">{joueur.buts}</span>
+            <span className="fiche-joueur-label">Buts</span>
+          </div>
+          <div className="fiche-joueur-case">
+            <span className="fiche-joueur-valeur">{joueur.passes}</span>
+            <span className="fiche-joueur-label">Passes</span>
+          </div>
+          <div className="fiche-joueur-case">
+            <span className="fiche-joueur-valeur">{joueur.points}</span>
+            <span className="fiche-joueur-label">Points</span>
+          </div>
+          {joueur.tours_chapeau !== undefined && (
+            <div className="fiche-joueur-case">
+              <span className="fiche-joueur-valeur">{joueur.tours_chapeau}</span>
+              <span className="fiche-joueur-label">Tours du chapeau</span>
+            </div>
+          )}
+          {joueur.plus_minus !== undefined && (
+            <div className="fiche-joueur-case">
+              <span className="fiche-joueur-valeur">
+                {joueur.plus_minus > 0 ? `+${joueur.plus_minus}` : joueur.plus_minus}
+              </span>
+              <span className="fiche-joueur-label">+/-</span>
+            </div>
+          )}
+          {joueur.pun !== undefined && (
+            <div className="fiche-joueur-case">
+              <span className="fiche-joueur-valeur">{joueur.pun}</span>
+              <span className="fiche-joueur-label">PUN</span>
+            </div>
+          )}
+        </div>
+        {joueur.forme === 'chaud' && (
+          <p className="fiche-joueur-forme">
+            <IconeFeu /> En feu depuis 5 matchs
+          </p>
+        )}
+        {joueur.forme === 'froid' && (
+          <p className="fiche-joueur-forme">
+            <IconeGlace /> Dans un creux depuis 5 matchs
+          </p>
+        )}
+        {joueur.blesse ? (
+          <p className="fiche-joueur-forme">
+            <IconePlasteur /> Possiblement blessé
+          </p>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 // En-tête de colonne cliquable, avec la petite flèche qui indique le tri actif.
 function ThTriable({ colonne, tri, onTrier, estTexte, enfant }) {
   const actif = tri?.colonne === colonne
@@ -376,6 +530,8 @@ function Pool({ session }) {
   const [triStats, setTriStats] = useState(null)
   const [triStatsLigue, setTriStatsLigue] = useState(null)
   const [triClassementNhl, setTriClassementNhl] = useState(null)
+  const [ficheJoueur, setFicheJoueur] = useState(null)
+  const [resumePartage, setResumePartage] = useState(null)
   const [celebration, setCelebration] = useState(false)
   const celebrationVictoireFaite = useRef(false)
 
@@ -884,6 +1040,8 @@ function Pool({ session }) {
   return (
     <div className="conteneur">
       {celebration && <Confettis />}
+      <FicheJoueur joueur={ficheJoueur} onFermer={() => setFicheJoueur(null)} />
+      <PartageResume texte={resumePartage} onFermer={() => setResumePartage(null)} />
       <header className="entete">
         <div className="entete-titre">
           <Crest taille={36} />
@@ -945,7 +1103,10 @@ function Pool({ session }) {
         </button>
         <button
           className={onglet === 'classement' ? 'onglet actif' : 'onglet'}
-          onClick={() => setOnglet('classement')}
+          onClick={() => {
+            setOnglet('classement')
+            if (historique.length === 0) chargerHistorique()
+          }}
         >
           Classement
         </button>
@@ -980,7 +1141,21 @@ function Pool({ session }) {
       <div key={onglet} className="contenu-onglet">
       {onglet === 'classement' && (
         <section className="carte">
-          <h2>Classement</h2>
+          <div className="classement-entete-section">
+            <h2>Classement</h2>
+            {classement.length > 0 && (
+              <button
+                className="bouton-partager"
+                onClick={() =>
+                  setResumePartage(
+                    genererResumeClassement(classement, dernierMatchDeHistorique(historique))
+                  )
+                }
+              >
+                📤 Partager les résultats
+              </button>
+            )}
+          </div>
           {classement.length === 0 ? (
             <p className="info">Aucun résultat encore</p>
           ) : (
@@ -1217,7 +1392,14 @@ function Pool({ session }) {
                       {trie.map((j) => (
                         <tr key={j.playerId} className={j.equipe === 'MTL' ? 'ligne-mtl' : ''}>
                           <td>{j.rang}</td>
-                          <td>{j.nom}</td>
+                          <td>
+                            <button
+                              className="nom-joueur-cliquable"
+                              onClick={() => setFicheJoueur(j)}
+                            >
+                              {j.nom}
+                            </button>
+                          </td>
                           <td className="classement-nhl-equipe">
                             <LogoEquipe abbrev={j.equipe} taille={18} />
                             {j.equipe}
@@ -1278,7 +1460,12 @@ function Pool({ session }) {
                         <Headshot nhlId={j.playerId} taille={30} />
                       </td>
                       <td>
-                        {j.nom}
+                        <button
+                          className="nom-joueur-cliquable"
+                          onClick={() => setFicheJoueur({ ...j, equipe: 'MTL' })}
+                        >
+                          {j.nom}
+                        </button>
                         {j.blesse ? <> <IconePlasteur /></> : ''}
                       </td>
                       <td>{j.matchs_joues}</td>
