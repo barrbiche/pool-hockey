@@ -253,6 +253,7 @@ function PartageResume({ texte, onFermer }) {
 // notification à tout le monde.
 function AnnonceModal({ ouverte, accessToken, onFermer }) {
   const [texte, setTexte] = useState('')
+  const [destinataire, setDestinataire] = useState('tous')
   const [enCours, setEnCours] = useState(false)
   const [resultat, setResultat] = useState('')
 
@@ -265,7 +266,7 @@ function AnnonceModal({ ouverte, accessToken, onFermer }) {
       const res = await fetch('/.netlify/functions/annonce', {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ texte }),
+        body: JSON.stringify({ texte, destinataire }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -274,7 +275,11 @@ function AnnonceModal({ ouverte, accessToken, onFermer }) {
         const manquants = data.pasRecus?.length
           ? ` (pas reçu : ${data.pasRecus.join(', ')}, notifications pas activées)`
           : ''
-        setResultat(`✓ Envoyé à ${data.envoyes} personne(s)${manquants}`)
+        setResultat(
+          data.envoyes === 0
+            ? `⚠️ Personne n'a reçu le message${manquants}`
+            : `✓ Envoyé à ${data.envoyes} personne(s)${manquants}`
+        )
         setTexte('')
       }
     } catch (err) {
@@ -290,7 +295,18 @@ function AnnonceModal({ ouverte, accessToken, onFermer }) {
         <button className="fiche-joueur-fermer" onClick={onFermer} aria-label="Fermer">
           ✕
         </button>
-        <h3 className="partage-resume-titre">📣 Annonce à tout le monde</h3>
+        <h3 className="partage-resume-titre">📣 Annonce</h3>
+        <label className="annonce-destinataire">
+          Envoyer à :{' '}
+          <select value={destinataire} onChange={(e) => setDestinataire(e.target.value)}>
+            <option value="tous">Tout le monde</option>
+            {ORDRE_BASE.map((uid) => (
+              <option key={uid} value={uid}>
+                {NOMS[uid]}
+              </option>
+            ))}
+          </select>
+        </label>
         <textarea
           className="partage-resume-zone"
           placeholder="Écris ton message ici..."
@@ -303,7 +319,7 @@ function AnnonceModal({ ouverte, accessToken, onFermer }) {
           onClick={envoyer}
           disabled={enCours || texte.trim().length === 0}
         >
-          {enCours ? '⏳ Envoi...' : '📤 Envoyer'}
+          {enCours ? '⏳ Envoi...' : destinataire === 'tous' ? '📤 Envoyer à tout le monde' : `📤 Envoyer à ${NOMS[destinataire]}`}
         </button>
         {resultat && <p className="partage-resume-astuce">{resultat}</p>}
       </div>

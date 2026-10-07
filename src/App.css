@@ -2027,3 +2027,19 @@ details[open] > .historique-entete .historique-chevron {
   margin-bottom: 6px;
   font-weight: 700;
 }
+
+.annonce-destinataire {
+  display: block;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+
+.annonce-destinataire select {
+  font: inherit;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--bordure);
+  background: var(--surface-2);
+  color: var(--encre);
+}
