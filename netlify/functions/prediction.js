@@ -61,8 +61,10 @@ export async function sauvegarderPrediction({ supabase, token, matchId, scoreMtl
   return { statut: 200, ok: true }
 }
 
-// Ma prédiction et celles des autres : tout le monde voit tout, même avant le match
-// (pour le plaisir de se comparer).
+// Ma prédiction toujours; celles des autres seulement quand le match a commencé
+// (sinon on pourrait copier). Avant, on dit juste QUI a déjà deviné, jamais le pointage.
+// Le tri est fait ICI, côté serveur : les pointages des autres ne quittent pas la
+// base de données avant le début du match.
 export async function lirePredictions({ supabase, token, matchId, maintenant = new Date() }) {
   const { userId, erreur } = await identifier(supabase, token)
   if (erreur) return erreur
@@ -82,7 +84,7 @@ export async function lirePredictions({ supabase, token, matchId, maintenant = n
     statut: 200,
     commence,
     mienne: lignes.find((l) => l.user_id === userId) || null,
-    autres: lignes.filter((l) => l.user_id !== userId),
+    autres: commence ? lignes.filter((l) => l.user_id !== userId) : [],
     ont_predit: lignes.map((l) => l.user_id),
   }
 }
