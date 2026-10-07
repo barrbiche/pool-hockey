@@ -16,7 +16,6 @@ import {
   ORDRE_BASE,
   NOMS,
   ADMIN_ID,
-  ordreChoixPourMatch,
   completerOrdre,
 } from '../netlify/functions/_participants.js'
 import './App.css'
@@ -1266,6 +1265,24 @@ export default function App() {
   return <Pool session={session} />
 }
 
+// Lit la réponse d'une fonction Netlify et sort un message clair si ça ne marche pas
+// (fonction pas encore publiée = 404 en HTML, erreur du serveur, etc.).
+async function lireReponseFonction(res, nomFonction) {
+  let data = null
+  try {
+    data = await res.json()
+  } catch {
+    data = null
+  }
+  if (res.ok && data) return data
+  if (res.status === 404 || !data) {
+    throw new Error(
+      `La fonction « ${nomFonction} » n’est pas encore publiée (fichier à uploader dans netlify/functions, puis attendre « Published »).`
+    )
+  }
+  throw new Error(data.erreur || data.error || `Erreur ${res.status}`)
+}
+
 // Petit compteur − / + pour un pointage deviné (0 à 20). Vide au départ.
 function CompteurPointage({ valeur, onChange, etiquette }) {
   return (
@@ -1306,6 +1323,7 @@ function PronosticPointage({ session, match, ferme }) {
   const [message, setMessage] = useState('')
   const [erreur, setErreur] = useState('')
   const [indisponible, setIndisponible] = useState(false)
+  const [raison, setRaison] = useState('')
   const valeursInitialisees = useRef(null)
   const matchId = match?.id
 
@@ -1315,10 +1333,10 @@ function PronosticPointage({ session, match, ferme }) {
         `/.netlify/functions/prediction?match_id=${encodeURIComponent(matchId)}`,
         { headers: { Authorization: `Bearer ${session.access_token}` } }
       )
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.erreur || data.error || 'Erreur')
+      const data = await lireReponseFonction(res, 'prediction')
       setEtat(data)
       setIndisponible(false)
+      setRaison('')
       // Au premier chargement de ce match : on remplit avec mon pointage déjà enregistré
       if (valeursInitialisees.current !== matchId) {
         valeursInitialisees.current = matchId
@@ -1327,8 +1345,9 @@ function PronosticPointage({ session, match, ferme }) {
           setAdv(data.mienne.score_adversaire)
         }
       }
-    } catch {
+    } catch (e) {
       setIndisponible(true)
+      setRaison(e.message)
     }
   }
 
@@ -1357,8 +1376,7 @@ function PronosticPointage({ session, match, ferme }) {
         },
         body: JSON.stringify({ match_id: matchId, score_mtl: mtl, score_adversaire: adv }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.erreur || data.error || 'Erreur')
+      await lireReponseFonction(res, 'prediction')
       setMessage('✅ Pointage enregistré!')
       await charger()
     } catch (e) {
@@ -1382,6 +1400,7 @@ function PronosticPointage({ session, match, ferme }) {
       <div className="pool-bloc">
         {titre}
         <p className="note-tc pred-note">Le pointage deviné n’est pas disponible pour l’instant.</p>
+        {raison && <p className="alignement-raison">Détail technique : {raison}</p>}
       </div>
     )
   }
@@ -1794,6 +1813,11 @@ function Pool({ session }) {
       // la ligne en base ne contient que ce qui est figé.
       setInfosNhl(dataMatch.match)
 
+      // Remet l'ordre de choix des matchs à venir (sans choix) en règle : rotation,
+      // nouveau participant. Sans danger si tout est déjà correct.
+      const remettreOrdresEnRegle = () => fetch('/.netlify/functions/ordre-choix').catch(() => {})
+      await remettreOrdresEnRegle()
+
       let { data: matchExistant } = await supabase
         .from('matchs')
         .select('*')
@@ -1801,14 +1825,7 @@ function Pool({ session }) {
         .maybeSingle()
 
       if (!matchExistant) {
-        // Compter combien de matchs existent déjà pour savoir le numéro de rotation
-        const { count } = await supabase
-          .from('matchs')
-          .select('*', { count: 'exact', head: true })
-
-        const numeroMatch = (count || 0) + 1
-        const ordre = ordreChoixPourMatch(numeroMatch)
-
+        // Ordre provisoire : la fonction ordre-choix met ensuite la bonne rotation
         const { data: nouveauMatch, error } = await supabase
           .from('matchs')
           .insert({
@@ -1816,15 +1833,21 @@ function Pool({ session }) {
             date_match: dataMatch.match.date_match,
             adversaire: dataMatch.match.adversaire,
             statut: 'a_venir',
-            ordre_choix: ordre,
+            ordre_choix: ORDRE_BASE,
           })
           .select()
           .single()
         if (error) throw error
-        matchExistant = nouveauMatch
+        await remettreOrdresEnRegle()
+        const { data: relu } = await supabase
+          .from('matchs')
+          .select('*')
+          .eq('id', nouveauMatch.id)
+          .maybeSingle()
+        matchExistant = relu || nouveauMatch
       }
-      // Un match créé avant l'arrivée d'un nouveau participant : on l'ajoute
-      // à l'ordre de choix (à la fin) tant que le match n'a pas commencé.
+      // Filet de sécurité : si la fonction ordre-choix n'a pas pu passer, on ajoute au
+      // moins les participants manquants à la fin (tant que le match n'a pas commencé).
       if (
         matchExistant.statut !== 'termine' &&
         new Date() < new Date(matchExistant.date_match)
