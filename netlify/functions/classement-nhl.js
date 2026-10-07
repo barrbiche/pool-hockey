@@ -8,6 +8,11 @@ const DIVISIONS_FR = {
   Pacific: 'Pacifique',
 }
 
+const CONFERENCES_FR = {
+  Eastern: 'Est',
+  Western: 'Ouest',
+}
+
 export async function handler() {
   try {
     const res = await fetch('https://api-web.nhle.com/v1/standings/now')
@@ -24,6 +29,11 @@ export async function handler() {
       defaites_prolongation: t.otLosses || 0,
       points: t.points || 0,
       differentiel: t.goalDifferential ?? 0,
+      conference: CONFERENCES_FR[t.conferenceName] || t.conferenceName || '',
+      rang_conference: t.conferenceSequence ?? 99,
+      rang_ligue: t.leagueSequence ?? 99,
+      carte_sauvage: t.wildcardSequence ?? 0,
+      clinch: t.clinchIndicator || '',
       sequence: t.streakCode ? `${t.streakCode}${t.streakCount || ''}` : '',
     }))
 
