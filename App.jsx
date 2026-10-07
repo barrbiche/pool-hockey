@@ -122,6 +122,221 @@ function matchTermine(statut) {
   return statut === 'OFF' || statut === 'FINAL'
 }
 
+// ===== Tri des tableaux (cliquer sur un en-tête de colonne) =====
+// Au premier clic sur une colonne de texte (nom, équipe) : ordre A-Z.
+// Au premier clic sur une colonne de chiffres (buts, points...) : la plus
+// grande valeur en premier, ce qui est ce qu'on veut voir la plupart du
+// temps ("qui a le plus de buts"). Un deuxième clic sur la même colonne
+// inverse le sens.
+function basculerColonneTri(triActuel, colonne, estTexte) {
+  if (triActuel?.colonne === colonne) {
+    return { colonne, direction: triActuel.direction === 'asc' ? 'desc' : 'asc' }
+  }
+  return { colonne, direction: estTexte ? 'asc' : 'desc' }
+}
+
+function appliquerTri(liste, tri, valeurColonne) {
+  if (!tri) return liste
+  const triee = [...liste].sort((a, b) => {
+    const va = valeurColonne(a, tri.colonne)
+    const vb = valeurColonne(b, tri.colonne)
+    if (typeof va === 'string' || typeof vb === 'string') {
+      return String(va ?? '').localeCompare(String(vb ?? ''))
+    }
+    return (va ?? 0) - (vb ?? 0)
+  })
+  return tri.direction === 'desc' ? triee.reverse() : triee
+}
+
+// Points provisoires d'un match en cours : même règle que calculer-points
+// (but = 2, passe = 1, tour du chapeau = +3), mais calculée côté site à partir
+// du boxscore en direct. Rien n'est enregistré, c'est juste de l'affichage.
+function pointsProvisoires(choix, statsDirect) {
+  const s = statsDirect?.[choix.joueurs?.nhl_id] || { buts: 0, passes: 0 }
+  const tc = s.buts >= 3
+  return { buts: s.buts, passes: s.passes, points: s.buts * 2 + s.passes + (tc ? 3 : 0) }
+}
+
+// Classement du pool = points officiels en base + points provisoires du match.
+function classementProvisoire(classement, choix, statsDirect) {
+  const total = {}
+  for (const c of classement) total[c.user_id] = c.points || 0
+  for (const ch of choix) {
+    total[ch.user_id] = (total[ch.user_id] || 0) + pointsProvisoires(ch, statsDirect).points
+  }
+  return Object.entries(total)
+    .map(([user_id, points]) => ({ user_id, points }))
+    .sort((a, b) => b.points - a.points)
+}
+
+// Retrouve le dernier match joué à partir des lignes brutes d'historique
+// (même regroupement que HistoriqueOnglet, en gardant juste le plus récent).
+function dernierMatchDeHistorique(historique) {
+  if (!historique || historique.length === 0) return null
+  const parMatch = {}
+  for (const r of historique) {
+    const cle = r.match_id
+    if (!parMatch[cle]) {
+      parMatch[cle] = { date: r.matchs?.date_match, adversaire: r.matchs?.adversaire, choix: [] }
+    }
+    parMatch[cle].choix.push(r)
+  }
+  const matchs = Object.values(parMatch).sort((a, b) => new Date(b.date) - new Date(a.date))
+  return matchs[0] || null
+}
+
+// Construit le petit résumé texte à coller dans le groupe de texto : le
+// classement actuel, et le détail du dernier match s'il y en a un.
+function genererResumeClassement(classement, dernierMatch) {
+  const medailles = ['🥇', '🥈', '🥉']
+  const lignesClassement = classement.map((c, i) => {
+    const rang = medailles[i] || `${i + 1}.`
+    return `${rang} ${NOMS[c.user_id] || 'Inconnu'} — ${c.points} pts`
+  })
+
+  let texte = `🏒 POOL DE HOCKEY — CLASSEMENT\n\n${lignesClassement.join('\n')}`
+
+  if (dernierMatch) {
+    const dateTexte = dernierMatch.date
+      ? formaterDateHeureMontreal(new Date(dernierMatch.date), { day: 'numeric', month: 'long' })
+      : ''
+    const lignesChoix = dernierMatch.choix
+      .slice()
+      .sort((a, b) => b.points - a.points)
+      .map((c) => `• ${NOMS[c.user_id] || 'Inconnu'} → ${c.joueurs?.nom || '?'} (${c.points} pts)`)
+    texte += `\n\nDernier match : vs ${dernierMatch.adversaire}${dateTexte ? ` (${dateTexte})` : ''}\n${lignesChoix.join('\n')}`
+  }
+
+  return texte
+}
+
+// Petite fenêtre qui affiche le résumé généré, avec un bouton pour le
+// copier dans le presse-papier (ou le sélectionner à la main si le
+// navigateur refuse l'accès au presse-papier).
+function PartageResume({ texte, onFermer }) {
+  const [copie, setCopie] = useState(false)
+  const zoneRef = useRef(null)
+
+  if (!texte) return null
+
+  async function copier() {
+    try {
+      await navigator.clipboard.writeText(texte)
+      setCopie(true)
+      setTimeout(() => setCopie(false), 2000)
+    } catch {
+      zoneRef.current?.select()
+    }
+  }
+
+  return (
+    <div className="fiche-joueur-fond" onClick={onFermer}>
+      <div className="partage-resume-carte" onClick={(e) => e.stopPropagation()}>
+        <button className="fiche-joueur-fermer" onClick={onFermer} aria-label="Fermer">
+          ✕
+        </button>
+        <h3 className="partage-resume-titre">Résumé à partager</h3>
+        <textarea ref={zoneRef} className="partage-resume-zone" readOnly value={texte} />
+        <button className="bouton-copier" onClick={copier}>
+          {copie ? '✓ Copié dans le presse-papier' : '📋 Copier'}
+        </button>
+        <p className="partage-resume-astuce">Colle ça dans votre groupe de texto!</p>
+      </div>
+    </div>
+  )
+}
+
+// Grande carte avec photo + stats d'un joueur, ouverte en cliquant sur son
+// nom dans Stats CH ou Stats LNH. Les champs optionnels (tours_chapeau,
+// forme, plus_minus, pun...) ne s'affichent que s'ils existent, pour servir
+// les deux tableaux sans dupliquer le composant.
+function FicheJoueur({ joueur, onFermer }) {
+  if (!joueur) return null
+  return (
+    <div className="fiche-joueur-fond" onClick={onFermer}>
+      <div className="fiche-joueur-carte" onClick={(e) => e.stopPropagation()}>
+        <button className="fiche-joueur-fermer" onClick={onFermer} aria-label="Fermer">
+          ✕
+        </button>
+        <Headshot nhlId={joueur.playerId} taille={96} />
+        <h3 className="fiche-joueur-nom">{joueur.nom}</h3>
+        <p className="fiche-joueur-sous-titre">
+          {joueur.equipe && <LogoEquipe abbrev={joueur.equipe} taille={20} />}
+          {joueur.equipe}
+          {joueur.position ? ` · ${joueur.position}` : ''}
+        </p>
+        <div className="fiche-joueur-stats">
+          <div className="fiche-joueur-case">
+            <span className="fiche-joueur-valeur">{joueur.matchs_joues}</span>
+            <span className="fiche-joueur-label">PJ</span>
+          </div>
+          <div className="fiche-joueur-case">
+            <span className="fiche-joueur-valeur">{joueur.buts}</span>
+            <span className="fiche-joueur-label">Buts</span>
+          </div>
+          <div className="fiche-joueur-case">
+            <span className="fiche-joueur-valeur">{joueur.passes}</span>
+            <span className="fiche-joueur-label">Passes</span>
+          </div>
+          <div className="fiche-joueur-case">
+            <span className="fiche-joueur-valeur">{joueur.points}</span>
+            <span className="fiche-joueur-label">Points</span>
+          </div>
+          {joueur.tours_chapeau !== undefined && (
+            <div className="fiche-joueur-case">
+              <span className="fiche-joueur-valeur">{joueur.tours_chapeau}</span>
+              <span className="fiche-joueur-label">Tours du chapeau</span>
+            </div>
+          )}
+          {joueur.plus_minus !== undefined && (
+            <div className="fiche-joueur-case">
+              <span className="fiche-joueur-valeur">
+                {joueur.plus_minus > 0 ? `+${joueur.plus_minus}` : joueur.plus_minus}
+              </span>
+              <span className="fiche-joueur-label">+/-</span>
+            </div>
+          )}
+          {joueur.pun !== undefined && (
+            <div className="fiche-joueur-case">
+              <span className="fiche-joueur-valeur">{joueur.pun}</span>
+              <span className="fiche-joueur-label">PUN</span>
+            </div>
+          )}
+        </div>
+        {joueur.forme === 'chaud' && (
+          <p className="fiche-joueur-forme">
+            <IconeFeu /> En feu depuis 5 matchs
+          </p>
+        )}
+        {joueur.forme === 'froid' && (
+          <p className="fiche-joueur-forme">
+            <IconeGlace /> Dans un creux depuis 5 matchs
+          </p>
+        )}
+        {joueur.blesse ? (
+          <p className="fiche-joueur-forme">
+            <IconePlasteur /> Possiblement blessé
+          </p>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+// En-tête de colonne cliquable, avec la petite flèche qui indique le tri actif.
+function ThTriable({ colonne, tri, onTrier, estTexte, enfant }) {
+  const actif = tri?.colonne === colonne
+  return (
+    <th
+      className="th-triable"
+      onClick={() => onTrier(basculerColonneTri(tri, colonne, estTexte))}
+    >
+      {enfant}
+      <span className="fleche-tri">{actif ? (tri.direction === 'asc' ? ' ▲' : ' ▼') : ''}</span>
+    </th>
+  )
+}
+
 // Confettis de célébration, en CSS pur (aucune librairie externe). Les
 // morceaux sont générés une seule fois au montage pour qu'ils ne sautillent
 // pas quand le reste de la page se rafraîchit (le compte à rebours
@@ -313,6 +528,9 @@ function Pool({ session }) {
   const [joueurs, setJoueurs] = useState([])
   const [infosNhl, setInfosNhl] = useState(null)
   const [rafraichissementEnCours, setRafraichissementEnCours] = useState(false)
+  const [majGlobaleEnCours, setMajGlobaleEnCours] = useState(false)
+  const [messageMaj, setMessageMaj] = useState('')
+  const [pointsDirect, setPointsDirect] = useState(null)
   const [alignementEnErreur, setAlignementEnErreur] = useState(false)
   const [raisonAlignement, setRaisonAlignement] = useState('')
   const [tousLesChoix, setTousLesChoix] = useState([])
@@ -328,6 +546,16 @@ function Pool({ session }) {
   const [maintenant, setMaintenant] = useState(new Date())
   const [historique, setHistorique] = useState([])
   const [chargementHistorique, setChargementHistorique] = useState(false)
+  const [classementNhl, setClassementNhl] = useState([])
+  const [chargementClassementNhl, setChargementClassementNhl] = useState(false)
+  const [statsLigue, setStatsLigue] = useState([])
+  const [chargementStatsLigue, setChargementStatsLigue] = useState(false)
+  const [rechercheStatsLigue, setRechercheStatsLigue] = useState('')
+  const [triStats, setTriStats] = useState(null)
+  const [triStatsLigue, setTriStatsLigue] = useState(null)
+  const [triClassementNhl, setTriClassementNhl] = useState(null)
+  const [ficheJoueur, setFicheJoueur] = useState(null)
+  const [resumePartage, setResumePartage] = useState(null)
   const [celebration, setCelebration] = useState(false)
   const celebrationVictoireFaite = useRef(false)
 
@@ -346,6 +574,7 @@ function Pool({ session }) {
   const matchDemarrePourVrai =
     !!infosNhl && ['LIVE', 'CRIT', 'FINAL', 'OFF'].includes(infosNhl.statut)
   const jumbotronMontreLePointage = matchCommence || matchDemarrePourVrai
+  const matchEnCoursProvisoire = !!pointsDirect && match?.statut !== 'termine'
 
   const prochainAChoisir =
     match?.ordre_choix?.find((uid) => !tousLesChoix.some((c) => c.user_id === uid)) || null
@@ -368,14 +597,104 @@ function Pool({ session }) {
   // 🔄 manuel du tableau en direct.
   async function rafraichirPointage() {
     setRafraichissementEnCours(true)
+    setMessageMaj('')
+    const problemes = []
     try {
-      const res = await fetch('/.netlify/functions/prochain-match')
-      const data = await res.json()
-      if (data.match) setInfosNhl(data.match)
-    } catch {
-      // pas grave, on retentera au prochain passage
+      // 1. Force le calcul des points si un match est terminé (appelle la NHL)
+      try {
+        const resCalcul = await fetch('/.netlify/functions/calculer-points')
+        if (!resCalcul.ok) problemes.push(`calcul des points (erreur ${resCalcul.status})`)
+      } catch {
+        problemes.push('calcul des points (pas de réponse)')
+      }
+
+      // 2. Pointage / période du match en direct
+      let infosFraiches = null
+      try {
+        const res = await fetch('/.netlify/functions/prochain-match')
+        const data = await res.json()
+        if (data.match) {
+          infosFraiches = data.match
+          setInfosNhl(data.match)
+        }
+      } catch {
+        problemes.push('score du match')
+      }
+
+      // 2b. Points provisoires en direct (buts/passes du boxscore NHL), tant
+      // que le match n'est pas encore calculé officiellement
+      try {
+        if (match) {
+          const { data: matchFrais } = await supabase
+            .from('matchs')
+            .select('*')
+            .eq('id', match.id)
+            .maybeSingle()
+          if (matchFrais) setMatch(matchFrais)
+
+          const aDemarre =
+            (infosFraiches && ['LIVE', 'CRIT', 'FINAL', 'OFF'].includes(infosFraiches.statut)) ||
+            new Date() >= new Date(match.date_match)
+          if (matchFrais?.statut !== 'termine' && aDemarre) {
+            const resDirect = await fetch(
+              `/.netlify/functions/points-en-direct?id=${match.nhl_game_id}`
+            )
+            if (!resDirect.ok) throw new Error('boxscore')
+            setPointsDirect(await resDirect.json())
+          } else {
+            setPointsDirect(null)
+          }
+        }
+      } catch {
+        problemes.push('points en direct')
+      }
+
+      // 3. Choix de tout le monde pour le match affiché + classement du pool
+      try {
+        if (match) {
+          const { data: choixFrais } = await supabase
+            .from('choix')
+            .select('*, joueurs(nom, nhl_id)')
+            .eq('match_id', match.id)
+          setTousLesChoix(choixFrais || [])
+        }
+        await chargerClassement()
+      } catch {
+        problemes.push('classement du pool')
+      }
+
+      // 4. Les onglets déjà ouverts (les autres se chargent frais quand on clique dessus)
+      const rechargements = []
+      if (statsEquipe.length > 0) rechargements.push(chargerStatsEquipe())
+      if (calendrier.length > 0) rechargements.push(chargerCalendrier())
+      if (classementNhl.length > 0) rechargements.push(chargerClassementNhl())
+      if (statsLigue.length > 0) rechargements.push(chargerStatsLigue())
+      if (historique.length > 0) rechargements.push(chargerHistorique())
+      await Promise.all(rechargements)
+
+      setMessageMaj(
+        problemes.length === 0
+          ? '✓ Tout est à jour!'
+          : `⚠️ Mis à jour, sauf : ${problemes.join(', ')}.`
+      )
     } finally {
       setRafraichissementEnCours(false)
+    }
+  }
+
+  // Bouton d'en-tête "Tout mettre à jour" : force le calcul des points (ce
+  // qui va chercher le boxscore à l'API de la NHL, au cas où le cron
+  // automatique des 15 minutes n'aurait pas encore tourné), puis recharge
+  // la page au complet pour que chaque onglet reparte à zéro et relise des
+  // données fraîches dès qu'on clique dessus.
+  async function toutMettreAJour() {
+    setMajGlobaleEnCours(true)
+    try {
+      await fetch('/.netlify/functions/calculer-points')
+    } catch {
+      // pas grave, on recharge quand même avec ce qu'on a déjà
+    } finally {
+      window.location.reload()
     }
   }
 
@@ -758,6 +1077,32 @@ function Pool({ session }) {
     }
   }
 
+  async function chargerClassementNhl() {
+    setChargementClassementNhl(true)
+    try {
+      const res = await fetch('/.netlify/functions/classement-nhl')
+      const data = await res.json()
+      setClassementNhl(data.equipes || [])
+    } catch (err) {
+      setErreur(err.message)
+    } finally {
+      setChargementClassementNhl(false)
+    }
+  }
+
+  async function chargerStatsLigue() {
+    setChargementStatsLigue(true)
+    try {
+      const res = await fetch('/.netlify/functions/stats-ligue')
+      const data = await res.json()
+      setStatsLigue(data.joueurs || [])
+    } catch (err) {
+      setErreur(err.message)
+    } finally {
+      setChargementStatsLigue(false)
+    }
+  }
+
   async function chargerHistorique() {
     setChargementHistorique(true)
     try {
@@ -810,6 +1155,8 @@ function Pool({ session }) {
   return (
     <div className="conteneur">
       {celebration && <Confettis />}
+      <FicheJoueur joueur={ficheJoueur} onFermer={() => setFicheJoueur(null)} />
+      <PartageResume texte={resumePartage} onFermer={() => setResumePartage(null)} />
       <header className="entete">
         <div className="entete-titre">
           <Crest taille={36} />
@@ -822,6 +1169,14 @@ function Pool({ session }) {
               🔔 Activer
             </button>
           )}
+          <button
+            className="bouton-lien"
+            onClick={toutMettreAJour}
+            disabled={majGlobaleEnCours}
+            title="Calcule les points du match (si terminé) et recharge tout le site avec les dernières infos de la NHL"
+          >
+            {majGlobaleEnCours ? '⏳ Mise à jour...' : '🔄 Bouton à Pa!'}
+          </button>
           <button className="bouton-lien" onClick={() => supabase.auth.signOut()}>
             Déconnexion
           </button>
@@ -864,9 +1219,30 @@ function Pool({ session }) {
         </button>
         <button
           className={onglet === 'classement' ? 'onglet actif' : 'onglet'}
-          onClick={() => setOnglet('classement')}
+          onClick={() => {
+            setOnglet('classement')
+            if (historique.length === 0) chargerHistorique()
+          }}
         >
           Classement
+        </button>
+        <button
+          className={onglet === 'classement-nhl' ? 'onglet actif' : 'onglet'}
+          onClick={() => {
+            setOnglet('classement-nhl')
+            if (classementNhl.length === 0) chargerClassementNhl()
+          }}
+        >
+          Classement LNH
+        </button>
+        <button
+          className={onglet === 'stats-ligue' ? 'onglet actif' : 'onglet'}
+          onClick={() => {
+            setOnglet('stats-ligue')
+            if (statsLigue.length === 0) chargerStatsLigue()
+          }}
+        >
+          Stats LNH
         </button>
         <button
           className={onglet === 'reglements' ? 'onglet actif' : 'onglet'}
@@ -881,7 +1257,21 @@ function Pool({ session }) {
       <div key={onglet} className="contenu-onglet">
       {onglet === 'classement' && (
         <section className="carte">
-          <h2>Classement</h2>
+          <div className="classement-entete-section">
+            <h2>Classement</h2>
+            {classement.length > 0 && (
+              <button
+                className="bouton-partager"
+                onClick={() =>
+                  setResumePartage(
+                    genererResumeClassement(classement, dernierMatchDeHistorique(historique))
+                  )
+                }
+              >
+                📤 Partager les résultats
+              </button>
+            )}
+          </div>
           {classement.length === 0 ? (
             <p className="info">Aucun résultat encore</p>
           ) : (
@@ -1010,6 +1400,146 @@ function Pool({ session }) {
         </section>
       )}
 
+      {onglet === 'classement-nhl' && (
+        <section className="carte carte-rouge">
+          <h2>Classement LNH</h2>
+          {chargementClassementNhl && <Squelette lignes={8} hauteur={34} />}
+          {!chargementClassementNhl &&
+            (() => {
+              const parDivision = {}
+              for (const e of classementNhl) {
+                if (!parDivision[e.division]) parDivision[e.division] = []
+                parDivision[e.division].push(e)
+              }
+              const ordrePrefere = ['Atlantique', 'Métropolitaine', 'Centrale', 'Pacifique']
+              const divisions = [
+                ...ordrePrefere.filter((d) => parDivision[d]),
+                ...Object.keys(parDivision).filter((d) => !ordrePrefere.includes(d)),
+              ]
+              return divisions.map((div) => (
+                <div key={div} className="classement-nhl-division">
+                  <h3 className="classement-nhl-titre-division">{div}</h3>
+                  <div className="table-stats-conteneur">
+                    <table className="table-stats">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <ThTriable colonne="nom" tri={triClassementNhl} onTrier={setTriClassementNhl} estTexte enfant="Équipe" />
+                          <ThTriable colonne="matchs_joues" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="PJ" />
+                          <ThTriable colonne="victoires" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="V" />
+                          <ThTriable colonne="defaites" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="D" />
+                          <ThTriable colonne="defaites_prolongation" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="DP" />
+                          <ThTriable colonne="points" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="Pts" />
+                          <ThTriable colonne="differentiel" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="Diff" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {appliquerTri(parDivision[div], triClassementNhl, (e, col) => e[col]).map(
+                          (e, i) => (
+                            <tr key={e.abbrev} className={e.abbrev === 'MTL' ? 'ligne-mtl' : ''}>
+                              <td>{triClassementNhl ? i + 1 : e.rang_division}</td>
+                              <td className="classement-nhl-equipe">
+                                <LogoEquipe abbrev={e.abbrev} taille={22} />
+                                {e.nom}
+                              </td>
+                              <td>{e.matchs_joues}</td>
+                              <td>{e.victoires}</td>
+                              <td>{e.defaites}</td>
+                              <td>{e.defaites_prolongation}</td>
+                              <td>{e.points}</td>
+                              <td>{e.differentiel > 0 ? `+${e.differentiel}` : e.differentiel}</td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))
+            })()}
+        </section>
+      )}
+
+      {onglet === 'stats-ligue' && (
+        <section className="carte carte-rouge">
+          <h2>Statistiques des joueurs — LNH</h2>
+          <p className="note-tc">
+            Tous les patineurs de la ligue, triés par points. Pas de tours du chapeau ni de
+            forme récente ici (ça, c'est juste pour le Canadien, dans Stats CH).
+          </p>
+          <input
+            type="text"
+            className="recherche-stats-ligue"
+            placeholder="Chercher un joueur ou une équipe..."
+            value={rechercheStatsLigue}
+            onChange={(e) => setRechercheStatsLigue(e.target.value)}
+          />
+          {chargementStatsLigue && <Squelette lignes={8} hauteur={34} />}
+          {!chargementStatsLigue &&
+            (() => {
+              const q = rechercheStatsLigue.trim().toLowerCase()
+              const filtre = q
+                ? statsLigue.filter(
+                    (j) => j.nom.toLowerCase().includes(q) || j.equipe.toLowerCase().includes(q)
+                  )
+                : statsLigue
+              const trie = appliquerTri(filtre, triStatsLigue, (j, col) => j[col]).map((j, i) => ({
+                ...j,
+                rang: i + 1,
+              }))
+              return (
+                <div className="table-stats-conteneur">
+                  <table className="table-stats">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <ThTriable colonne="nom" tri={triStatsLigue} onTrier={setTriStatsLigue} estTexte enfant="Joueur" />
+                        <ThTriable colonne="equipe" tri={triStatsLigue} onTrier={setTriStatsLigue} estTexte enfant="Équipe" />
+                        <ThTriable colonne="position" tri={triStatsLigue} onTrier={setTriStatsLigue} estTexte enfant="Pos" />
+                        <ThTriable colonne="matchs_joues" tri={triStatsLigue} onTrier={setTriStatsLigue} enfant="PJ" />
+                        <ThTriable colonne="buts" tri={triStatsLigue} onTrier={setTriStatsLigue} enfant="B" />
+                        <ThTriable colonne="passes" tri={triStatsLigue} onTrier={setTriStatsLigue} enfant="A" />
+                        <ThTriable colonne="points" tri={triStatsLigue} onTrier={setTriStatsLigue} enfant="Pts" />
+                        <ThTriable colonne="plus_minus" tri={triStatsLigue} onTrier={setTriStatsLigue} enfant="+/-" />
+                        <ThTriable colonne="pun" tri={triStatsLigue} onTrier={setTriStatsLigue} enfant="PUN" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {trie.map((j) => (
+                        <tr key={j.playerId} className={j.equipe === 'MTL' ? 'ligne-mtl' : ''}>
+                          <td>{j.rang}</td>
+                          <td>
+                            <button
+                              className="nom-joueur-cliquable"
+                              onClick={() => setFicheJoueur(j)}
+                            >
+                              {j.nom}
+                            </button>
+                          </td>
+                          <td className="classement-nhl-equipe">
+                            <LogoEquipe abbrev={j.equipe} taille={18} />
+                            {j.equipe}
+                          </td>
+                          <td>{j.position}</td>
+                          <td>{j.matchs_joues}</td>
+                          <td>{j.buts}</td>
+                          <td>{j.passes}</td>
+                          <td>{j.points}</td>
+                          <td>{j.plus_minus > 0 ? `+${j.plus_minus}` : j.plus_minus}</td>
+                          <td>{j.pun}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {filtre.length === 0 && (
+                    <p className="info">Aucun joueur trouvé pour "{rechercheStatsLigue}".</p>
+                  )}
+                </div>
+              )
+            })()}
+        </section>
+      )}
+
       {onglet === 'stats' && (
         <section className="carte carte-rouge">
           <h2>Statistiques des joueurs — saison</h2>
@@ -1024,17 +1554,19 @@ function Pool({ session }) {
                 <thead>
                   <tr>
                     <th></th>
-                    <th>Joueur</th>
-                    <th>PJ</th>
-                    <th>B</th>
-                    <th>A</th>
-                    <th>Pts</th>
-                    <th>TC</th>
-                    <th>Forme</th>
+                    <ThTriable colonne="nom" tri={triStats} onTrier={setTriStats} estTexte enfant="Joueur" />
+                    <ThTriable colonne="matchs_joues" tri={triStats} onTrier={setTriStats} enfant="PJ" />
+                    <ThTriable colonne="buts" tri={triStats} onTrier={setTriStats} enfant="B" />
+                    <ThTriable colonne="passes" tri={triStats} onTrier={setTriStats} enfant="A" />
+                    <ThTriable colonne="points" tri={triStats} onTrier={setTriStats} enfant="Pts" />
+                    <ThTriable colonne="tours_chapeau" tri={triStats} onTrier={setTriStats} enfant="TC" />
+                    <ThTriable colonne="forme" tri={triStats} onTrier={setTriStats} enfant="Forme" />
                   </tr>
                 </thead>
                 <tbody>
-                  {statsEquipe.map((j, i) => (
+                  {appliquerTri(statsEquipe, triStats, (j, col) =>
+                    col === 'forme' ? { chaud: 1, froid: -1 }[j.forme] || 0 : j[col]
+                  ).map((j, i) => (
                     <tr
                       key={j.nom}
                       className="cascade-item"
@@ -1044,7 +1576,12 @@ function Pool({ session }) {
                         <Headshot nhlId={j.playerId} taille={30} />
                       </td>
                       <td>
-                        {j.nom}
+                        <button
+                          className="nom-joueur-cliquable"
+                          onClick={() => setFicheJoueur({ ...j, equipe: 'MTL' })}
+                        >
+                          {j.nom}
+                        </button>
                         {j.blesse ? <> <IconePlasteur /></> : ''}
                       </td>
                       <td>{j.matchs_joues}</td>
@@ -1195,6 +1732,11 @@ function Pool({ session }) {
                 <span>
                   {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
                 </span>
+                {matchEnCoursProvisoire && (
+                  <span className="points-provisoires">
+                    {pointsProvisoires(c, pointsDirect.stats).points} pts
+                  </span>
+                )}
               </li>
             ))}
             {match.ordre_choix &&
@@ -1208,6 +1750,27 @@ function Pool({ session }) {
                 ))}
           </ul>
 
+          {matchEnCoursProvisoire && (
+            <div className="classement-provisoire">
+              <h3>Classement provisoire</h3>
+              <p className="note-tc">
+                🔴 En direct, pas final : points officiels + buts et passes du match en cours.
+                Le vrai classement se met à jour quand le match est terminé.
+              </p>
+              <ol className="classement-provisoire-liste">
+                {classementProvisoire(classement, tousLesChoix, pointsDirect.stats).map((c) => (
+                  <li key={c.user_id}>
+                    <span>
+                      <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={20} />{' '}
+                      {NOMS[c.user_id] || 'Inconnu'}
+                    </span>
+                    <span className="points">{c.points} pts</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
           <div className="actualiser-bloc">
             <button
               className="bouton-actualiser"
@@ -1216,11 +1779,10 @@ function Pool({ session }) {
             >
               {rafraichissementEnCours ? '⏳ Mise à jour en cours...' : '🔄 Mise à jour'}
             </button>
+            {messageMaj && <p className="actualiser-message">{messageMaj}</p>}
             <p className="actualiser-note">
-              À utiliser seulement si le score ou les points ne semblent pas à jour. Ce bouton
-              aide à garder l'information à jour sur le site, sans surcharger l'API de la NHL —
-              question de ne pas risquer de s'en faire couper l'accès aux données automatiques du
-              site.
+              Met tout à jour d'un coup : score du match, points, classement du pool et stats.
+              À utiliser si quelque chose ne semble pas à jour.
             </p>
           </div>
         </section>
@@ -1330,10 +1892,6 @@ function HistoriqueOnglet({ historique, chargement, session }) {
               <h3 className="stats-perso-titre">
                 <Pastille userId={uid} nom={NOMS[uid]} taille={24} /> {NOMS[uid] || 'Inconnu'}
               </h3>
-              <p className="stats-perso-ligne">
-                {s.matchs} matchs · {s.points} points au total · {s.buts} buts · {s.passes} passes
-                · {s.tc} tours du chapeau
-              </p>
               {joueurFavori && (
                 <p className="stats-perso-ligne">
                   Joueur le plus choisi : <strong>{joueurFavori[0]}</strong> ({joueurFavori[1]}{' '}
@@ -1350,24 +1908,35 @@ function HistoriqueOnglet({ historique, chargement, session }) {
         <ul className="liste-historique">
           {matchsTries.map((m, i) => (
             <li key={i}>
-              <div className="historique-entete">
-                vs {m.adversaire} —{' '}
-                {m.date &&
-                  formaterDateHeureMontreal(new Date(m.date), { day: 'numeric', month: 'short' })}
-              </div>
-              {m.choix
-                .slice()
-                .sort((a, b) => b.points - a.points)
-                .map((c) => (
-                  <div key={c.id} className="historique-ligne">
-                    <span className="historique-ligne-gauche">
-                      <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={20} />
-                      <Headshot nhlId={c.joueurs?.nhl_id} taille={26} />
-                      {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
-                    </span>
-                    <span className="points">{c.points} pts</span>
-                  </div>
-                ))}
+              <details>
+                <summary className="historique-entete">
+                  <span>
+                    vs {m.adversaire} —{' '}
+                    {m.date &&
+                      formaterDateHeureMontreal(new Date(m.date), {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                  </span>
+                  <span className="historique-chevron">▼</span>
+                </summary>
+                <div className="historique-contenu">
+                  {m.choix
+                    .slice()
+                    .sort((a, b) => b.points - a.points)
+                    .map((c) => (
+                      <div key={c.id} className="historique-ligne">
+                        <span className="historique-ligne-gauche">
+                          <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={20} />
+                          <Headshot nhlId={c.joueurs?.nhl_id} taille={26} />
+                          {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
+                        </span>
+                        <span className="points">{c.points} pts</span>
+                      </div>
+                    ))}
+                </div>
+              </details>
             </li>
           ))}
         </ul>

@@ -168,6 +168,10 @@ button {
   cursor: pointer;
   transition: transform 100ms ease, box-shadow var(--transition), opacity var(--transition);
   box-shadow: 0 2px 8px rgba(206, 14, 45, 0.3);
+  /* Enlève le flash gris que les téléphones ajoutent par défaut au toucher :
+     sans ça, un bouton peut sembler "clignoter" ou disparaître une fraction
+     de seconde au clic sur mobile. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 button:hover {
@@ -181,6 +185,11 @@ button:active {
 button:disabled {
   opacity: 0.55;
   box-shadow: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--bleu-vif);
+  outline-offset: 2px;
 }
 
 .bouton-lien {
@@ -617,6 +626,21 @@ button:disabled {
 .table-stats thead th:first-child { border-radius: 10px 0 0 0; }
 .table-stats thead th:last-child { border-radius: 0 10px 0 0; }
 
+.table-stats thead th.th-triable {
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition);
+}
+
+.table-stats thead th.th-triable:hover {
+  background: linear-gradient(135deg, var(--bleu-2) 0%, var(--bleu-vif) 100%);
+}
+
+.fleche-tri {
+  display: inline-block;
+  color: var(--teinte-jaune);
+}
+
 .table-stats tbody td {
   text-align: left;
   padding: 10px;
@@ -637,6 +661,256 @@ button:disabled {
 
 .table-stats tbody tr:hover {
   background: var(--teinte-rouge-2);
+}
+
+/* ===== Classement LNH ===== */
+.classement-nhl-division {
+  margin-bottom: 20px;
+}
+
+.classement-nhl-division:last-child {
+  margin-bottom: 0;
+}
+
+.classement-nhl-titre-division {
+  font-family: var(--font-titre);
+  text-transform: uppercase;
+  color: var(--rouge);
+  font-size: 1.05rem;
+  letter-spacing: 0.3px;
+  margin: 0 0 8px;
+}
+
+.classement-nhl-equipe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Équipe du Canadien : accent rouge à gauche de la ligne, peu importe le
+   thème ou le rang, pour la repérer d'un coup d'œil dans sa division. */
+.ligne-mtl td {
+  font-weight: 800;
+}
+
+.ligne-mtl td:first-child {
+  box-shadow: inset 4px 0 0 var(--rouge);
+}
+
+.recherche-stats-ligue {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.nom-joueur-cliquable {
+  background: none !important;
+  box-shadow: none !important;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+  transition: color var(--transition), text-decoration-color var(--transition);
+}
+
+.nom-joueur-cliquable:hover,
+.nom-joueur-cliquable:focus-visible {
+  color: var(--bleu-vif);
+  text-decoration-color: currentColor;
+}
+
+/* ===== Fiche joueur (carte détaillée) ===== */
+.fiche-joueur-fond {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 14, 28, 0.65);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+  animation: apparition-fond 180ms ease;
+}
+
+@keyframes apparition-fond {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fiche-joueur-carte {
+  position: relative;
+  background: var(--surface);
+  border: 1.5px solid var(--bordure-forte);
+  border-radius: 16px;
+  padding: 28px 22px 22px;
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  animation: glisse-haut 220ms var(--transition);
+}
+
+.fiche-joueur-fermer {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--surface-2) !important;
+  box-shadow: none !important;
+  color: var(--gris-texte);
+  border: 1px solid var(--bordure);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+
+.fiche-joueur-fermer:hover {
+  background: var(--bordure) !important;
+  color: var(--encre);
+}
+
+.fiche-joueur-carte .headshot {
+  border-radius: 50%;
+  border: 3px solid var(--bordure-rouge);
+  background: var(--surface-2);
+}
+
+.fiche-joueur-nom {
+  font-family: var(--font-titre);
+  text-transform: uppercase;
+  font-size: 1.4rem;
+  color: var(--rouge);
+  margin: 10px 0 2px;
+}
+
+.fiche-joueur-sous-titre {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--gris-texte);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.fiche-joueur-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 6px;
+  margin-bottom: 8px;
+}
+
+.fiche-joueur-case {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 10px 4px;
+}
+
+.fiche-joueur-valeur {
+  font-family: var(--font-titre);
+  font-size: 1.5rem;
+  color: var(--bleu);
+  line-height: 1;
+}
+
+.fiche-joueur-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--gris-texte);
+  margin-top: 3px;
+}
+
+.fiche-joueur-forme {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+  color: var(--encre);
+  font-weight: 600;
+}
+
+:root[data-theme='dark'] .fiche-joueur-valeur {
+  color: var(--bleu-vif);
+}
+
+/* ===== Partager les résultats ===== */
+.classement-entete-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.classement-entete-section h2 {
+  margin: 0;
+}
+
+.bouton-partager {
+  font-size: 0.85rem;
+  padding: 8px 14px;
+  white-space: nowrap;
+}
+
+.partage-resume-carte {
+  position: relative;
+  background: var(--surface);
+  border: 1.5px solid var(--bordure-forte);
+  border-radius: 16px;
+  padding: 24px 20px 20px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  animation: glisse-haut 220ms var(--transition);
+}
+
+.partage-resume-titre {
+  font-family: var(--font-titre);
+  text-transform: uppercase;
+  font-size: 1.1rem;
+  color: var(--rouge);
+  margin: 0 0 12px;
+  padding-right: 24px;
+}
+
+.partage-resume-zone {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  background: var(--surface-2);
+  border: 1px solid var(--bordure);
+  border-radius: 10px;
+  padding: 12px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--encre);
+  white-space: pre-wrap;
+  margin-bottom: 12px;
+}
+
+.bouton-copier {
+  width: 100%;
+  font-weight: 700;
+}
+
+.partage-resume-astuce {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--gris-texte);
+  margin: 10px 0 0;
 }
 
 /* ===== Ordre de choix ===== */
@@ -1088,22 +1362,23 @@ button:disabled {
   border-color: rgba(255, 60, 60, 0.4);
 }
 
-/* Bloc du bouton d'actualisation manuelle : sous le pointage, bien
-   visible, avec une explication en clair pour que tout le monde
-   comprenne à quoi il sert sans avoir à deviner. */
-.direct-actualiser-bloc {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+/* Bloc du bouton d'actualisation manuelle : toujours visible sous
+   « Choix de tout le monde », peu importe si le match est commencé ou
+   non. Basé sur les jetons de couleur, donc suit automatiquement le
+   thème clair/sombre. */
+.actualiser-bloc {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bordure);
   text-align: center;
 }
 
-.direct-rafraichir {
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
+.bouton-actualiser {
+  background: var(--surface-2);
+  border: 1px solid var(--bordure-forte);
+  color: var(--bleu);
   font-family: var(--font-corps);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 600;
   padding: 9px 18px;
   border-radius: 20px;
@@ -1111,23 +1386,23 @@ button:disabled {
   transition: background var(--transition), transform var(--transition);
 }
 
-.direct-rafraichir:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.24);
+.bouton-actualiser:hover:not(:disabled) {
+  background: var(--bordure);
 }
 
-.direct-rafraichir:active:not(:disabled) {
+.bouton-actualiser:active:not(:disabled) {
   transform: scale(0.96);
 }
 
-.direct-rafraichir:disabled {
+.bouton-actualiser:disabled {
   cursor: default;
   opacity: 0.6;
 }
 
-.direct-actualiser-note {
-  margin: 9px 0 0;
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.6);
+.actualiser-note {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: var(--gris-texte);
   line-height: 1.4;
 }
 
@@ -1392,16 +1667,51 @@ button:disabled {
   background: var(--surface-2);
   border: 1px solid var(--bordure-rouge);
   border-radius: 11px;
-  padding: 11px 13px;
+  overflow: hidden;
 }
 
+/* Passer à display: flex enlève le triangle par défaut du <summary> dans
+   les navigateurs modernes (Chrome, Firefox) — pas besoin de le cacher
+   séparément. */
 .historique-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   font-weight: 700;
   color: var(--rouge);
-  margin-bottom: 6px;
   font-size: 0.95rem;
   font-family: var(--font-titre);
   text-transform: uppercase;
+  padding: 11px 13px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background var(--transition);
+}
+
+.historique-entete::marker {
+  content: '';
+}
+
+.historique-entete:hover {
+  background: var(--bordure);
+}
+
+.historique-chevron {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--gris-texte);
+  transition: transform var(--transition);
+}
+
+details[open] > .historique-entete .historique-chevron {
+  transform: rotate(180deg);
+}
+
+.historique-contenu {
+  padding: 2px 13px 11px;
+  border-top: 1px solid var(--bordure);
 }
 
 .historique-ligne {
@@ -1680,4 +1990,40 @@ button:disabled {
 
 :root[data-theme='dark'] .carte-joueur-forme.chaud {
   color: #ff9147;
+}
+
+.actualiser-message {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin: 10px 0 0;
+}
+
+/* ===== Points provisoires (match en direct) ===== */
+.liste-choix-ligne .points-provisoires {
+  margin-left: auto;
+  font-weight: 800;
+  color: var(--rouge);
+  white-space: nowrap;
+}
+
+.classement-provisoire {
+  margin-top: 16px;
+}
+
+.classement-provisoire-liste {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.classement-provisoire-liste li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  margin-bottom: 6px;
+  font-weight: 700;
 }
