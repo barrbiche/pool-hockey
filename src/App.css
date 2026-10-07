@@ -3846,3 +3846,13 @@ button:hover:not(:disabled) {
   background: linear-gradient(135deg, #d3162f, #8c1226);
   vertical-align: middle;
 }
+
+.pred-sous-titre {
+  margin: 14px 0 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--gris-texte);
+  text-align: left;
+}

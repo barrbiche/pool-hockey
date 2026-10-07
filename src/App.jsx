@@ -1365,6 +1365,16 @@ function PronosticPointage({ session, match, ferme }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId, ferme])
 
+  // Met à jour les pointages des autres pendant que le bloc est affiché
+  useEffect(() => {
+    if (!matchId) return
+    const t = setInterval(() => {
+      if (document.visibilityState === 'visible') charger()
+    }, 20000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchId])
+
   async function enregistrer() {
     setEnvoi(true)
     setMessage('')
@@ -1421,27 +1431,36 @@ function PronosticPointage({ session, match, ferme }) {
   const complet = mtl !== null && adv !== null
   const modifie = !sauve || sauve.score_mtl !== mtl || sauve.score_adversaire !== adv
 
+  const listePronostics = (
+    <ul className="pred-liste">
+      {ORDRE_BASE.map((uid) => {
+        const p = uid === session.user.id ? etat.mienne : etat.autres.find((a) => a.user_id === uid)
+        return (
+          <li key={uid} className={p ? 'pred-ligne' : 'pred-ligne vide'}>
+            <Pastille userId={uid} nom={NOMS[uid]} taille={26} />
+            <span className="pred-nom">
+              {NOMS[uid] || 'Inconnu'}
+              {uid === session.user.id ? ' (toi)' : ''}
+            </span>
+            <span className="pred-score">
+              {p
+                ? `MTL ${p.score_mtl} – ${p.score_adversaire} ${match.adversaire}`
+                : fermeReel
+                  ? 'n’a pas deviné'
+                  : 'pas encore deviné'}
+            </span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+
   if (fermeReel) {
     return (
       <div className="pool-bloc">
         {titre}
         <p className="note-tc pred-note">🔒 Le match a commencé, les pointages devinés sont fermés.</p>
-        <ul className="pred-liste">
-          {ORDRE_BASE.map((uid) => {
-            const p = uid === session.user.id ? etat.mienne : etat.autres.find((a) => a.user_id === uid)
-            return (
-              <li key={uid} className={p ? 'pred-ligne' : 'pred-ligne vide'}>
-                <Pastille userId={uid} nom={NOMS[uid]} taille={26} />
-                <span className="pred-nom">{NOMS[uid] || 'Inconnu'}</span>
-                <span className="pred-score">
-                  {p
-                    ? `MTL ${p.score_mtl} – ${p.score_adversaire} ${match.adversaire}`
-                    : 'n’a pas deviné'}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
+        {listePronostics}
       </div>
     )
   }
@@ -1485,18 +1504,8 @@ function PronosticPointage({ session, match, ferme }) {
       {message && <p className="pred-message">{message}</p>}
       {erreur && <p className="pred-erreur">{erreur}</p>}
 
-      <ul className="pred-qui">
-        {ORDRE_BASE.map((uid) => {
-          const aDevine = etat.ont_predit.includes(uid)
-          return (
-            <li key={uid} className={aDevine ? 'pred-qui-item fait' : 'pred-qui-item'}>
-              <Pastille userId={uid} nom={NOMS[uid]} taille={20} />
-              {NOMS[uid] || 'Inconnu'}
-              <span>{aDevine ? '✅' : '⏳'}</span>
-            </li>
-          )
-        })}
-      </ul>
+      <p className="pred-sous-titre">👀 Les pointages de tout le monde</p>
+      {listePronostics}
     </div>
   )
 }
@@ -2682,8 +2691,8 @@ function Pool({ session }) {
               <strong>Pointage deviné :</strong> avant chaque match, chacun peut deviner le
               pointage final. Si le pointage est exact (prolongation et fusillade incluses),
               tu gagnes <strong>2 points</strong> en plus de ceux de ton joueur. Tu peux changer
-              ton pointage jusqu'au début du match; ceux des autres ne se montrent qu'à ce
-              moment-là.
+              ton pointage jusqu'au début du match, et tout le monde voit les pointages des
+              autres.
             </p>
           </article>
 
