@@ -2111,7 +2111,9 @@ function Pool({ session }) {
 
       {onglet === 'reglements' && (
         <section className="carte">
-          <p className={notifsActivees ? 'regle-alerte calme' : 'regle-alerte'}>
+          {!notifsActivees && (
+            <>
+          <p className="regle-alerte">
             ⚠️ Les notifications sont obligatoires pour une bonne communication dans le pool ⚠️
           </p>
           {clignoteAide && !notifsActivees && (
@@ -2156,6 +2158,8 @@ function Pool({ session }) {
                 <strong>Mettre le site sur ta page d'accueil</strong> (facultatif) : appuie sur les <strong>⋮</strong> (3 points) en haut à droite de Chrome, puis <strong>« Ajouter à l'écran d'accueil »</strong> (ou <strong>« Installer l'application »</strong>), puis <strong>Ajouter</strong>
               </li>
             </ol>
+          )}
+            </>
           )}
           <h2>Comment ça marche</h2>
           <ul className="liste-regles">
