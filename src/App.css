@@ -2774,7 +2774,7 @@ button:hover:not(:disabled) {
 }
 
 /* Sous-titres : puce bleue à gauche */
-.carte:not(.pool-carte) h3:not(.pool-titre):not(.classement-nhl-titre-division):not(.stats-perso-titre) {
+.carte:not(.pool-carte) h3:not(.pool-titre):not(.classement-nhl-titre-division):not(.stats-perso-titre):not(.article-titre):not(.cal-mois) {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -3004,4 +3004,354 @@ button:hover:not(:disabled) {
   .table-stats {
     border-spacing: 0 5px;
   }
+}
+
+
+/* ===== Sections repliables (Classement, Calendrier) ===== */
+.repliable {
+  margin-top: 12px;
+  padding: 8px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bleu-vif) 6%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--bleu-vif) 16%, transparent);
+}
+
+.repliable:first-child {
+  margin-top: 0;
+}
+
+.repliable-titre {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  background: linear-gradient(135deg, #2f5bb8 0%, #1d3f86 100%);
+  box-shadow: 0 3px 8px rgba(12, 30, 61, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.repliable-titre::-webkit-details-marker {
+  display: none;
+}
+
+.repliable-titre::after {
+  content: '▾';
+  font-size: 1rem;
+  transition: transform 180ms ease;
+}
+
+.repliable:not([open]) > .repliable-titre::after {
+  transform: rotate(-90deg);
+}
+
+.repliable[open] > .repliable-titre {
+  margin-bottom: 10px;
+}
+
+/* ===== Stats LNH : invitation à chercher ===== */
+.invite-recherche {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 26px 16px;
+  text-align: center;
+  border-radius: 16px;
+  border: 2px dashed color-mix(in srgb, var(--bleu-vif) 35%, transparent);
+  background: color-mix(in srgb, var(--bleu-vif) 5%, var(--surface));
+  color: var(--gris-texte);
+  font-weight: 600;
+}
+
+.invite-recherche-icone {
+  font-size: 2rem;
+}
+
+.invite-recherche p {
+  margin: 0;
+}
+
+/* ===== Règlements : sobre et sérieux ===== */
+.reglement-sous-titre {
+  margin: -4px 0 14px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--gris-texte);
+}
+
+.article {
+  position: relative;
+  margin-bottom: 12px;
+  padding: 14px 14px 12px 18px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--bleu-vif) 18%, transparent);
+  box-shadow: var(--ombre);
+}
+
+.article::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(180deg, #2f5bb8, #8c1226);
+}
+
+.article:last-child {
+  margin-bottom: 0;
+}
+
+.article-numero {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--rouge);
+}
+
+.carte:not(.pool-carte) h3.article-titre {
+  margin: 2px 0 8px;
+  font-family: var(--font-titre);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--bleu);
+}
+
+.article p {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--encre);
+}
+
+.article p:last-child {
+  margin-bottom: 0;
+}
+
+.bareme {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.bareme-case {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 4px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bleu-vif) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--bleu-vif) 18%, transparent);
+}
+
+.bareme-valeur {
+  font-family: var(--font-titre);
+  font-size: 1.9rem;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--bleu);
+}
+
+.bareme-libelle {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--gris-texte);
+}
+
+/* ===== Calendrier : tuiles par mois ===== */
+.cal-mois-bloc {
+  margin-bottom: 14px;
+}
+
+.carte:not(.pool-carte) h3.cal-mois {
+  margin: 0 0 8px;
+  padding: 0 4px;
+  font-family: var(--font-titre);
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--rouge);
+}
+
+.liste-calendrier {
+  max-height: none;
+  gap: 8px;
+}
+
+.liste-calendrier li.cal-tuile {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--bleu-vif) 18%, transparent);
+  box-shadow: var(--ombre);
+  font-size: 0.9rem;
+}
+
+.liste-calendrier li.cal-tuile.joue {
+  opacity: 0.85;
+}
+
+.liste-calendrier li.cal-tuile.prochain {
+  border: 2px solid var(--rouge);
+  background: linear-gradient(120deg, var(--teinte-rouge) 0%, var(--surface) 70%);
+  box-shadow: 0 6px 18px rgba(206, 14, 45, 0.22);
+}
+
+.cal-jour {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(135deg, #0c1e3d 0%, #16305c 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.prochain .cal-jour {
+  background: linear-gradient(135deg, #b30f27 0%, #8c1226 100%);
+}
+
+.cal-jour-num {
+  font-family: var(--font-titre);
+  font-size: 1.4rem;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.cal-jour-sem {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.cal-centre {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cal-centre-texte {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cal-adv {
+  font-family: var(--font-titre);
+  font-size: 1.15rem;
+  line-height: 1.1;
+  font-weight: 600;
+  color: var(--bleu);
+  letter-spacing: 0.5px;
+}
+
+.cal-lieu {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--gris-texte);
+}
+
+.prochain .cal-lieu {
+  color: var(--rouge);
+  font-weight: 800;
+}
+
+.cal-droite {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cal-heure {
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--bleu);
+  background: color-mix(in srgb, var(--bleu-vif) 12%, transparent);
+}
+
+.cal-resultat {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.cal-v {
+  background: linear-gradient(135deg, #1f9d55, #15753f);
+}
+
+.cal-d {
+  background: linear-gradient(135deg, #d3162f, #8f0b22);
+}
+
+.cal-score-final {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--bleu);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 360px) {
+  .liste-calendrier li.cal-tuile {
+    grid-template-columns: 46px 1fr auto;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .cal-jour {
+    height: 46px;
+  }
+}
+
+.cal-badge {
+  align-self: flex-start;
+  margin-bottom: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #fff;
+  background: linear-gradient(135deg, #d3162f, #8f0b22);
+}
+
+.cal-lieu,
+.bareme-libelle,
+.article-numero {
+  line-height: 1.3;
 }

@@ -341,8 +341,8 @@ function CourbeClassement({ historique }) {
   const pasEtiquetteX = Math.ceil(matchs.length / 6)
 
   return (
-    <div className="courbe-classement">
-      <h3>📈 Évolution du classement</h3>
+    <details className="repliable courbe-classement" open>
+      <summary className="repliable-titre">📈 Évolution du classement</summary>
       <div className="courbe-legende">
         {ORDRE_BASE.map((u) => (
           <span key={u} className="courbe-legende-item">
@@ -448,7 +448,7 @@ function CourbeClassement({ historique }) {
           </table>
         </div>
       </details>
-    </div>
+    </details>
   )
 }
 
@@ -456,8 +456,8 @@ function Trophees({ historique }) {
   const liste = calculerTrophees(historique)
   if (liste.length === 0) return null
   return (
-    <div className="trophees">
-      <h3>🏅 Trophées de la saison</h3>
+    <details className="repliable trophees" open>
+      <summary className="repliable-titre">🏅 Trophées de la saison</summary>
       <div className="trophees-grille">
         {liste.map((t) => (
           <div key={t.titre} className="trophee">
@@ -468,7 +468,7 @@ function Trophees({ historique }) {
           </div>
         ))}
       </div>
-    </div>
+    </details>
   )
 }
 
@@ -2086,6 +2086,8 @@ function Pool({ session }) {
             <p className="info">Aucun résultat encore</p>
           ) : (
             <>
+              <details className="repliable" open>
+                <summary className="repliable-titre">🏆 Classement du pool</summary>
               <Podium classement={classement} />
               <ol className="classement">
                 {classement.map((c, i) => {
@@ -2141,6 +2143,7 @@ function Pool({ session }) {
                   )
                 })}
               </ol>
+              </details>
               {historique.length > 0 && (
                 <>
                   <CourbeClassement historique={historique} />
@@ -2204,20 +2207,57 @@ function Pool({ session }) {
           )}
             </>
           )}
-          <h2>📜 Comment ça marche</h2>
-          <ul className="liste-regles">
-            <li>Chacun choisit un joueur du Canadien avant chaque match.</li>
-            <li>1 but = 2 points, 1 passe = 1 point, tour du chapeau = +3 points bonus.</li>
-            <li>L'ordre de choix tourne à chaque match (3-2-1) pour toute la saison.</li>
-            <li>
+          <h2>📜 Règlement du pool</h2>
+          <p className="reglement-sous-titre">Saison {saisonEnCours().libelle} · Canadiens de Montréal</p>
+
+          <article className="article">
+            <span className="article-numero">Article 1</span>
+            <h3 className="article-titre">Choix des joueurs</h3>
+            <p>
+              Chaque participant choisit un joueur du Canadien avant chaque match. L'ordre de choix
+              tourne à chaque match (3-2-1) pour toute la saison.
+            </p>
+          </article>
+
+          <article className="article">
+            <span className="article-numero">Article 2</span>
+            <h3 className="article-titre">Pointage</h3>
+            <div className="bareme">
+              <div className="bareme-case">
+                <span className="bareme-valeur">2</span>
+                <span className="bareme-libelle">points par but</span>
+              </div>
+              <div className="bareme-case">
+                <span className="bareme-valeur">1</span>
+                <span className="bareme-libelle">point par passe</span>
+              </div>
+              <div className="bareme-case">
+                <span className="bareme-valeur">+3</span>
+                <span className="bareme-libelle">tour du chapeau</span>
+              </div>
+            </div>
+          </article>
+
+          <article className="article">
+            <span className="article-numero">Article 3</span>
+            <h3 className="article-titre">Choix automatique</h3>
+            <p>
               <strong>Si tu ne choisis pas à temps, le système choisit pour toi</strong>{' '}
               automatiquement : ton joueur du match précédent (s'il est encore libre), sinon le
-              meilleur pointeur du CH encore disponible. Chacun a sa propre limite : le 1er choix
-              doit être fait 1h30 avant le match, le 2e 1h avant, le 3e 30 min avant — ça laisse
-              toujours une marge de 30 minutes avant le début du match.
-            </li>
-            <li>Une fois le match commencé, plus moyen de changer de joueur.</li>
-          </ul>
+              meilleur pointeur du CH encore disponible.
+            </p>
+            <p>
+              Chacun a sa propre limite : le 1er choix doit être fait 1h30 avant le match, le 2e 1h
+              avant, le 3e 30 min avant. Ça laisse toujours une marge de 30 minutes avant le début
+              du match.
+            </p>
+          </article>
+
+          <article className="article">
+            <span className="article-numero">Article 4</span>
+            <h3 className="article-titre">Verrouillage</h3>
+            <p>Une fois le match commencé, il n'est plus possible de changer de joueur.</p>
+          </article>
         </section>
       )}
 
@@ -2233,36 +2273,100 @@ function Pool({ session }) {
         <section className="carte carte-rouge">
           <h2>📅 Calendrier {saisonEnCours().libelle}</h2>
           {chargementCalendrier && <Squelette lignes={8} hauteur={34} />}
-          {!chargementCalendrier && (
-            <ul className="liste-calendrier">
-              {calendrier.map((m, i) => (
+          {!chargementCalendrier && (() => {
+            const joues = calendrier.filter((m) => matchTermine(m.statut))
+            const aVenir = calendrier.filter((m) => !matchTermine(m.statut))
+            const prochainId = aVenir[0]?.nhl_game_id
+
+            const tuile = (m, i) => {
+              const d = new Date(m.date_match)
+              const termine = matchTermine(m.statut)
+              const gagne = termine && m.score_mtl > m.score_adversaire
+              return (
                 <li
                   key={m.nhl_game_id}
-                  className={'cascade-item ' + (matchTermine(m.statut) ? 'joue' : '')}
+                  className={
+                    'cal-tuile cascade-item' +
+                    (termine ? ' joue' : '') +
+                    (m.nhl_game_id === prochainId ? ' prochain' : '')
+                  }
                   style={{ animationDelay: `${Math.min(i, 20) * 25}ms` }}
                 >
-                  <span className="cal-date">
-                    {formaterDateHeureMontreal(new Date(m.date_match), {
-                      day: 'numeric',
-                      month: 'short',
-                    })}
-                  </span>
-                  <span className="cal-adversaire">
-                    <LogoEquipe abbrev={m.adversaire} taille={22} />
-                    {m.domicile ? 'vs' : '@'} {m.adversaire}
-                  </span>
-                  <span className="cal-score">
-                    {matchTermine(m.statut)
-                      ? `${m.score_mtl} - ${m.score_adversaire}`
-                      : formaterDateHeureMontreal(new Date(m.date_match), {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                  </span>
+                  <div className="cal-jour">
+                    <span className="cal-jour-num">
+                      {formaterDateHeureMontreal(d, { day: 'numeric' })}
+                    </span>
+                    <span className="cal-jour-sem">
+                      {formaterDateHeureMontreal(d, { weekday: 'short' })}
+                    </span>
+                  </div>
+                  <div className="cal-centre">
+                    <LogoEquipe abbrev={m.adversaire} taille={32} />
+                    <div className="cal-centre-texte">
+                      {m.nhl_game_id === prochainId && (
+                        <span className="cal-badge">PROCHAIN MATCH</span>
+                      )}
+                      <span className="cal-adv">{m.adversaire}</span>
+                      <span className="cal-lieu">{m.domicile ? 'À domicile' : 'À l’étranger'}</span>
+                    </div>
+                  </div>
+                  <div className="cal-droite">
+                    {termine ? (
+                      <>
+                        <span className={'cal-resultat ' + (gagne ? 'cal-v' : 'cal-d')}>
+                          {gagne ? 'V' : 'D'}
+                        </span>
+                        <span className="cal-score-final">
+                          {m.score_mtl}-{m.score_adversaire}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="cal-heure">
+                        {formaterDateHeureMontreal(d, { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
                 </li>
-              ))}
-            </ul>
-          )}
+              )
+            }
+
+            // Matchs à venir regroupés par mois
+            const mois = []
+            for (const m of aVenir) {
+              const cle = formaterDateHeureMontreal(new Date(m.date_match), {
+                month: 'long',
+                year: 'numeric',
+              })
+              let g = mois[mois.length - 1]
+              if (!g || g.cle !== cle) {
+                g = { cle, matchs: [] }
+                mois.push(g)
+              }
+              g.matchs.push(m)
+            }
+
+            return (
+              <>
+                {aVenir.length === 0 && <p className="info">Aucun match à venir.</p>}
+                {mois.map((g) => (
+                  <div key={g.cle} className="cal-mois-bloc">
+                    <h3 className="cal-mois">{g.cle}</h3>
+                    <ul className="liste-calendrier">{g.matchs.map((m, i) => tuile(m, i))}</ul>
+                  </div>
+                ))}
+                {joues.length > 0 && (
+                  <details className="repliable">
+                    <summary className="repliable-titre">
+                      ✅ Matchs joués ({joues.length})
+                    </summary>
+                    <ul className="liste-calendrier">
+                      {[...joues].reverse().map((m, i) => tuile(m, i))}
+                    </ul>
+                  </details>
+                )}
+              </>
+            )
+          })()}
         </section>
       )}
 
@@ -2340,8 +2444,17 @@ function Pool({ session }) {
             value={rechercheStatsLigue}
             onChange={(e) => setRechercheStatsLigue(e.target.value)}
           />
-          {chargementStatsLigue && <Squelette lignes={8} hauteur={34} />}
-          {!chargementStatsLigue &&
+          {rechercheStatsLigue.trim() === '' && (
+            <div className="invite-recherche">
+              <span className="invite-recherche-icone">🔎</span>
+              <p>Écris le nom d'un joueur ou d'une équipe pour afficher les stats.</p>
+            </div>
+          )}
+          {rechercheStatsLigue.trim() !== '' && chargementStatsLigue && (
+            <Squelette lignes={8} hauteur={34} />
+          )}
+          {rechercheStatsLigue.trim() !== '' &&
+            !chargementStatsLigue &&
             (() => {
               const q = rechercheStatsLigue.trim().toLowerCase()
               const filtre = q
