@@ -3421,3 +3421,113 @@ button:hover:not(:disabled) {
   margin: 0 4px 0 0;
   line-height: 1.4;
 }
+
+/* ===== Ordre de choix : 3 tuiles avec étapes ===== */
+.ordre-choix {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.ordre-choix li.ordre-tuile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 6px 10px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1.5px solid color-mix(in srgb, var(--bleu-vif) 22%, transparent);
+  box-shadow: var(--ombre);
+  text-align: center;
+  animation: none;
+}
+
+.ordre-choix li.ordre-tuile::before {
+  content: none;
+}
+
+/* flèche entre les tuiles */
+.ordre-choix li.ordre-tuile:not(:last-child)::after {
+  content: '›';
+  position: absolute;
+  right: -9px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  background: linear-gradient(135deg, #2f5bb8, #1d3f86);
+}
+
+.ordre-rang {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #2f5bb8, #1d3f86);
+  box-shadow: 0 2px 6px rgba(12, 30, 61, 0.35);
+}
+
+.ordre-nom {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--bleu);
+  line-height: 1.15;
+}
+
+.ordre-etat {
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--gris-texte);
+}
+
+.ordre-choix li.ordre-tuile.a-choisi {
+  border-color: #1f9d55;
+}
+
+.ordre-choix li.ordre-tuile.a-choisi .ordre-etat {
+  color: #1f9d55;
+}
+
+.ordre-choix li.ordre-tuile.moi {
+  background: var(--teinte-rouge);
+  border-color: var(--rouge);
+}
+
+.ordre-choix li.ordre-tuile.tour-actuel {
+  background: linear-gradient(135deg, #fff3c4, #ffd873);
+  border-color: #e0a600;
+  box-shadow: 0 0 0 3px rgba(224, 166, 0, 0.25), 0 6px 16px rgba(224, 166, 0, 0.4);
+  animation: pouls-doux 2s ease-in-out infinite;
+}
+
+.ordre-choix li.ordre-tuile.tour-actuel .ordre-nom,
+.ordre-choix li.ordre-tuile.tour-actuel .ordre-etat {
+  color: #5c3b00;
+}
+
+.ordre-choix li.ordre-tuile.tour-actuel .ordre-rang {
+  background: linear-gradient(135deg, #e0a600, #b87f00);
+}

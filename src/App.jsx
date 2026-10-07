@@ -2749,19 +2749,30 @@ function Pool({ session }) {
             <div className="pool-bloc">
               <h3 className="pool-titre"><span className="pool-titre-icone">🎯</span>Ordre de choix</h3>
               <ol className="ordre-choix">
-                {match.ordre_choix.map((uid) => (
-                  <li
-                    key={uid}
-                    className={
-                      (uid === session.user.id ? 'moi ' : '') +
-                      (uid === prochainAChoisir ? 'tour-actuel' : '')
-                    }
-                  >
-                    <Pastille userId={uid} nom={NOMS[uid]} taille={20} />
-                    {NOMS[uid] || 'Inconnu'}
-                    {uid === prochainAChoisir ? ' 👈' : ''}
-                  </li>
-                ))}
+                {match.ordre_choix.map((uid, i) => {
+                  const aChoisi = tousLesChoix.some((c) => c.user_id === uid)
+                  return (
+                    <li
+                      key={uid}
+                      className={
+                        'ordre-tuile ' +
+                        (uid === session.user.id ? 'moi ' : '') +
+                        (uid === prochainAChoisir ? 'tour-actuel ' : '') +
+                        (aChoisi ? 'a-choisi' : '')
+                      }
+                    >
+                      <span className="ordre-rang">{i + 1}</span>
+                      <Pastille userId={uid} nom={NOMS[uid]} taille={34} />
+                      <span className="ordre-nom">
+                        {NOMS[uid] || 'Inconnu'}
+                        {uid === session.user.id ? ' (toi)' : ''}
+                      </span>
+                      <span className="ordre-etat">
+                        {aChoisi ? '✅ Choisi' : uid === prochainAChoisir ? '⏳ Son tour' : 'En attente'}
+                      </span>
+                    </li>
+                  )
+                })}
               </ol>
               {session.user.id === ADMIN_ID && !jumbotronMontreLePointage && (
                 <div className="rappels-admin">
