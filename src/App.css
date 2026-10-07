@@ -2401,3 +2401,12 @@ details[open] > .historique-entete .historique-chevron {
   border: 2px solid #d40000;
   font-weight: 700;
 }
+
+/* Notifications activées : on arrête tout effet lumineux (sauf le switch ON) */
+.regle-alerte.calme {
+  animation: none;
+  box-shadow: none;
+  text-shadow: none;
+  border-color: #6b6b00;
+  color: #d9c800;
+}

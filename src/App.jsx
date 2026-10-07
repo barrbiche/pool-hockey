@@ -2111,17 +2111,17 @@ function Pool({ session }) {
 
       {onglet === 'reglements' && (
         <section className="carte">
-          <p className="regle-alerte">
+          <p className={notifsActivees ? 'regle-alerte calme' : 'regle-alerte'}>
             ⚠️ Les notifications sont obligatoires pour une bonne communication dans le pool ⚠️
           </p>
-          {clignoteAide && (
+          {clignoteAide && !notifsActivees && (
             <p className="aide-invite">👇 Choisis ton téléphone et suis les étapes, puis reviens appuyer sur le switch en haut</p>
           )}
           <div className="aide-notifs-boutons">
             <button
               className={
                 (aideNotifs === 'iphone' ? 'bouton-copier aide-actif' : 'bouton-copier') +
-                (clignoteAide ? ' aide-clignote' : '')
+                (clignoteAide && !notifsActivees ? ' aide-clignote' : '')
               }
               onClick={() => choisirAide('iphone')}
             >
@@ -2130,7 +2130,7 @@ function Pool({ session }) {
             <button
               className={
                 (aideNotifs === 'android' ? 'bouton-copier aide-actif' : 'bouton-copier') +
-                (clignoteAide ? ' aide-clignote' : '')
+                (clignoteAide && !notifsActivees ? ' aide-clignote' : '')
               }
               onClick={() => choisirAide('android')}
             >
