@@ -1003,6 +1003,10 @@ function Squelette({ lignes = 4, hauteur = 46 }) {
 // Messenger / Facebook / Instagram ouvrent les liens dans un mini-navigateur
 // où les notifications et l'installation ne fonctionnent pas.
 const URL_SITE = 'https://pool-hockey.netlify.app'
+// Notifications seulement sur téléphone/tablette : rien à afficher sur ordinateur
+const EST_MOBILE =
+  /android|iphone|ipad|ipod/i.test(navigator.userAgent) ||
+  (/macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
 function estNavigateurIntegre() {
   return /FBAN|FBAV|FB_IAB|Messenger|Instagram|Snapchat|Line\//i.test(navigator.userAgent)
 }
@@ -1912,6 +1916,7 @@ function Pool({ session }) {
               📣 Annonce
             </button>
           )}
+          {EST_MOBILE && (
           <div className="notif-switch-groupe">
             <button
               type="button"
@@ -1927,6 +1932,7 @@ function Pool({ session }) {
               </span>
             </button>
           </div>
+          )}
           <button
             className="bouton-lien"
             onClick={toutMettreAJour}
@@ -1941,7 +1947,7 @@ function Pool({ session }) {
         </div>
       </header>
 
-      {verifNotifsFaite && !notifsActivees && !estNavigateurIntegre() && (
+      {EST_MOBILE && verifNotifsFaite && !notifsActivees && !estNavigateurIntegre() && (
         <div className="bandeau-notifs">
           <span>🔕 Tes notifications sont désactivées</span>
           <button className="bouton-copier" onClick={demarrerActivation}>
@@ -2111,7 +2117,7 @@ function Pool({ session }) {
 
       {onglet === 'reglements' && (
         <section className="carte">
-          {!notifsActivees && (
+          {EST_MOBILE && !notifsActivees && (
             <>
           <p className="regle-alerte">
             ⚠️ Les notifications sont obligatoires pour une bonne communication dans le pool ⚠️
