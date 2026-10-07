@@ -3427,7 +3427,7 @@ button:hover:not(:disabled) {
 /* ===== Ordre de choix : 3 tuiles avec étapes ===== */
 .ordre-choix {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(var(--nb, 3), minmax(0, 1fr));
   gap: 10px;
   flex-wrap: nowrap;
 }
@@ -3855,4 +3855,63 @@ button:hover:not(:disabled) {
   text-transform: uppercase;
   color: var(--gris-texte);
   text-align: left;
+}
+
+/* Petit message d'information en haut d'un bloc du Pool */
+.pool-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  text-align: left;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  font-weight: 600;
+  color: var(--bleu);
+  background: color-mix(in srgb, var(--bleu-vif) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bleu-vif) 28%, transparent);
+}
+
+.pool-info-icone {
+  flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+/* 4 participants : tuiles un peu plus compactes pour tenir sur une seule ligne */
+.ordre-choix.nb-4 {
+  gap: 8px;
+}
+
+.ordre-choix.nb-4 li.ordre-tuile {
+  padding: 16px 3px 9px;
+}
+
+.ordre-choix.nb-4 .ordre-nom {
+  font-size: 0.8rem;
+}
+
+.ordre-choix.nb-4 .ordre-etat {
+  font-size: 0.56rem;
+  letter-spacing: 0;
+}
+
+.ordre-choix.nb-4 li.ordre-tuile:not(:last-child)::after {
+  right: -8px;
+  width: 14px;
+  height: 14px;
+  font-size: 0.8rem;
+}
+
+/* Très petit écran : 2 × 2 (on enlève les flèches de fin de ligne) */
+@media (max-width: 340px) {
+  .ordre-choix.nb-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 16px;
+  }
+  .ordre-choix.nb-4 li.ordre-tuile:nth-child(2n)::after {
+    content: none;
+  }
 }

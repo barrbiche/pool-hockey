@@ -3188,7 +3188,17 @@ function Pool({ session }) {
           {match.ordre_choix && (
             <div className="pool-bloc">
               <h3 className="pool-titre"><span className="pool-titre-icone">🎯</span>Ordre de choix</h3>
-              <ol className="ordre-choix">
+              <p className="pool-info">
+                <span className="pool-info-icone">ℹ️</span>
+                <span>
+                  Une fois tes choix faits, tu peux les changer <strong>en tout temps</strong> (ton
+                  joueur et ton pointage deviné), sauf quand le match est commencé.
+                </span>
+              </p>
+              <ol
+                className={'ordre-choix nb-' + match.ordre_choix.length}
+                style={{ '--nb': match.ordre_choix.length }}
+              >
                 {match.ordre_choix.map((uid, i) => {
                   const aChoisi = tousLesChoix.some((c) => c.user_id === uid)
                   return (
