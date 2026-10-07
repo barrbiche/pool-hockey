@@ -638,7 +638,8 @@ function GuideIphone({ ouverte, horsSafari, onFermer }) {
     'Appuie sur le bouton **Partager** (le carré avec une flèche vers le haut ⬆️), en bas de l\'écran.',
     'Descends et appuie sur **« Sur l\'écran d\'accueil »**, puis **Ajouter**.',
     'Ferme Safari et ouvre **Pool de Hockey** avec la nouvelle icône sur ton écran d\'accueil.',
-    'Appuie sur **🔔 Activer** puis **Autoriser**. C\'est fini! 🎉',
+    'Appuie sur **🔔 Activer** puis **Autoriser**. Tu vas recevoir une **notification de test**.',
+    '⚠️ Si tu ne la reçois pas, ça n\'a pas fonctionné : **contacte Eric**. Les notifications sont obligatoires pour une bonne communication.',
   ]
   return (
     <div className="fiche-joueur-fond" onClick={onFermer}>
@@ -648,7 +649,7 @@ function GuideIphone({ ouverte, horsSafari, onFermer }) {
         </button>
         <h3 className="partage-resume-titre">📱 Activer les notifications</h3>
         <p className="partage-resume-astuce">
-          Sur iPhone, Apple demande d'ajouter le site à l'écran d'accueil d'abord. 5 petites étapes :
+          Sur iPhone, Apple demande d'ajouter le site à l'écran d'accueil d'abord. Quelques étapes :
         </p>
         <ol className="guide-etapes">
           {etapes.map((e, i) => (
@@ -1557,6 +1558,15 @@ function Pool({ session }) {
       })
 
       setNotifsActivees(true)
+
+      // Notification de test pour confirmer que ça marche
+      fetch('/.netlify/functions/notif-test', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      }).catch(() => {})
+      setErreur(
+        "✅ Notifications activées! Tu vas recevoir une notification de test. Si tu ne la reçois pas, ça n'a pas fonctionné : contacte Eric (les notifications sont obligatoires pour une bonne communication)."
+      )
     } catch (err) {
       setErreur("Impossible d'activer les notifications: " + err.message)
     }
