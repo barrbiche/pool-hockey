@@ -627,6 +627,44 @@ function AnnonceModal({ ouverte, accessToken, onFermer }) {
   )
 }
 
+// Guide pas-à-pas pour iPhone : Apple interdit à un site de s'ajouter tout
+// seul à l'écran d'accueil, alors on guide la personne.
+function GuideIphone({ ouverte, horsSafari, onFermer }) {
+  if (!ouverte) return null
+  const etapes = [
+    ...(horsSafari
+      ? ['Copie ce lien : **https://pool-hockey.netlify.app**. Ouvre **Safari** (boussole bleue), appuie dans la **barre de recherche en haut**, colle le lien (appui long → Coller) et appuie sur **Aller**.']
+      : []),
+    'Appuie sur le bouton **Partager** (le carré avec une flèche vers le haut ⬆️), en bas de l\'écran.',
+    'Descends et appuie sur **« Sur l\'écran d\'accueil »**, puis **Ajouter**.',
+    'Ferme Safari et ouvre **Pool de Hockey** avec la nouvelle icône sur ton écran d\'accueil.',
+    'Appuie sur **🔔 Activer** puis **Autoriser**. C\'est fini! 🎉',
+  ]
+  return (
+    <div className="fiche-joueur-fond" onClick={onFermer}>
+      <div className="partage-resume-carte" onClick={(e) => e.stopPropagation()}>
+        <button className="fiche-joueur-fermer" onClick={onFermer} aria-label="Fermer">
+          ✕
+        </button>
+        <h3 className="partage-resume-titre">📱 Activer les notifications</h3>
+        <p className="partage-resume-astuce">
+          Sur iPhone, Apple demande d'ajouter le site à l'écran d'accueil d'abord. 5 petites étapes :
+        </p>
+        <ol className="guide-etapes">
+          {etapes.map((e, i) => (
+            <li key={i}>
+              {e.split('**').map((morceau, j) => (j % 2 ? <strong key={j}>{morceau}</strong> : morceau))}
+            </li>
+          ))}
+        </ol>
+        <button className="bouton-copier" onClick={onFermer}>
+          J'ai compris
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // Grande carte avec photo + stats d'un joueur, ouverte en cliquant sur son
 // nom dans Stats CH ou Stats LNH. Les champs optionnels (tours_chapeau,
 // forme, plus_minus, pun...) ne s'affichent que s'ils existent, pour servir
@@ -922,6 +960,20 @@ function Pool({ session }) {
   const [statsEquipe, setStatsEquipe] = useState([])
   const [chargementStats, setChargementStats] = useState(false)
   const [notifsActivees, setNotifsActivees] = useState(false)
+  const [guideIphone, setGuideIphone] = useState(false)
+  const installPrompt = useRef(null)
+  const horsSafariIOS = /FBAN|FBAV|Instagram|Messenger|CriOS|FxiOS|EdgiOS|Line\//i.test(
+    navigator.userAgent
+  )
+
+  useEffect(() => {
+    const capter = (e) => {
+      e.preventDefault()
+      installPrompt.current = e
+    }
+    window.addEventListener('beforeinstallprompt', capter)
+    return () => window.removeEventListener('beforeinstallprompt', capter)
+  }, [])
   const [calendrier, setCalendrier] = useState([])
   const [chargementCalendrier, setChargementCalendrier] = useState(false)
   const [maintenant, setMaintenant] = useState(new Date())
@@ -1439,6 +1491,24 @@ function Pool({ session }) {
     }
   }
 
+  async function desactiverNotifications() {
+    try {
+      const registration = await navigator.serviceWorker.getRegistration('/sw.js')
+      const subscription = await registration?.pushManager.getSubscription()
+      if (subscription) await subscription.unsubscribe()
+
+      const res = await fetch('/.netlify/functions/desactiver-abonnement', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) throw new Error(`Erreur ${res.status}`)
+
+      setNotifsActivees(false)
+    } catch (err) {
+      setErreur("Impossible de désactiver les notifications: " + err.message)
+    }
+  }
+
   async function activerNotifications() {
     try {
       // Détection iOS : Apple exige que le site soit installé sur l'écran
@@ -1449,11 +1519,19 @@ function Pool({ session }) {
         window.navigator.standalone === true
 
       if (estIOS && !estStandalone) {
-        setErreur(
-          "📱 Sur iPhone, ajoute d'abord le site à l'écran d'accueil (bouton Partager → " +
-            "\"Sur l'écran d'accueil\"), puis ouvre l'app depuis l'icône et réessaie."
-        )
+        setGuideIphone(true)
         return
+      }
+
+      // Android / Chrome : proposer d'installer l'app d'abord (1 seul clic)
+      if (!estStandalone && installPrompt.current) {
+        try {
+          installPrompt.current.prompt()
+          await installPrompt.current.userChoice
+        } catch {
+          // pas grave, on continue avec les notifications
+        }
+        installPrompt.current = null
       }
 
       const permission = await Notification.requestPermission()
@@ -1597,6 +1675,11 @@ function Pool({ session }) {
           onFermer={() => setAnnonceOuverte(false)}
         />
       )}
+      <GuideIphone
+        ouverte={guideIphone}
+        horsSafari={horsSafariIOS}
+        onFermer={() => setGuideIphone(false)}
+      />
       <header className="entete">
         <div className="entete-titre">
           <Crest taille={36} />
@@ -1609,11 +1692,12 @@ function Pool({ session }) {
               📣 Annonce
             </button>
           )}
-          {!notifsActivees && (
-            <button className="bouton-lien" onClick={activerNotifications}>
-              🔔 Activer
-            </button>
-          )}
+          <button
+            className="bouton-lien"
+            onClick={notifsActivees ? desactiverNotifications : activerNotifications}
+          >
+            {notifsActivees ? '🔕 Désactiver' : '🔔 Activer'}
+          </button>
           <button
             className="bouton-lien"
             onClick={toutMettreAJour}
