@@ -8,8 +8,8 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY
 )
 
-// Envoie une notification à tout le monde avec le texte écrit par Eric.
-// Appel : POST { texte } avec l'en-tête Authorization: Bearer <jeton de connexion>.
+// Envoie une notification (à tout le monde ou à une personne) avec le texte écrit par Eric.
+// Appel : POST { texte, destinataire ('tous' ou l'id d'une personne) } avec l'en-tête Authorization: Bearer <jeton de connexion>.
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'POST seulement' }) }
@@ -40,8 +40,8 @@ export async function handler(event) {
   try {
     const entete = event.headers?.authorization || event.headers?.Authorization || ''
     const token = entete.startsWith('Bearer ') ? entete.slice(7) : ''
-    const { texte } = JSON.parse(event.body || '{}')
-    const r = await traiterAnnonce({ supabase, token, texte, envoyerPush })
+    const { texte, destinataire } = JSON.parse(event.body || '{}')
+    const r = await traiterAnnonce({ supabase, token, texte, destinataire, envoyerPush })
     const { statut, ...corps } = r
     return {
       statusCode: statut,
