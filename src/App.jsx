@@ -1121,6 +1121,7 @@ function Pool({ session }) {
     }
   })
   const [aideNotifs, setAideNotifs] = useState('')
+  const [menuOuvert, setMenuOuvert] = useState(false)
   const [clignoteAide, setClignoteAide] = useState(false)
   const [aideVue, setAideVue] = useState(() => {
     try {
@@ -1905,45 +1906,73 @@ function Pool({ session }) {
         onFermer={() => setGuideIphone(false)}
       />
       <header className="entete">
-        <div className="entete-titre">
-          <Crest taille={36} />
-          <h1>Pool de Hockey</h1>
-        </div>
-        <div className="entete-actions">
-          <BoutonTheme />
-          {session.user.id === ADMIN_ID && (
-            <button className="bouton-lien" onClick={() => setAnnonceOuverte(true)}>
-              📣 Annonce
-            </button>
-          )}
-          {EST_MOBILE && (
-          <div className="notif-switch-groupe">
+        <div className="entete-haut">
+          <div className="entete-titre">
+            <Crest taille={36} />
+            <h1>Pool de Hockey</h1>
+          </div>
+          <div className="menu-wrap">
             <button
               type="button"
-              role="switch"
-              aria-checked={notifsActivees}
-              aria-label="Notifications"
-              className={notifsActivees ? 'notif-switch on' : 'notif-switch off'}
-              onClick={notifsActivees ? desactiverNotifications : demarrerActivation}
+              className="menu-bouton"
+              aria-label="Menu"
+              aria-expanded={menuOuvert}
+              onClick={() => setMenuOuvert(!menuOuvert)}
             >
-              <span className="notif-switch-texte">{notifsActivees ? 'ON' : 'OFF'}</span>
-              <span className="notif-switch-bouton" aria-hidden="true">
-                {notifsActivees ? '🔔' : '🔕'}
-              </span>
+              {menuOuvert ? '✕' : '☰'}
             </button>
+            {menuOuvert && (
+              <>
+                <div className="menu-fond" onClick={() => setMenuOuvert(false)} />
+                <div className="menu-liste" role="menu">
+                  {session.user.id === ADMIN_ID && (
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setMenuOuvert(false)
+                        setAnnonceOuverte(true)
+                      }}
+                    >
+                      📣 Annonce
+                    </button>
+                  )}
+                  <button role="menuitem" onClick={() => supabase.auth.signOut()}>
+                    🚪 Déconnexion
+                  </button>
+                </div>
+              </>
+            )}
           </div>
+        </div>
+
+        <div className="entete-dock">
+          {EST_MOBILE && (
+            <div className="notif-switch-groupe">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={notifsActivees}
+                aria-label="Notifications"
+                className={notifsActivees ? 'notif-switch on' : 'notif-switch off'}
+                onClick={notifsActivees ? desactiverNotifications : demarrerActivation}
+              >
+                <span className="notif-switch-texte">{notifsActivees ? 'ON' : 'OFF'}</span>
+                <span className="notif-switch-bouton" aria-hidden="true">
+                  {notifsActivees ? '🔔' : '🔕'}
+                </span>
+              </button>
+            </div>
           )}
           <button
-            className="bouton-lien"
+            className={majGlobaleEnCours ? 'dock-maj en-cours' : 'dock-maj'}
             onClick={toutMettreAJour}
             disabled={majGlobaleEnCours}
             title="Calcule les points du match (si terminé) et recharge tout le site avec les dernières infos de la NHL"
           >
-            {majGlobaleEnCours ? '⏳ Mise à jour...' : '🔄 Bouton à Pa!'}
+            <span className="dock-maj-icone">🔄</span>
+            {majGlobaleEnCours ? 'Mise à jour...' : 'Bouton à Pa!'}
           </button>
-          <button className="bouton-lien" onClick={() => supabase.auth.signOut()}>
-            Déconnexion
-          </button>
+          <BoutonTheme />
         </div>
       </header>
 

@@ -2410,3 +2410,143 @@ details[open] > .historique-entete .historique-chevron {
   border-color: #6b6b00;
   color: #d9c800;
 }
+
+
+/* ===== En-tête rangé : titre + menu, puis un "dock" encadré ===== */
+.entete {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 12px;
+}
+
+.entete-haut {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.menu-wrap {
+  position: relative;
+}
+
+.menu-bouton {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff;
+  font-size: 1.15rem;
+  box-shadow: none !important;
+}
+
+.menu-fond {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.menu-liste {
+  position: absolute;
+  right: 0;
+  top: 46px;
+  z-index: 41;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 12px;
+  background: #0c1e3d;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.menu-liste button {
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent !important;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  box-shadow: none !important;
+}
+
+.menu-liste button:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.entete-dock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.entete-dock .bouton-theme {
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1) !important;
+  padding: 8px 10px;
+  height: 40px;
+}
+
+.dock-maj {
+  flex: 1 1 auto;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: none !important;
+}
+
+.dock-maj-icone {
+  display: inline-block;
+}
+
+.dock-maj.en-cours .dock-maj-icone {
+  animation: dock-tourne 0.8s linear infinite;
+}
+
+@keyframes dock-tourne {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock-maj.en-cours .dock-maj-icone {
+    animation: none;
+  }
+}
+
+.entete-titre svg, .entete-titre img { flex-shrink: 0; }
+.entete-titre { flex: 1 1 auto; }
+.menu-wrap { flex: 0 0 auto; }
+.dock-maj { min-width: 0; white-space: nowrap; padding: 0 8px; }
+
+@media (max-width: 360px) {
+  .entete h1 { font-size: 1.15rem; }
+  .dock-maj { font-size: 0.78rem; gap: 4px; }
+  .notif-switch { width: 58px; }
+  .notif-switch.on .notif-switch-bouton { left: 28px; }
+}
+
+@media (max-width: 360px) {
+  .entete-dock { gap: 6px; padding: 6px; }
+  .entete-dock .bouton-theme { padding: 0; width: 38px; justify-content: center; }
+}
