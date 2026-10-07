@@ -26,6 +26,9 @@ const ORDRE_BASE = [
   'b5c5d9e5-1c91-4da8-ab5e-adcc40057090', // Eric
 ]
 
+// Seul compte qui voit le bouton d'annonce (le serveur revérifie de son côté).
+const ADMIN_ID = 'b5c5d9e5-1c91-4da8-ab5e-adcc40057090' // Eric
+
 const NOMS = {
   '58220e78-2226-4983-a026-3abefc8431a7': 'Mike',
   'b5c5d9e5-1c91-4da8-ab5e-adcc40057090': 'Eric',
@@ -241,6 +244,68 @@ function PartageResume({ texte, onFermer }) {
           {copie ? '✓ Copié dans le presse-papier' : '📋 Copier'}
         </button>
         <p className="partage-resume-astuce">Colle ça dans votre groupe de texto!</p>
+      </div>
+    </div>
+  )
+}
+
+// Fenêtre d'annonce (réservée à Eric) : écrire un texte, l'envoyer en
+// notification à tout le monde.
+function AnnonceModal({ ouverte, accessToken, onFermer }) {
+  const [texte, setTexte] = useState('')
+  const [enCours, setEnCours] = useState(false)
+  const [resultat, setResultat] = useState('')
+
+  if (!ouverte) return null
+
+  async function envoyer() {
+    setEnCours(true)
+    setResultat('')
+    try {
+      const res = await fetch('/.netlify/functions/annonce', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ texte }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setResultat(`❌ ${data.erreur || data.error || `Erreur ${res.status}`}`)
+      } else {
+        const manquants = data.pasRecus?.length
+          ? ` (pas reçu : ${data.pasRecus.join(', ')}, notifications pas activées)`
+          : ''
+        setResultat(`✓ Envoyé à ${data.envoyes} personne(s)${manquants}`)
+        setTexte('')
+      }
+    } catch (err) {
+      setResultat(`❌ ${err.message}`)
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  return (
+    <div className="fiche-joueur-fond" onClick={onFermer}>
+      <div className="partage-resume-carte" onClick={(e) => e.stopPropagation()}>
+        <button className="fiche-joueur-fermer" onClick={onFermer} aria-label="Fermer">
+          ✕
+        </button>
+        <h3 className="partage-resume-titre">📣 Annonce à tout le monde</h3>
+        <textarea
+          className="partage-resume-zone"
+          placeholder="Écris ton message ici..."
+          maxLength={300}
+          value={texte}
+          onChange={(e) => setTexte(e.target.value)}
+        />
+        <button
+          className="bouton-copier"
+          onClick={envoyer}
+          disabled={enCours || texte.trim().length === 0}
+        >
+          {enCours ? '⏳ Envoi...' : '📤 Envoyer'}
+        </button>
+        {resultat && <p className="partage-resume-astuce">{resultat}</p>}
       </div>
     </div>
   )
@@ -556,6 +621,7 @@ function Pool({ session }) {
   const [triClassementNhl, setTriClassementNhl] = useState(null)
   const [ficheJoueur, setFicheJoueur] = useState(null)
   const [resumePartage, setResumePartage] = useState(null)
+  const [annonceOuverte, setAnnonceOuverte] = useState(false)
   const [celebration, setCelebration] = useState(false)
   const celebrationVictoireFaite = useRef(false)
 
@@ -1181,6 +1247,13 @@ function Pool({ session }) {
       {celebration && <Confettis />}
       <FicheJoueur joueur={ficheJoueur} onFermer={() => setFicheJoueur(null)} />
       <PartageResume texte={resumePartage} onFermer={() => setResumePartage(null)} />
+      {session.user.id === ADMIN_ID && (
+        <AnnonceModal
+          ouverte={annonceOuverte}
+          accessToken={session.access_token}
+          onFermer={() => setAnnonceOuverte(false)}
+        />
+      )}
       <header className="entete">
         <div className="entete-titre">
           <Crest taille={36} />
@@ -1188,6 +1261,11 @@ function Pool({ session }) {
         </div>
         <div className="entete-actions">
           <BoutonTheme />
+          {session.user.id === ADMIN_ID && (
+            <button className="bouton-lien" onClick={() => setAnnonceOuverte(true)}>
+              📣 Annonce
+            </button>
+          )}
           {!notifsActivees && (
             <button className="bouton-lien" onClick={activerNotifications}>
               🔔 Activer
