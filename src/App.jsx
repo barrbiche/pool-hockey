@@ -1763,16 +1763,6 @@ function Pool({ session }) {
     }
   }
 
-  useEffect(() => {
-    if (verifNotifsFaite && !notifsActivees && !rappelNotifsFerme) {
-      try {
-        localStorage.setItem('rappelNotifsVu', '1')
-      } catch {
-        // pas grave
-      }
-    }
-  }, [verifNotifsFaite, notifsActivees, rappelNotifsFerme])
-
   async function activerNotifications() {
     try {
       // Détection iOS : Apple exige que le site soit installé sur l'écran
