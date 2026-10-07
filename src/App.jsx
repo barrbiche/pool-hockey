@@ -700,6 +700,40 @@ function GuideIphone({ ouverte, horsSafari, onFermer }) {
   )
 }
 
+// Rappel plein écran : tant que les notifications ne sont pas activées, on
+// guide la personne dès l'ouverture du site (elle peut dire « plus tard »).
+function RappelNotifications({ ouvert, onActiver, onGuideIphone, onPlusTard }) {
+  if (!ouvert) return null
+  const estIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+  const estStandalone =
+    window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+  const besoinGuide = estIOS && !estStandalone
+  return (
+    <div className="fiche-joueur-fond">
+      <div className="partage-resume-carte">
+        <div className="guide-icone" style={{ textAlign: 'center' }}>
+          🔔
+        </div>
+        <h3 className="partage-resume-titre" style={{ textAlign: 'center' }}>
+          Active tes notifications
+        </h3>
+        <p className="regle-alerte">Les notifications sont obligatoires pour une bonne communication dans le pool</p>
+        <p className="guide-etape">
+          {besoinGuide
+            ? "Sur iPhone, ça prend 1 minute. On te guide étape par étape."
+            : "Un seul clic, puis appuie sur « Autoriser »."}
+        </p>
+        <button className="bouton-copier" onClick={besoinGuide ? onGuideIphone : onActiver}>
+          {besoinGuide ? '👉 Commencer (étapes guidées)' : '🔔 Activer maintenant'}
+        </button>
+        <button className="bouton-lien guide-retour" onClick={onPlusTard}>
+          Plus tard
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // Après l'activation : on demande si la notification de test est arrivée.
 function ConfirmationTest({ etat, onReponse }) {
   if (!etat) return null
@@ -1041,6 +1075,8 @@ function Pool({ session }) {
   const [notifsActivees, setNotifsActivees] = useState(false)
   const [guideIphone, setGuideIphone] = useState(false)
   const [confirmTest, setConfirmTest] = useState('')
+  const [verifNotifsFaite, setVerifNotifsFaite] = useState(false)
+  const [rappelNotifsFerme, setRappelNotifsFerme] = useState(false)
   const installPrompt = useRef(null)
   const horsSafariIOS = /FBAN|FBAV|Instagram|Messenger|CriOS|FxiOS|EdgiOS|Line\//i.test(
     navigator.userAgent
@@ -1272,7 +1308,7 @@ function Pool({ session }) {
   }, [])
 
   useEffect(() => {
-    verifierAbonnementExistant()
+    verifierAbonnementExistant().finally(() => setVerifNotifsFaite(true))
   }, [])
 
   // L'alignement vient de l'API du NHL via notre fonction. Quand elle est
@@ -1758,7 +1794,19 @@ function Pool({ session }) {
   if (chargement) {
     return (
       <div className="conteneur">
-        <ConfirmationTest
+        <RappelNotifications
+        ouvert={verifNotifsFaite && !notifsActivees && !rappelNotifsFerme && !guideIphone && !confirmTest}
+        onActiver={() => {
+          setRappelNotifsFerme(true)
+          activerNotifications()
+        }}
+        onGuideIphone={() => {
+          setRappelNotifsFerme(true)
+          setGuideIphone(true)
+        }}
+        onPlusTard={() => setRappelNotifsFerme(true)}
+      />
+      <ConfirmationTest
         etat={confirmTest}
         onReponse={(r) => setConfirmTest(r === 'fin' ? '' : r)}
       />
