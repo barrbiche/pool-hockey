@@ -2075,12 +2075,14 @@ details[open] > .historique-entete .historique-chevron {
   --serie-pere: #c9971f;
   --serie-mike: #2f5bb8;
   --serie-eric: #ce0e2d;
+  --serie-sylvain: #1f9d55;
 }
 
 :root[data-theme='dark'] {
   --serie-pere: #b88a17;
   --serie-mike: #5a86e0;
   --serie-eric: #e8374f;
+  --serie-sylvain: #2fbf71;
 }
 
 .courbe-classement,
@@ -3146,7 +3148,7 @@ button:hover:not(:disabled) {
 
 .bareme {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 
@@ -3562,4 +3564,285 @@ button:hover:not(:disabled) {
     animation: none;
     box-shadow: 0 0 12px #39ff7a;
   }
+}
+
+/* ===== Calendrier : boutons flottants (Prochain match / Dernier joué) ===== */
+.cal-flottants {
+  position: fixed;
+  right: calc(10px + env(safe-area-inset-right, 0px));
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cal-flottant {
+  width: 60px;
+  padding: 9px 4px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(12, 30, 61, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.cal-flottant-prochain {
+  background: linear-gradient(135deg, #d3162f 0%, #8c1226 100%);
+}
+
+.cal-flottant-dernier {
+  background: linear-gradient(135deg, #2f5bb8 0%, #1d3f86 100%);
+}
+
+.cal-flottant-icone {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.cal-flottant-texte {
+  font-size: 0.6rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+/* Éclat sur la tuile atteinte (la valeur finale reste celle de la tuile) */
+.liste-calendrier li.cal-tuile {
+  --flash: var(--rouge);
+}
+
+.liste-calendrier li.cal-tuile#cal-dernier {
+  --flash: var(--bleu-vif);
+}
+
+.liste-calendrier li.cal-tuile.cal-flash {
+  animation: cal-flash 1.8s ease-out;
+}
+
+@keyframes cal-flash {
+  30% {
+    transform: scale(1.025);
+    box-shadow:
+      0 0 0 6px color-mix(in srgb, var(--flash) 45%, transparent),
+      0 0 28px color-mix(in srgb, var(--flash) 65%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liste-calendrier li.cal-tuile.cal-flash {
+    animation: none;
+    outline: 3px solid var(--flash);
+    outline-offset: 2px;
+  }
+}
+
+/* ===== Icônes de téléphone (iPhone / Android) dans le règlement ===== */
+.icone-appareil {
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: -0.28em;
+  margin-right: 0.3em;
+}
+
+/* ===== Pool : deviner le pointage (+2 pts) ===== */
+.pred-points {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: #fff;
+  background: linear-gradient(135deg, #d3162f, #8c1226);
+  box-shadow: 0 3px 8px rgba(140, 18, 38, 0.35);
+}
+
+.pred-note {
+  margin: 0 0 12px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.pred-affiche {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border-radius: 16px;
+  background: linear-gradient(130deg, #0c1e3d 0%, #16305c 62%, #8c1226 150%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 6px 18px rgba(12, 30, 61, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.pred-equipe {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: #fff;
+}
+
+.pred-abbrev {
+  font-family: var(--font-titre);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.pred-tiret {
+  font-family: var(--font-titre);
+  font-size: 1.8rem;
+  color: rgba(255, 255, 255, 0.7);
+  padding-top: 64px;
+}
+
+.pred-compteur {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pred-btn {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 12px;
+  font-size: 1.4rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2f5bb8 0%, #1d3f86 100%);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.pred-valeur {
+  min-width: 40px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  text-align: center;
+  font-family: var(--font-titre);
+  font-size: 2.2rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #ffe28a;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 0 10px rgba(255, 226, 138, 0.55);
+}
+
+.pred-valeur.vide {
+  color: rgba(255, 255, 255, 0.45);
+  text-shadow: none;
+}
+
+.pred-enregistrer {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 16px;
+  font-size: 0.95rem;
+}
+
+.pred-message {
+  margin: 8px 0 0;
+  font-weight: 800;
+  color: #15753f;
+}
+
+.pred-erreur {
+  margin: 8px 0 0;
+  font-weight: 700;
+  color: var(--rouge);
+}
+
+:root[data-theme='dark'] .pred-message {
+  color: #4cd98a;
+}
+
+.pred-qui {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.pred-qui-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 6px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--gris-texte);
+  background: color-mix(in srgb, var(--bleu-vif) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bleu-vif) 18%, transparent);
+}
+
+.pred-qui-item.fait {
+  color: var(--bleu);
+  border-color: color-mix(in srgb, #1f9d55 55%, transparent);
+  background: color-mix(in srgb, #1f9d55 14%, transparent);
+}
+
+.pred-liste {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+
+.pred-ligne {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--bleu-vif) 18%, transparent);
+}
+
+.pred-ligne.vide {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.pred-nom {
+  font-weight: 700;
+  color: var(--bleu);
+}
+
+.pred-score {
+  margin-left: auto;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--bleu);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Petit badge « 🎯 +2 » dans l'historique quand le pointage deviné était exact */
+.bonus-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #d3162f, #8c1226);
+  vertical-align: middle;
 }

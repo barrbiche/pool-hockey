@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from './lib/supabase'
 import Login from './Login'
 import Crest from './Crest'
@@ -8,7 +9,93 @@ import { IconeFeu, IconeGlace, IconePlasteur } from './Icones'
 import SelecteurJoueur from './SelecteurJoueur'
 import Pastille from './Pastille'
 import BoutonTheme from './Theme'
+// Participants, ordre de base et rotation : une seule liste partagée avec les
+// fonctions Netlify (netlify/functions/_participants.js).
+import {
+  PARTICIPANTS,
+  ORDRE_BASE,
+  NOMS,
+  ADMIN_ID,
+  ordreChoixPourMatch,
+  completerOrdre,
+} from '../netlify/functions/_participants.js'
 import './App.css'
+
+// Texte des délais de choix du règlement : 30 min d'écart entre chaque position
+// (3 participants : 1h30 / 1h / 30 min; 4 participants : 2h / 1h30 / 1h / 30 min).
+function formaterDelaiChoix(minutes) {
+  if (minutes < 60) return `${minutes} min`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
+}
+
+function texteDelaisChoix() {
+  const n = ORDRE_BASE.length
+  return ORDRE_BASE.map((_, i) => {
+    const rang = i === 0 ? '1er' : `${i + 1}e`
+    return `le ${rang} choix doit être fait ${formaterDelaiChoix((n - i) * 30)} avant le match`
+  })
+    .join(', ')
+    .replace(/, ([^,]*)$/, ' et $1')
+}
+
+// Calendrier : défile jusqu'à une tuile de match et la fait briller un instant.
+// `ouvrirJoues` déplie d'abord la section « Matchs joués » (repliée par défaut).
+function allerAuMatch(id, ouvrirJoues) {
+  if (ouvrirJoues) {
+    const section = document.getElementById('cal-joues')
+    if (section) section.open = true
+  }
+  requestAnimationFrame(() => {
+    const el = document.getElementById(id)
+    if (!el) return
+    const reduit = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView({ behavior: reduit ? 'auto' : 'smooth', block: 'center' })
+    el.classList.remove('cal-flash')
+    void el.offsetWidth
+    el.classList.add('cal-flash')
+    setTimeout(() => el.classList.remove('cal-flash'), 2000)
+  })
+}
+
+// Icônes de téléphone génériques (dessinées ici) pour distinguer les
+// consignes iPhone et Android : encoche en pilule vs trou de caméra.
+function IconeAppareil({ type }) {
+  return (
+    <svg
+      className="icone-appareil"
+      viewBox="0 0 24 24"
+      width="1.3em"
+      height="1.3em"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect
+        x="5.5"
+        y="1.8"
+        width="13"
+        height="20.4"
+        rx={type === 'iphone' ? 3.4 : 2.4}
+        fill="currentColor"
+        fillOpacity="0.16"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      {type === 'iphone' ? (
+        <>
+          <rect x="9.6" y="4.3" width="4.8" height="1.5" rx="0.75" fill="currentColor" />
+          <rect x="9.8" y="19" width="4.4" height="1" rx="0.5" fill="currentColor" />
+        </>
+      ) : (
+        <>
+          <circle cx="12" cy="5.2" r="0.95" fill="currentColor" />
+          <rect x="10.4" y="19" width="3.2" height="1" rx="0.5" fill="currentColor" />
+        </>
+      )}
+    </svg>
+  )
+}
 
 function saisonEnCours(date = new Date()) {
   const mois = date.getUTCMonth()
@@ -17,28 +104,6 @@ function saisonEnCours(date = new Date()) {
     libelle: `${anneeDebut}-${anneeDebut + 1}`,
     debutSaison: new Date(Date.UTC(anneeDebut, 6, 1)), // 1er juillet
   }
-}
-
-// Ordre de base (match 1). Rotation ensuite : le 1er tombe dernier chaque match.
-const ORDRE_BASE = [
-  '0918539e-788e-4ed9-9c84-b8f39b83f05c', // Père
-  '58220e78-2226-4983-a026-3abefc8431a7', // Mike (frère)
-  'b5c5d9e5-1c91-4da8-ab5e-adcc40057090', // Eric
-]
-
-// Seul compte qui voit le bouton d'annonce (le serveur revérifie de son côté).
-const ADMIN_ID = 'b5c5d9e5-1c91-4da8-ab5e-adcc40057090' // Eric
-
-const NOMS = {
-  '58220e78-2226-4983-a026-3abefc8431a7': 'Mike',
-  'b5c5d9e5-1c91-4da8-ab5e-adcc40057090': 'Eric',
-  '0918539e-788e-4ed9-9c84-b8f39b83f05c': 'Père',
-}
-
-function ordreChoixPourMatch(numeroMatch) {
-  // numeroMatch commence à 1. Rotation gauche à chaque match.
-  const decalage = (numeroMatch - 1) % 3
-  return [...ORDRE_BASE.slice(decalage), ...ORDRE_BASE.slice(0, decalage)]
 }
 
 const VAPID_PUBLIC_KEY =
@@ -225,14 +290,28 @@ function calculerTrophees(historique) {
     })
   }
 
-  // 💥 Meilleur match (plus de points en un match avec un seul joueur)
-  const meilleur = [...historique].sort((a, b) => b.points - a.points)[0]
-  if (meilleur && meilleur.points > 0) {
+  // 🎯 Devin du pool (le plus de pointages devinés exactement)
+  const devins = {}
+  for (const r of historique) if ((r.bonus || 0) > 0) devins[r.user_id] = (devins[r.user_id] || 0) + 1
+  const devin = meilleurs(devins)
+  if (devin) {
+    trophees.push({
+      icone: '🎯',
+      titre: 'Devin du pool',
+      gagnant: noms(devin.uids),
+      detail: `${devin.max} pointage${devin.max > 1 ? 's' : ''} exact${devin.max > 1 ? 's' : ''}`,
+    })
+  }
+
+  // 💥 Meilleur match (plus de points en un match avec un seul joueur, sans le bonus du pointage deviné)
+  const pointsJoueur = (r) => r.points - (r.bonus || 0)
+  const meilleur = [...historique].sort((a, b) => pointsJoueur(b) - pointsJoueur(a))[0]
+  if (meilleur && pointsJoueur(meilleur) > 0) {
     trophees.push({
       icone: '💥',
       titre: 'Meilleur match',
       gagnant: NOMS[meilleur.user_id] || 'Inconnu',
-      detail: `${meilleur.points} pts avec ${meilleur.joueurs?.nom || '?'}`,
+      detail: `${pointsJoueur(meilleur)} pts avec ${meilleur.joueurs?.nom || '?'}`,
     })
   }
 
@@ -299,11 +378,9 @@ function calculerTrophees(historique) {
   return trophees
 }
 
-const VARIABLE_COULEUR = {
-  '0918539e-788e-4ed9-9c84-b8f39b83f05c': 'var(--serie-pere)',
-  '58220e78-2226-4983-a026-3abefc8431a7': 'var(--serie-mike)',
-  'b5c5d9e5-1c91-4da8-ab5e-adcc40057090': 'var(--serie-eric)',
-}
+const VARIABLE_COULEUR = Object.fromEntries(
+  PARTICIPANTS.map((p) => [p.id, `var(--serie-${p.serie})`])
+)
 
 // Courbe des points cumulés. SVG maison, sans bibliothèque. Toucher/survoler
 // une colonne affiche le détail du match; une vue en tableau est disponible.
@@ -506,7 +583,7 @@ function genererResumeClassement(classement, dernierMatch) {
     const lignesChoix = dernierMatch.choix
       .slice()
       .sort((a, b) => b.points - a.points)
-      .map((c) => `• ${NOMS[c.user_id] || 'Inconnu'} → ${c.joueurs?.nom || '?'} (${c.points} pts)`)
+      .map((c) => `• ${NOMS[c.user_id] || 'Inconnu'} → ${c.joueurs?.nom || '?'} (${c.points} pts${c.bonus > 0 ? `, dont 🎯 +${c.bonus}` : ''})`)
     texte += `\n\nDernier match : vs ${dernierMatch.adversaire}${dateTexte ? ` (${dateTexte})` : ''}\n${lignesChoix.join('\n')}`
   }
 
@@ -1189,6 +1266,220 @@ export default function App() {
   return <Pool session={session} />
 }
 
+// Petit compteur − / + pour un pointage deviné (0 à 20). Vide au départ.
+function CompteurPointage({ valeur, onChange, etiquette }) {
+  return (
+    <div className="pred-compteur">
+      <button
+        type="button"
+        className="pred-btn"
+        onClick={() => onChange(Math.max(0, (valeur ?? 0) - 1))}
+        disabled={valeur === null || valeur <= 0}
+        aria-label={`Un but de moins pour ${etiquette}`}
+      >
+        −
+      </button>
+      <span className={valeur === null ? 'pred-valeur vide' : 'pred-valeur'}>
+        {valeur === null ? '–' : valeur}
+      </span>
+      <button
+        type="button"
+        className="pred-btn"
+        onClick={() => onChange(valeur === null ? 0 : Math.min(20, valeur + 1))}
+        disabled={valeur !== null && valeur >= 20}
+        aria-label={`Un but de plus pour ${etiquette}`}
+      >
+        +
+      </button>
+    </div>
+  )
+}
+
+// Pronostic : deviner le pointage final du match (+2 points si exact, prolongation
+// et fusillade incluses). Modifiable jusqu'au début du match; les pronostics des
+// autres ne s'affichent qu'une fois le match commencé (pour qu'on ne copie pas).
+function PronosticPointage({ session, match, ferme }) {
+  const [etat, setEtat] = useState(null)
+  const [mtl, setMtl] = useState(null)
+  const [adv, setAdv] = useState(null)
+  const [envoi, setEnvoi] = useState(false)
+  const [message, setMessage] = useState('')
+  const [erreur, setErreur] = useState('')
+  const [indisponible, setIndisponible] = useState(false)
+  const valeursInitialisees = useRef(null)
+  const matchId = match?.id
+
+  async function charger() {
+    try {
+      const res = await fetch(
+        `/.netlify/functions/prediction?match_id=${encodeURIComponent(matchId)}`,
+        { headers: { Authorization: `Bearer ${session.access_token}` } }
+      )
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.erreur || data.error || 'Erreur')
+      setEtat(data)
+      setIndisponible(false)
+      // Au premier chargement de ce match : on remplit avec mon pointage déjà enregistré
+      if (valeursInitialisees.current !== matchId) {
+        valeursInitialisees.current = matchId
+        if (data.mienne) {
+          setMtl(data.mienne.score_mtl)
+          setAdv(data.mienne.score_adversaire)
+        }
+      }
+    } catch {
+      setIndisponible(true)
+    }
+  }
+
+  useEffect(() => {
+    if (!matchId) return
+    setEtat(null)
+    setMtl(null)
+    setAdv(null)
+    setMessage('')
+    setErreur('')
+    valeursInitialisees.current = null
+    charger()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchId, ferme])
+
+  async function enregistrer() {
+    setEnvoi(true)
+    setMessage('')
+    setErreur('')
+    try {
+      const res = await fetch('/.netlify/functions/prediction', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ match_id: matchId, score_mtl: mtl, score_adversaire: adv }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.erreur || data.error || 'Erreur')
+      setMessage('✅ Pointage enregistré!')
+      await charger()
+    } catch (e) {
+      setErreur(e.message)
+    } finally {
+      setEnvoi(false)
+    }
+  }
+
+  if (!match) return null
+
+  const titre = (
+    <h3 className="pool-titre">
+      <span className="pool-titre-icone">🔮</span>Devine le pointage
+      <span className="pred-points">+2 pts</span>
+    </h3>
+  )
+
+  if (indisponible && !etat) {
+    return (
+      <div className="pool-bloc">
+        {titre}
+        <p className="note-tc pred-note">Le pointage deviné n’est pas disponible pour l’instant.</p>
+      </div>
+    )
+  }
+
+  if (!etat) {
+    return (
+      <div className="pool-bloc">
+        {titre}
+        <p className="note-tc pred-note">Chargement…</p>
+      </div>
+    )
+  }
+
+  const fermeReel = ferme || etat.commence
+  const sauve = etat.mienne
+  const complet = mtl !== null && adv !== null
+  const modifie = !sauve || sauve.score_mtl !== mtl || sauve.score_adversaire !== adv
+
+  if (fermeReel) {
+    return (
+      <div className="pool-bloc">
+        {titre}
+        <p className="note-tc pred-note">🔒 Le match a commencé, les pointages devinés sont fermés.</p>
+        <ul className="pred-liste">
+          {ORDRE_BASE.map((uid) => {
+            const p = uid === session.user.id ? etat.mienne : etat.autres.find((a) => a.user_id === uid)
+            return (
+              <li key={uid} className={p ? 'pred-ligne' : 'pred-ligne vide'}>
+                <Pastille userId={uid} nom={NOMS[uid]} taille={26} />
+                <span className="pred-nom">{NOMS[uid] || 'Inconnu'}</span>
+                <span className="pred-score">
+                  {p
+                    ? `MTL ${p.score_mtl} – ${p.score_adversaire} ${match.adversaire}`
+                    : 'n’a pas deviné'}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    )
+  }
+
+  return (
+    <div className="pool-bloc">
+      {titre}
+      <p className="note-tc pred-note">
+        Trouve le pointage final exact (prolongation et fusillade incluses) et gagne 2 points.
+        Modifiable jusqu’au début du match.
+      </p>
+
+      <div className="pred-affiche">
+        <div className="pred-equipe">
+          <LogoEquipe abbrev="MTL" taille={40} />
+          <span className="pred-abbrev">MTL</span>
+          <CompteurPointage valeur={mtl} onChange={setMtl} etiquette="MTL" />
+        </div>
+        <span className="pred-tiret">–</span>
+        <div className="pred-equipe">
+          <LogoEquipe abbrev={match.adversaire} taille={40} />
+          <span className="pred-abbrev">{match.adversaire}</span>
+          <CompteurPointage valeur={adv} onChange={setAdv} etiquette={match.adversaire} />
+        </div>
+      </div>
+
+      <button
+        type="button"
+        className="pred-enregistrer"
+        onClick={enregistrer}
+        disabled={envoi || !complet || !modifie}
+      >
+        {envoi
+          ? '⏳ Enregistrement…'
+          : !sauve
+            ? '🔮 Enregistrer mon pointage'
+            : modifie
+              ? '🔮 Modifier mon pointage'
+              : '✅ Pointage enregistré'}
+      </button>
+      {message && <p className="pred-message">{message}</p>}
+      {erreur && <p className="pred-erreur">{erreur}</p>}
+
+      <ul className="pred-qui">
+        {ORDRE_BASE.map((uid) => {
+          const aDevine = etat.ont_predit.includes(uid)
+          return (
+            <li key={uid} className={aDevine ? 'pred-qui-item fait' : 'pred-qui-item'}>
+              <Pastille userId={uid} nom={NOMS[uid]} taille={20} />
+              {NOMS[uid] || 'Inconnu'}
+              <span>{aDevine ? '✅' : '⏳'}</span>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
 function Pool({ session }) {
   const [match, setMatch] = useState(null)
   const [joueurs, setJoueurs] = useState([])
@@ -1531,6 +1822,23 @@ function Pool({ session }) {
           .single()
         if (error) throw error
         matchExistant = nouveauMatch
+      }
+      // Un match créé avant l'arrivée d'un nouveau participant : on l'ajoute
+      // à l'ordre de choix (à la fin) tant que le match n'a pas commencé.
+      if (
+        matchExistant.statut !== 'termine' &&
+        new Date() < new Date(matchExistant.date_match)
+      ) {
+        const ordreComplet = completerOrdre(matchExistant.ordre_choix)
+        if (ordreComplet.length !== (matchExistant.ordre_choix || []).length) {
+          const { data: misAJour } = await supabase
+            .from('matchs')
+            .update({ ordre_choix: ordreComplet })
+            .eq('id', matchExistant.id)
+            .select()
+            .maybeSingle()
+          matchExistant = misAJour || { ...matchExistant, ordre_choix: ordreComplet }
+        }
       }
       setMatch(matchExistant)
 
@@ -2271,7 +2579,7 @@ function Pool({ session }) {
               }
               onClick={() => choisirAide('iphone')}
             >
-              🍎 Comment activer sur iPhone
+              <IconeAppareil type="iphone" /> Comment activer sur iPhone
             </button>
             <button
               className={
@@ -2280,7 +2588,7 @@ function Pool({ session }) {
               }
               onClick={() => choisirAide('android')}
             >
-              🤖 Comment activer sur Android
+              <IconeAppareil type="android" /> Comment activer sur Android
             </button>
           </div>
           {aideNotifs === 'iphone' && (
@@ -2313,7 +2621,8 @@ function Pool({ session }) {
             <h3 className="article-titre">Choix des joueurs</h3>
             <p>
               Chaque participant choisit un joueur du Canadien avant chaque match. L'ordre de choix
-              tourne à chaque match (3-2-1) pour toute la saison.
+              tourne à chaque match ({ORDRE_BASE.map((_, i) => ORDRE_BASE.length - i).join('-')}) pour
+              toute la saison.
             </p>
           </article>
 
@@ -2333,7 +2642,18 @@ function Pool({ session }) {
                 <span className="bareme-valeur">+3</span>
                 <span className="bareme-libelle">tour du chapeau</span>
               </div>
+              <div className="bareme-case">
+                <span className="bareme-valeur">+2</span>
+                <span className="bareme-libelle">pointage deviné</span>
+              </div>
             </div>
+            <p>
+              <strong>Pointage deviné :</strong> avant chaque match, chacun peut deviner le
+              pointage final. Si le pointage est exact (prolongation et fusillade incluses),
+              tu gagnes <strong>2 points</strong> en plus de ceux de ton joueur. Tu peux changer
+              ton pointage jusqu'au début du match; ceux des autres ne se montrent qu'à ce
+              moment-là.
+            </p>
           </article>
 
           <article className="article">
@@ -2345,16 +2665,18 @@ function Pool({ session }) {
               meilleur pointeur du CH encore disponible.
             </p>
             <p>
-              Chacun a sa propre limite : le 1er choix doit être fait 1h30 avant le match, le 2e 1h
-              avant, le 3e 30 min avant. Ça laisse toujours une marge de 30 minutes avant le début
-              du match.
+              Chacun a sa propre limite : {texteDelaisChoix()}. Ça laisse toujours une marge de
+              30 minutes avant le début du match.
             </p>
           </article>
 
           <article className="article">
             <span className="article-numero">Article 4</span>
             <h3 className="article-titre">Verrouillage</h3>
-            <p>Une fois le match commencé, il n'est plus possible de changer de joueur.</p>
+            <p>
+              Une fois le match commencé, il n'est plus possible de changer de joueur ni de
+              pointage deviné.
+            </p>
           </article>
 
           <article className="article">
@@ -2371,7 +2693,11 @@ function Pool({ session }) {
               quand tes points changent. Une notification de test confirme que tout fonctionne.
             </p>
             <details className="repliable">
-              <summary className="repliable-titre">🍎 iPhone</summary>
+              <summary className="repliable-titre">
+                <span>
+                  <IconeAppareil type="iphone" /> iPhone
+                </span>
+              </summary>
               <ol className="aide-notifs-etapes">
                 <li>Copie le lien : <strong>{URL_SITE}</strong></li>
                 <li>Ouvre <strong>Safari</strong> (la boussole bleue, pas Messenger)</li>
@@ -2383,7 +2709,11 @@ function Pool({ session }) {
               </ol>
             </details>
             <details className="repliable">
-              <summary className="repliable-titre">🤖 Android</summary>
+              <summary className="repliable-titre">
+                <span>
+                  <IconeAppareil type="android" /> Android
+                </span>
+              </summary>
               <ol className="aide-notifs-etapes">
                 <li>Ouvre le site dans <strong>Chrome</strong> : <strong>{URL_SITE}</strong></li>
                 <li>Appuie sur le <strong>switch</strong> en haut pour qu'il devienne <strong>vert (ON)</strong>, puis <strong>Autoriser</strong></li>
@@ -2410,6 +2740,7 @@ function Pool({ session }) {
             const joues = calendrier.filter((m) => matchTermine(m.statut))
             const aVenir = calendrier.filter((m) => !matchTermine(m.statut))
             const prochainId = aVenir[0]?.nhl_game_id
+            const dernierId = joues[joues.length - 1]?.nhl_game_id
 
             const tuile = (m, i) => {
               const d = new Date(m.date_match)
@@ -2418,6 +2749,13 @@ function Pool({ session }) {
               return (
                 <li
                   key={m.nhl_game_id}
+                  id={
+                    m.nhl_game_id === prochainId
+                      ? 'cal-prochain'
+                      : m.nhl_game_id === dernierId
+                        ? 'cal-dernier'
+                        : undefined
+                  }
                   className={
                     'cal-tuile cascade-item' +
                     (termine ? ' joue' : '') +
@@ -2488,7 +2826,7 @@ function Pool({ session }) {
                   </div>
                 ))}
                 {joues.length > 0 && (
-                  <details className="repliable">
+                  <details className="repliable" id="cal-joues">
                     <summary className="repliable-titre">
                       ✅ Matchs joués ({joues.length})
                     </summary>
@@ -2496,6 +2834,33 @@ function Pool({ session }) {
                       {[...joues].reverse().map((m, i) => tuile(m, i))}
                     </ul>
                   </details>
+                )}
+                {createPortal(
+                  <div className="cal-flottants">
+                    {prochainId && (
+                      <button
+                        type="button"
+                        className="cal-flottant cal-flottant-prochain"
+                        onClick={() => allerAuMatch('cal-prochain', false)}
+                        aria-label="Aller au prochain match"
+                      >
+                        <span className="cal-flottant-icone">⏭️</span>
+                        <span className="cal-flottant-texte">Prochain match</span>
+                      </button>
+                    )}
+                    {dernierId && (
+                      <button
+                        type="button"
+                        className="cal-flottant cal-flottant-dernier"
+                        onClick={() => allerAuMatch('cal-dernier', true)}
+                        aria-label="Aller au dernier match joué"
+                      >
+                        <span className="cal-flottant-icone">⏮️</span>
+                        <span className="cal-flottant-texte">Dernier joué</span>
+                      </button>
+                    )}
+                  </div>,
+                  document.body,
                 )}
               </>
             )
@@ -2901,6 +3266,12 @@ function Pool({ session }) {
             </div>
           )}
 
+          <PronosticPointage
+            session={session}
+            match={match}
+            ferme={jumbotronMontreLePointage}
+          />
+
           <div className="pool-bloc">
           <h3 className="pool-titre"><span className="pool-titre-icone">👥</span>Choix de tout le monde</h3>
           <ul className="liste-choix">
@@ -2998,7 +3369,9 @@ function HistoriqueOnglet({ historique, chargement, session }) {
   }
 
   // Meilleur choix de la saison (plus haut nombre de points en un seul match)
-  const meilleurChoix = [...historique].sort((a, b) => b.points - a.points)[0]
+  // (sans le bonus du pointage deviné : ça compte les points du joueur choisi)
+  const pointsDuJoueur = (r) => r.points - (r.bonus || 0)
+  const meilleurChoix = [...historique].sort((a, b) => pointsDuJoueur(b) - pointsDuJoueur(a))[0]
 
   // Stats personnelles agrégées par personne
   const statsParPersonne = {}
@@ -3049,7 +3422,7 @@ function HistoriqueOnglet({ historique, chargement, session }) {
           <p className="meilleur-choix">
             <strong>{NOMS[meilleurChoix.user_id] || 'Inconnu'}</strong> avec{' '}
             <strong>{meilleurChoix.joueurs?.nom}</strong> —{' '}
-            <span className="points">{meilleurChoix.points} points</span>
+            <span className="points">{pointsDuJoueur(meilleurChoix)} points</span>
             <br />
             <span className="meilleur-choix-detail">
               {meilleurChoix.buts} buts, {meilleurChoix.passes} passes
@@ -3114,7 +3487,10 @@ function HistoriqueOnglet({ historique, chargement, session }) {
                           <Headshot nhlId={c.joueurs?.nhl_id} taille={26} />
                           {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
                         </span>
-                        <span className="points">{c.points} pts</span>
+                        <span className="points">
+                          {c.bonus > 0 && <span className="bonus-tag">🎯 +{c.bonus}</span>}
+                          {c.points} pts
+                        </span>
                       </div>
                     ))}
                 </div>

@@ -1,11 +1,12 @@
 // Pastille colorée avec l'initiale du participant. Chaque personne garde
 // la même couleur partout dans le site (classement, choix, historique),
 // pour qu'on la reconnaisse d'un coup d'œil.
-const COULEURS = {
-  '0918539e-788e-4ed9-9c84-b8f39b83f05c': { fond: '#c9971f', texte: '#fff' }, // Père — or
-  '58220e78-2226-4983-a026-3abefc8431a7': { fond: '#2f5bb8', texte: '#fff' }, // Mike — bleu
-  'b5c5d9e5-1c91-4da8-ab5e-adcc40057090': { fond: '#ce0e2d', texte: '#fff' }, // Eric — rouge
-}
+import { PARTICIPANTS } from '../netlify/functions/_participants.js'
+
+// Couleurs lues dans la liste unique des participants.
+const COULEURS = Object.fromEntries(
+  PARTICIPANTS.map((p) => [p.id, { fond: p.couleur, texte: '#fff' }])
+)
 
 const COULEUR_INCONNUE = { fond: '#8496b5', texte: '#fff' }
 
