@@ -2872,3 +2872,136 @@ button:hover:not(:disabled) {
   font-size: 0.78rem;
   flex-shrink: 0;
 }
+
+/* ===== Tableaux : lignes en tuiles, en-tête en pastille, colonne clé ===== */
+.table-stats-conteneur {
+  padding: 4px 6px 8px;
+  background: color-mix(in srgb, var(--bleu-vif) 5%, var(--surface));
+}
+
+.table-stats {
+  border-spacing: 0 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-stats thead th {
+  padding: 10px 8px;
+  text-align: center;
+  font-size: 0.66rem;
+  letter-spacing: 0.6px;
+}
+
+.table-stats thead th:first-child {
+  border-radius: 12px 0 0 12px;
+}
+
+.table-stats thead th:last-child {
+  border-radius: 0 12px 12px 0;
+}
+
+.table-stats tbody tr,
+.table-stats tbody tr:nth-child(odd),
+.table-stats tbody tr:nth-child(even) {
+  background: transparent;
+}
+
+.table-stats tbody td {
+  padding: 10px 8px;
+  text-align: center;
+  background: var(--surface);
+  border-bottom: none;
+  vertical-align: middle;
+  transition: background var(--transition);
+}
+
+.table-stats tbody td:first-child {
+  border-radius: 12px 0 0 12px;
+  font-weight: 700;
+  color: var(--gris-texte);
+}
+
+.table-stats tbody td:last-child {
+  border-radius: 0 12px 12px 0;
+}
+
+/* Colonne de noms (Joueur / Équipe / Match) alignée à gauche */
+.table-stats tbody td:nth-child(2),
+.table-stats thead th:nth-child(2) {
+  text-align: left;
+}
+
+.table-stats tbody tr:hover td {
+  background: var(--teinte-rouge-2);
+}
+
+/* Colonne des points : mise en évidence */
+.table-stats tbody td.col-cle {
+  font-weight: 800;
+  color: var(--bleu-vif);
+  font-size: 1.02em;
+}
+
+/* Premier du tableau : tuile dorée */
+.table-stats tbody tr:first-child td {
+  background: var(--teinte-or);
+  color: var(--rouge);
+}
+
+.table-stats tbody tr:first-child td:first-child {
+  box-shadow: inset 4px 0 0 #d4af37;
+}
+
+/* Équipe du Canadien : tuile rouge repérable */
+.table-stats tbody tr.ligne-mtl td {
+  background: var(--teinte-rouge);
+}
+
+/* Logo + nom d'équipe dans une cellule normale (compatible tuile) */
+.table-stats td.classement-nhl-equipe {
+  display: table-cell;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table-stats td.classement-nhl-equipe .logo-equipe {
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+.courbe-tableau .table-stats tbody td:nth-child(2),
+.courbe-tableau .table-stats thead th:nth-child(2) {
+  text-align: center;
+}
+.courbe-tableau .table-stats tbody td:first-child,
+.courbe-tableau .table-stats thead th:first-child {
+  text-align: left;
+}
+
+.table-stats tbody td.col-cle {
+  color: var(--bleu);
+}
+
+/* Division : pas de panneau en double autour du tableau */
+.classement-nhl-division {
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+.classement-nhl-division .classement-nhl-titre-division {
+  margin: 0 0 6px;
+  padding: 0 4px;
+}
+
+@media (max-width: 420px) {
+  .table-stats thead th {
+    padding: 9px 5px;
+    font-size: 0.58rem;
+  }
+  .table-stats tbody td {
+    padding: 8px 5px;
+  }
+  .table-stats {
+    border-spacing: 0 5px;
+  }
+}

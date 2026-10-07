@@ -2312,7 +2312,7 @@ function Pool({ session }) {
                               <td>{e.victoires}</td>
                               <td>{e.defaites}</td>
                               <td>{e.defaites_prolongation}</td>
-                              <td>{e.points}</td>
+                              <td className="col-cle">{e.points}</td>
                               <td>{e.differentiel > 0 ? `+${e.differentiel}` : e.differentiel}</td>
                             </tr>
                           )
@@ -2390,7 +2390,7 @@ function Pool({ session }) {
                           <td>{j.matchs_joues}</td>
                           <td>{j.buts}</td>
                           <td>{j.passes}</td>
-                          <td>{j.points}</td>
+                          <td className="col-cle">{j.points}</td>
                           <td>{j.plus_minus > 0 ? `+${j.plus_minus}` : j.plus_minus}</td>
                           <td>{j.pun}</td>
                         </tr>
@@ -2453,7 +2453,7 @@ function Pool({ session }) {
                       <td>{j.matchs_joues}</td>
                       <td>{j.buts}</td>
                       <td>{j.passes}</td>
-                      <td>{j.points}</td>
+                      <td className="col-cle">{j.points}</td>
                       <td>{j.tours_chapeau}</td>
                       <td>
                         {j.forme === 'chaud' && <IconeFeu />}
