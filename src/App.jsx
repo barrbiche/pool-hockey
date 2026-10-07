@@ -2473,8 +2473,9 @@ function Pool({ session }) {
       {!match && <p className="info">Pas de match prévu pour le Canadien présentement.</p>}
 
       {match && (
-        <section className="carte carte-rouge">
-          <h2>Prochain match</h2>
+        <section className="carte carte-rouge pool-carte">
+          <div className="pool-hero">
+          <h2>🏒 Prochain match</h2>
           <div className="affrontement">
             <div className="affrontement-equipe">
               <LogoEquipe abbrev="MTL" taille={54} />
@@ -2502,10 +2503,11 @@ function Pool({ session }) {
               urgent={new Date(match.date_match) - maintenant < 60 * 60 * 1000}
             />
           )}
+          </div>
 
           {match.ordre_choix && (
-            <>
-              <h3>Ordre de choix ce match</h3>
+            <div className="pool-bloc">
+              <h3 className="pool-titre"><span className="pool-titre-icone">🎯</span>Ordre de choix</h3>
               <ol className="ordre-choix">
                 {match.ordre_choix.map((uid) => (
                   <li
@@ -2545,17 +2547,17 @@ function Pool({ session }) {
                   {messageRappel && <p className="rappels-message">{messageRappel}</p>}
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {jumbotronMontreLePointage ? (
-            <>
+            <div className="pool-bloc">
               <TableauDirect infos={infosNhl} adversaire={match.adversaire} />
               <p className="verrou">🔒 Les choix sont verrouillés, le match a commencé.</p>
-            </>
+            </div>
           ) : (
-            <>
-              <h3>Ton choix</h3>
+            <div className="pool-bloc">
+              <h3 className="pool-titre"><span className="pool-titre-icone">✅</span>Ton choix</h3>
               {maLigneDeChoix && (
                 <div className="carte-joueur-choisi">
                   <Headshot nhlId={maLigneDeChoix.joueurs?.nhl_id} taille={90} />
@@ -2610,10 +2612,11 @@ function Pool({ session }) {
                 <IconeFeu /> chaud · <IconeGlace /> froid (5 derniers matchs) ·{' '}
                 <IconePlasteur /> possiblement blessé
               </p>
-            </>
+            </div>
           )}
 
-          <h3>Choix de tout le monde</h3>
+          <div className="pool-bloc">
+          <h3 className="pool-titre"><span className="pool-titre-icone">👥</span>Choix de tout le monde</h3>
           <ul className="liste-choix">
             {tousLesChoix.map((c) => (
               <li key={c.id} className="liste-choix-ligne">
@@ -2639,10 +2642,11 @@ function Pool({ session }) {
                   </li>
                 ))}
           </ul>
+          </div>
 
           {matchEnCoursProvisoire && (
-            <div className="classement-provisoire">
-              <h3>Classement provisoire</h3>
+            <div className="classement-provisoire pool-bloc">
+              <h3 className="pool-titre"><span className="pool-titre-icone">🔴</span>Classement provisoire</h3>
               <p className="note-tc">
                 🔴 En direct, pas final : points officiels + buts et passes du match en cours.
                 Le vrai classement se met à jour quand le match est terminé.

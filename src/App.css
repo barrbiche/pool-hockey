@@ -2633,3 +2633,110 @@ button:hover:not(:disabled) {
     background: linear-gradient(135deg, #d3162f 0%, #8f0b22 100%);
   }
 }
+
+/* ===== Onglet Pool : même style que les tuiles (panneaux arrondis + icônes) ===== */
+.pool-carte {
+  border-left: none;
+  border-radius: 20px;
+  padding: 12px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pool-hero {
+  padding: 16px 12px 14px;
+  border-radius: 18px;
+  background: linear-gradient(130deg, #0c1e3d 0%, #16305c 62%, #8c1226 150%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 22px rgba(12, 30, 61, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  text-align: center;
+}
+
+.pool-carte .pool-hero h2 {
+  color: #fff;
+  font-size: 1.25rem;
+  margin: 0 0 8px;
+}
+
+.pool-hero .affrontement-nom {
+  color: #fff;
+}
+
+.pool-hero .affrontement-vs {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 1.1rem;
+}
+
+.pool-hero .date-match {
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 10px;
+}
+
+.pool-hero .chrono {
+  margin-bottom: 0;
+}
+
+.pool-bloc {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bleu-vif) 7%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--bleu-vif) 18%, transparent);
+  box-shadow: var(--ombre);
+}
+
+.pool-titre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.pool-titre-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  font-size: 1rem;
+  background: linear-gradient(135deg, #2f5bb8 0%, #1d3f86 100%);
+  box-shadow: 0 3px 8px rgba(12, 30, 61, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.pool-bloc .ordre-choix {
+  margin: 0;
+}
+
+.pool-bloc .ordre-choix li,
+.pool-bloc .liste-choix li,
+.pool-bloc .classement-provisoire-liste li {
+  border-radius: 12px;
+}
+
+.pool-bloc .carte-joueur-choisi {
+  border-radius: 16px;
+  margin: 0 0 12px;
+}
+
+.pool-carte .actualiser-bloc {
+  margin-top: 14px;
+  padding: 12px;
+  border-top: none;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bleu-vif) 7%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--bleu-vif) 18%, transparent);
+}
+
+.pool-carte .bouton-actualiser {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
