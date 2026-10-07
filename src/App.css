@@ -2387,3 +2387,17 @@ details[open] > .historique-entete .historique-chevron {
     box-shadow: 0 0 14px #ff2a2a;
   }
 }
+
+.bandeau-notifs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin: 0.6rem 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: #000;
+  color: #ff6b6b;
+  border: 2px solid #d40000;
+  font-weight: 700;
+}
