@@ -1280,7 +1280,8 @@ async function lireReponseFonction(res, nomFonction) {
       `La fonction « ${nomFonction} » n’est pas encore publiée (fichier à uploader dans netlify/functions, puis attendre « Published »).`
     )
   }
-  throw new Error(data.erreur || data.error || `Erreur ${res.status}`)
+  // Une fonction qui plante côté Netlify répond en JSON avec errorMessage
+  throw new Error(data.erreur || data.error || data.errorMessage || `Erreur ${res.status}`)
 }
 
 // Petit compteur − / + pour un pointage deviné (0 à 20). Vide au départ.
