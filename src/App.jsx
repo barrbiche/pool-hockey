@@ -1899,8 +1899,10 @@ function Pool({ session }) {
             </button>
             {messageMaj && <p className="actualiser-message">{messageMaj}</p>}
             <p className="actualiser-note">
-              Met tout à jour d'un coup : score du match, points, classement du pool et stats.
-              À utiliser si quelque chose ne semble pas à jour.
+              Relit le score du match, recalcule les points si un match est terminé, et met à
+              jour le classement du pool et les stats. Pendant un match, affiche le classement
+              provisoire (buts et passes en direct) et prévient tout le monde par notification
+              quand un joueur choisi marque ou fait une passe.
             </p>
           </div>
         </section>
