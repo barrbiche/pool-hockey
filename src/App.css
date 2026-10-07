@@ -2266,3 +2266,78 @@ details[open] > .historique-entete .historique-chevron {
   display: block;
   margin: 0.6rem auto 0;
 }
+
+.notif-switch-groupe {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.notif-switch {
+  position: relative;
+  width: 64px;
+  height: 30px;
+  border-radius: 15px;
+  border: 2px solid;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: all 0.25s;
+  font-weight: 900;
+  font-size: 0.7rem;
+}
+
+.notif-switch-bouton {
+  position: absolute;
+  top: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.25s;
+}
+
+.notif-switch-texte {
+  position: absolute;
+}
+
+/* ON : vert qui glow */
+.notif-switch.on {
+  background: #0a8f3c;
+  border-color: #39ff7a;
+  color: #fff;
+  animation: notif-glow 1.6s ease-in-out infinite;
+}
+.notif-switch.on .notif-switch-bouton {
+  left: 34px;
+}
+.notif-switch.on .notif-switch-texte {
+  left: 9px;
+}
+
+/* OFF : noir, contour rouge, pas de glow */
+.notif-switch.off {
+  background: #000;
+  border-color: #d40000;
+  color: #ff4d4d;
+}
+.notif-switch.off .notif-switch-bouton {
+  left: 2px;
+  background: #d40000;
+}
+.notif-switch.off .notif-switch-texte {
+  right: 9px;
+}
+
+@keyframes notif-glow {
+  0%, 100% { box-shadow: 0 0 6px #39ff7a, 0 0 12px rgba(57, 255, 122, 0.5); }
+  50% { box-shadow: 0 0 14px #39ff7a, 0 0 28px #39ff7a; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notif-switch.on {
+    animation: none;
+    box-shadow: 0 0 12px #39ff7a;
+  }
+}

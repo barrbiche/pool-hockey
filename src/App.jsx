@@ -1783,12 +1783,20 @@ function Pool({ session }) {
               📣 Annonce
             </button>
           )}
-          <button
-            className="bouton-lien"
-            onClick={notifsActivees ? desactiverNotifications : activerNotifications}
-          >
-            {notifsActivees ? '🔕 Désactiver' : '🔔 Activer'}
-          </button>
+          <div className="notif-switch-groupe">
+            <span aria-hidden="true">{notifsActivees ? '🔔' : '🔕'}</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={notifsActivees}
+              aria-label="Notifications"
+              className={notifsActivees ? 'notif-switch on' : 'notif-switch off'}
+              onClick={notifsActivees ? desactiverNotifications : activerNotifications}
+            >
+              <span className="notif-switch-texte">{notifsActivees ? 'ON' : 'OFF'}</span>
+              <span className="notif-switch-bouton" />
+            </button>
+          </div>
           <button
             className="bouton-lien"
             onClick={toutMettreAJour}
