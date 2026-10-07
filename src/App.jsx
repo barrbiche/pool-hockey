@@ -574,7 +574,25 @@ function Pool({ session }) {
   const matchDemarrePourVrai =
     !!infosNhl && ['LIVE', 'CRIT', 'FINAL', 'OFF'].includes(infosNhl.statut)
   const jumbotronMontreLePointage = matchCommence || matchDemarrePourVrai
-  const matchEnCoursProvisoire = !!pointsDirect && match?.statut !== 'termine'
+  // Dernières stats en direct gardées en base par notifier-points (la dernière
+  // fois que n'importe qui a cliqué 🔄 Mise à jour). Ça permet à tout le monde
+  // de revoir le classement provisoire en ouvrant le site, sans rappeler la
+  // NHL. Il disparaît tout seul quand le match passe à "terminé".
+  let statsDepuisBase = null
+  if (match?.derniere_stats_direct) {
+    try {
+      const parUser = JSON.parse(match.derniere_stats_direct)
+      statsDepuisBase = {}
+      for (const c of tousLesChoix) {
+        const st = parUser[c.user_id]
+        if (st && c.joueurs?.nhl_id) statsDepuisBase[c.joueurs.nhl_id] = st
+      }
+    } catch {
+      statsDepuisBase = null
+    }
+  }
+  const statsDirectEffectives = pointsDirect?.stats || statsDepuisBase
+  const matchEnCoursProvisoire = !!statsDirectEffectives && match?.statut !== 'termine'
 
   const prochainAChoisir =
     match?.ordre_choix?.find((uid) => !tousLesChoix.some((c) => c.user_id === uid)) || null
@@ -1740,7 +1758,7 @@ function Pool({ session }) {
                 </span>
                 {matchEnCoursProvisoire && (
                   <span className="points-provisoires">
-                    {pointsProvisoires(c, pointsDirect.stats).points} pts
+                    {pointsProvisoires(c, statsDirectEffectives).points} pts
                   </span>
                 )}
               </li>
@@ -1764,7 +1782,7 @@ function Pool({ session }) {
                 Le vrai classement se met à jour quand le match est terminé.
               </p>
               <ol className="classement-provisoire-liste">
-                {classementProvisoire(classement, tousLesChoix, pointsDirect.stats).map((c) => (
+                {classementProvisoire(classement, tousLesChoix, statsDirectEffectives).map((c) => (
                   <li key={c.user_id}>
                     <span>
                       <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={20} />{' '}
