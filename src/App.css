@@ -2296,6 +2296,11 @@ details[open] > .historique-entete .historique-chevron {
   border-radius: 50%;
   background: #fff;
   transition: left 0.25s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
 }
 
 .notif-switch-texte {
@@ -2324,7 +2329,7 @@ details[open] > .historique-entete .historique-chevron {
 }
 .notif-switch.off .notif-switch-bouton {
   left: 2px;
-  background: #d40000;
+  background: #fff;
 }
 .notif-switch.off .notif-switch-texte {
   right: 9px;
@@ -2340,4 +2345,21 @@ details[open] > .historique-entete .historique-chevron {
     animation: none;
     box-shadow: 0 0 12px #39ff7a;
   }
+}
+
+.aide-notifs-boutons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.aide-notifs-etapes {
+  margin: 0 0 1rem;
+  padding-left: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  line-height: 1.4;
+  word-break: break-word;
 }

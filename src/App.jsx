@@ -1034,9 +1034,72 @@ function Squelette({ lignes = 4, hauteur = 46 }) {
   )
 }
 
+// Messenger / Facebook / Instagram ouvrent les liens dans un mini-navigateur
+// où les notifications et l'installation ne fonctionnent pas.
+const URL_SITE = 'https://pool-hockey.netlify.app'
+function estNavigateurIntegre() {
+  return /FBAN|FBAV|FB_IAB|Messenger|Instagram|Snapchat|Line\//i.test(navigator.userAgent)
+}
+
+function NavigateurIntegre({ onContinuer }) {
+  const [copie, setCopie] = useState(false)
+  const estAndroid = /android/i.test(navigator.userAgent)
+
+  function ouvrirChrome() {
+    window.location.href = `intent://${URL_SITE.replace('https://', '')}/#Intent;scheme=https;package=com.android.chrome;end`
+  }
+
+  async function copierLien() {
+    try {
+      await navigator.clipboard.writeText(URL_SITE)
+      setCopie(true)
+    } catch {
+      // pas grave
+    }
+  }
+
+  return (
+    <div className="ecran-centre">
+      <div className="partage-resume-carte" style={{ textAlign: 'center' }}>
+        <div className="guide-icone">⚠️</div>
+        <h3 className="partage-resume-titre">Ouvre le site dans ton navigateur</h3>
+        <p className="regle-alerte">Sinon les notifications ne fonctionneront pas</p>
+        <p className="guide-etape">
+          Tu es dans le mini-navigateur de Messenger. Pour activer les notifications, il faut ouvrir le
+          site dans {estAndroid ? 'Chrome' : 'Safari'}.
+        </p>
+        {estAndroid ? (
+          <>
+            <button className="bouton-copier" onClick={ouvrirChrome}>
+              🌐 Ouvrir dans Chrome
+            </button>
+            <p className="guide-etape">
+              Ça ne marche pas? Appuie sur les <strong>⋯</strong> (3 points) en haut à droite, puis{' '}
+              <strong>« Ouvrir dans le navigateur »</strong>.
+            </p>
+          </>
+        ) : (
+          <p className="guide-etape">
+            1. Appuie sur les <strong>⋯</strong> (3 points) en haut à droite
+            <br />
+            2. Choisis <strong>« Ouvrir dans Safari »</strong>
+          </p>
+        )}
+        <button className="bouton-lien guide-retour" onClick={copierLien}>
+          {copie ? '✅ Lien copié' : '📋 Copier le lien'}
+        </button>
+        <button className="bouton-lien guide-retour" onClick={onContinuer}>
+          Continuer quand même
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [chargement, setChargement] = useState(true)
+  const [ignorerNavigateur, setIgnorerNavigateur] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -1049,6 +1112,9 @@ export default function App() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
+  if (estNavigateurIntegre() && !ignorerNavigateur) {
+    return <NavigateurIntegre onContinuer={() => setIgnorerNavigateur(true)} />
+  }
   if (chargement) return <div className="ecran-centre">Chargement...</div>
   if (!session) return <Login />
 
@@ -1077,6 +1143,7 @@ function Pool({ session }) {
   const [confirmTest, setConfirmTest] = useState('')
   const [verifNotifsFaite, setVerifNotifsFaite] = useState(false)
   const [rappelNotifsFerme, setRappelNotifsFerme] = useState(false)
+  const [aideNotifs, setAideNotifs] = useState('')
   const installPrompt = useRef(null)
   const horsSafariIOS = /FBAN|FBAV|Instagram|Messenger|CriOS|FxiOS|EdgiOS|Line\//i.test(
     navigator.userAgent
@@ -1308,7 +1375,11 @@ function Pool({ session }) {
   }, [])
 
   useEffect(() => {
-    verifierAbonnementExistant().finally(() => setVerifNotifsFaite(true))
+    verifierAbonnementExistant().then((actif) => {
+      // les deux d'un coup : évite que le rappel clignote avant le résultat
+      setNotifsActivees(actif)
+      setVerifNotifsFaite(true)
+    })
   }, [])
 
   // L'alignement vient de l'API du NHL via notre fonction. Quand elle est
@@ -1570,16 +1641,17 @@ function Pool({ session }) {
     }
   }
 
+  // Retourne true si les notifications sont vraiment activées (téléphone ET base).
   async function verifierAbonnementExistant() {
     try {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
-      if (Notification.permission !== 'granted') return
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false
+      if (Notification.permission !== 'granted') return false
 
       const registration = await navigator.serviceWorker.getRegistration('/sw.js')
-      if (!registration) return
+      if (!registration) return false
 
       const subscription = await registration.pushManager.getSubscription()
-      if (!subscription) return
+      if (!subscription) return false
 
       // Le téléphone se souvient d'un abonnement : on vérifie qu'il existe
       // aussi dans la base (sinon il a été remis à zéro → switch OFF).
@@ -1593,14 +1665,13 @@ function Pool({ session }) {
         // pas de réseau : on se fie au téléphone
       }
 
-      if (actifSurServeur) {
-        setNotifsActivees(true)
-      } else {
+      if (!actifSurServeur) {
         await subscription.unsubscribe()
-        setNotifsActivees(false)
+        return false
       }
+      return true
     } catch {
-      // pas grave, le bouton "Activer" reste juste disponible
+      return false
     }
   }
 
@@ -1656,17 +1727,6 @@ function Pool({ session }) {
       if (estIOS && !estStandalone) {
         setGuideIphone(true)
         return
-      }
-
-      // Android / Chrome : proposer d'installer l'app d'abord (1 seul clic)
-      if (!estStandalone && installPrompt.current) {
-        try {
-          installPrompt.current.prompt()
-          await installPrompt.current.userChoice
-        } catch {
-          // pas grave, on continue avec les notifications
-        }
-        installPrompt.current = null
       }
 
       const permission = await Notification.requestPermission()
@@ -1795,7 +1855,7 @@ function Pool({ session }) {
     return (
       <div className="conteneur">
         <RappelNotifications
-        ouvert={verifNotifsFaite && !notifsActivees && !rappelNotifsFerme && !guideIphone && !confirmTest}
+        ouvert={verifNotifsFaite && !notifsActivees && !rappelNotifsFerme && !guideIphone && !confirmTest && !estNavigateurIntegre()}
         onActiver={() => {
           setRappelNotifsFerme(true)
           activerNotifications()
@@ -2043,6 +2103,40 @@ function Pool({ session }) {
           <p className="regle-alerte">
             ⚠️ Les notifications sont obligatoires pour une bonne communication dans le pool ⚠️
           </p>
+          <div className="aide-notifs-boutons">
+            <button
+              className={aideNotifs === 'iphone' ? 'bouton-copier aide-actif' : 'bouton-copier'}
+              onClick={() => setAideNotifs(aideNotifs === 'iphone' ? '' : 'iphone')}
+            >
+              🍎 Comment activer sur iPhone
+            </button>
+            <button
+              className={aideNotifs === 'android' ? 'bouton-copier aide-actif' : 'bouton-copier'}
+              onClick={() => setAideNotifs(aideNotifs === 'android' ? '' : 'android')}
+            >
+              🤖 Comment activer sur Android
+            </button>
+          </div>
+          {aideNotifs === 'iphone' && (
+            <ol className="aide-notifs-etapes">
+              <li>Copie le lien : <strong>{URL_SITE}</strong></li>
+              <li>Ouvre <strong>Safari</strong> (la boussole bleue, pas Messenger)</li>
+              <li>Appuie dans la <strong>barre de recherche en haut</strong>, colle le lien (appui long → Coller), puis <strong>Aller</strong></li>
+              <li>Appuie sur <strong>Partager</strong> (le carré avec la flèche ⬆️ en bas)</li>
+              <li>Descends et choisis <strong>« Sur l'écran d'accueil »</strong>, puis <strong>Ajouter</strong></li>
+              <li>Ferme Safari et ouvre <strong>Pool de Hockey</strong> avec la <strong>nouvelle icône</strong></li>
+              <li>Appuie sur le <strong>switch</strong> en haut pour qu'il devienne <strong>vert (ON)</strong>, puis <strong>Autoriser</strong></li>
+            </ol>
+          )}
+          {aideNotifs === 'android' && (
+            <ol className="aide-notifs-etapes">
+              <li>Ouvre le site dans <strong>Chrome</strong> : <strong>{URL_SITE}</strong></li>
+              <li>Appuie sur le <strong>switch</strong> en haut pour qu'il devienne <strong>vert (ON)</strong>, puis <strong>Autoriser</strong></li>
+              <li>
+                <strong>Mettre le site sur ta page d'accueil</strong> (facultatif) : appuie sur les <strong>⋮</strong> (3 points) en haut à droite de Chrome, puis <strong>« Ajouter à l'écran d'accueil »</strong> (ou <strong>« Installer l'application »</strong>), puis <strong>Ajouter</strong>
+              </li>
+            </ol>
+          )}
           <h2>Comment ça marche</h2>
           <ul className="liste-regles">
             <li>Chacun choisit un joueur du Canadien avant chaque match.</li>
