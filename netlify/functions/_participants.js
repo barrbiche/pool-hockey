@@ -6,6 +6,9 @@ export const ORDRE_BASE = [
   'b5c5d9e5-1c91-4da8-ab5e-adcc40057090', // Eric
 ]
 
+// Seul compte autorisé à envoyer des annonces à tout le monde (Eric).
+export const ADMIN_ID = 'b5c5d9e5-1c91-4da8-ab5e-adcc40057090'
+
 export const NOMS = {
   '58220e78-2226-4983-a026-3abefc8431a7': 'Mike',
   'b5c5d9e5-1c91-4da8-ab5e-adcc40057090': 'Eric',
