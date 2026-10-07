@@ -1144,6 +1144,14 @@ function Pool({ session }) {
   const [verifNotifsFaite, setVerifNotifsFaite] = useState(false)
   const [rappelNotifsFerme, setRappelNotifsFerme] = useState(false)
   const [aideNotifs, setAideNotifs] = useState('')
+  const [clignoteAide, setClignoteAide] = useState(false)
+  const [aideVue, setAideVue] = useState(() => {
+    try {
+      return localStorage.getItem('aideNotifsVue') === '1'
+    } catch {
+      return false
+    }
+  })
   const installPrompt = useRef(null)
   const horsSafariIOS = /FBAN|FBAV|Instagram|Messenger|CriOS|FxiOS|EdgiOS|Line\//i.test(
     navigator.userAgent
@@ -1715,6 +1723,30 @@ function Pool({ session }) {
     }
   }
 
+  // Première fois : on envoie la personne lire l'aide dans Règlements (boutons
+  // rouges qui clignotent). Ensuite, le switch active directement.
+  function demarrerActivation() {
+    if (!aideVue) {
+      setRappelNotifsFerme(true)
+      setOnglet('reglements')
+      setClignoteAide(true)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    activerNotifications()
+  }
+
+  function choisirAide(type) {
+    setAideNotifs(aideNotifs === type ? '' : type)
+    setClignoteAide(false)
+    setAideVue(true)
+    try {
+      localStorage.setItem('aideNotifsVue', '1')
+    } catch {
+      // pas grave
+    }
+  }
+
   async function activerNotifications() {
     try {
       // Détection iOS : Apple exige que le site soit installé sur l'écran
@@ -1858,11 +1890,12 @@ function Pool({ session }) {
         ouvert={verifNotifsFaite && !notifsActivees && !rappelNotifsFerme && !guideIphone && !confirmTest && !estNavigateurIntegre()}
         onActiver={() => {
           setRappelNotifsFerme(true)
-          activerNotifications()
+          demarrerActivation()
         }}
         onGuideIphone={() => {
           setRappelNotifsFerme(true)
-          setGuideIphone(true)
+          if (!aideVue) demarrerActivation()
+          else setGuideIphone(true)
         }}
         onPlusTard={() => setRappelNotifsFerme(true)}
       />
@@ -1917,7 +1950,7 @@ function Pool({ session }) {
               aria-checked={notifsActivees}
               aria-label="Notifications"
               className={notifsActivees ? 'notif-switch on' : 'notif-switch off'}
-              onClick={notifsActivees ? desactiverNotifications : activerNotifications}
+              onClick={notifsActivees ? desactiverNotifications : demarrerActivation}
             >
               <span className="notif-switch-texte">{notifsActivees ? 'ON' : 'OFF'}</span>
               <span className="notif-switch-bouton" aria-hidden="true">
@@ -2103,16 +2136,25 @@ function Pool({ session }) {
           <p className="regle-alerte">
             ⚠️ Les notifications sont obligatoires pour une bonne communication dans le pool ⚠️
           </p>
+          {clignoteAide && (
+            <p className="aide-invite">👇 Choisis ton téléphone et suis les étapes, puis reviens appuyer sur le switch en haut</p>
+          )}
           <div className="aide-notifs-boutons">
             <button
-              className={aideNotifs === 'iphone' ? 'bouton-copier aide-actif' : 'bouton-copier'}
-              onClick={() => setAideNotifs(aideNotifs === 'iphone' ? '' : 'iphone')}
+              className={
+                (aideNotifs === 'iphone' ? 'bouton-copier aide-actif' : 'bouton-copier') +
+                (clignoteAide ? ' aide-clignote' : '')
+              }
+              onClick={() => choisirAide('iphone')}
             >
               🍎 Comment activer sur iPhone
             </button>
             <button
-              className={aideNotifs === 'android' ? 'bouton-copier aide-actif' : 'bouton-copier'}
-              onClick={() => setAideNotifs(aideNotifs === 'android' ? '' : 'android')}
+              className={
+                (aideNotifs === 'android' ? 'bouton-copier aide-actif' : 'bouton-copier') +
+                (clignoteAide ? ' aide-clignote' : '')
+              }
+              onClick={() => choisirAide('android')}
             >
               🤖 Comment activer sur Android
             </button>
