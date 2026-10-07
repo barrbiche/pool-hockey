@@ -2514,7 +2514,7 @@ function Pool({ session }) {
                   </p>
 
                   {divisions.map((div) => (
-                    <details key={div} className="repliable" open>
+                    <details key={div} className="repliable">
                       <summary className="repliable-titre">{div}</summary>
                       <TableauNhl
                         equipes={[...parDivision[div]].sort((a, b) => a.rang_division - b.rang_division)}
