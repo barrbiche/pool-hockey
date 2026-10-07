@@ -627,39 +627,118 @@ function AnnonceModal({ ouverte, accessToken, onFermer }) {
   )
 }
 
-// Guide pas-à-pas pour iPhone : Apple interdit à un site de s'ajouter tout
-// seul à l'écran d'accueil, alors on guide la personne.
+// Assistant pas-à-pas pour iPhone : Apple interdit à un site de s'ajouter tout
+// seul à l'écran d'accueil, alors on guide la personne, une étape à la fois.
 function GuideIphone({ ouverte, horsSafari, onFermer }) {
+  const [etape, setEtape] = useState(0)
   if (!ouverte) return null
+
   const etapes = [
     ...(horsSafari
-      ? ['Copie ce lien : **https://pool-hockey.netlify.app**. Ouvre **Safari** (boussole bleue), appuie dans la **barre de recherche en haut**, colle le lien (appui long → Coller) et appuie sur **Aller**.']
+      ? [
+          {
+            icone: '🧭',
+            texte:
+              'Copie ce lien : **https://pool-hockey.netlify.app**. Ouvre **Safari** (la boussole bleue), appuie dans la **barre de recherche en haut**, colle le lien (appui long → Coller) et appuie sur **Aller**.',
+          },
+        ]
       : []),
-    'Appuie sur le bouton **Partager** (le carré avec une flèche vers le haut ⬆️), en bas de l\'écran.',
-    'Descends et appuie sur **« Sur l\'écran d\'accueil »**, puis **Ajouter**.',
-    'Ferme Safari et ouvre **Pool de Hockey** avec la nouvelle icône sur ton écran d\'accueil.',
-    'Appuie sur **🔔 Activer** puis **Autoriser**. C\'est fini! 🎉',
+    {
+      icone: '⬆️',
+      texte: "Appuie sur le bouton **Partager** (le carré avec une flèche vers le haut), en bas de l'écran.",
+    },
+    {
+      icone: '➕',
+      texte: "Descends et appuie sur **« Sur l'écran d'accueil »**, puis sur **Ajouter**.",
+    },
+    {
+      icone: '📲',
+      texte: 'Ferme Safari et ouvre **Pool de Hockey** avec la nouvelle icône sur ton écran d\'accueil.',
+    },
+    {
+      icone: '🔔',
+      texte:
+        'Dans l\'app, appuie sur **🔔 Activer** puis **Autoriser**. Tu vas recevoir une **notification de test**. Si tu ne la reçois pas, **contacte Eric** : les notifications sont obligatoires.',
+    },
   ]
+  const derniere = etape === etapes.length - 1
+  const courante = etapes[etape]
+
+  function fermer() {
+    setEtape(0)
+    onFermer()
+  }
+
   return (
-    <div className="fiche-joueur-fond" onClick={onFermer}>
+    <div className="fiche-joueur-fond" onClick={fermer}>
       <div className="partage-resume-carte" onClick={(e) => e.stopPropagation()}>
-        <button className="fiche-joueur-fermer" onClick={onFermer} aria-label="Fermer">
+        <button className="fiche-joueur-fermer" onClick={fermer} aria-label="Fermer">
           ✕
         </button>
         <h3 className="partage-resume-titre">📱 Activer les notifications</h3>
-        <p className="partage-resume-astuce">
-          Sur iPhone, Apple demande d'ajouter le site à l'écran d'accueil d'abord. 5 petites étapes :
+        <p className="guide-compteur">
+          Étape {etape + 1} sur {etapes.length}
         </p>
-        <ol className="guide-etapes">
-          {etapes.map((e, i) => (
-            <li key={i}>
-              {e.split('**').map((morceau, j) => (j % 2 ? <strong key={j}>{morceau}</strong> : morceau))}
-            </li>
-          ))}
-        </ol>
-        <button className="bouton-copier" onClick={onFermer}>
-          J'ai compris
+        <div className="guide-etape">
+          <div className="guide-icone">{courante.icone}</div>
+          <p>
+            {courante.texte
+              .split('**')
+              .map((morceau, j) => (j % 2 ? <strong key={j}>{morceau}</strong> : morceau))}
+          </p>
+        </div>
+        <button className="bouton-copier" onClick={derniere ? fermer : () => setEtape(etape + 1)}>
+          {derniere ? "✅ J'ai compris" : "✅ C'est fait, suivant"}
         </button>
+        {etape > 0 && (
+          <button className="bouton-lien guide-retour" onClick={() => setEtape(etape - 1)}>
+            ← Retour
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Après l'activation : on demande si la notification de test est arrivée.
+function ConfirmationTest({ etat, onReponse }) {
+  if (!etat) return null
+  return (
+    <div className="fiche-joueur-fond">
+      <div className="partage-resume-carte">
+        <h3 className="partage-resume-titre">🔔 Test des notifications</h3>
+        {etat === 'demande' && (
+          <>
+            <p className="guide-etape">
+              Une notification de test vient d'être envoyée. <strong>Est-ce que tu l'as reçue?</strong>
+            </p>
+            <button className="bouton-copier" onClick={() => onReponse('oui')}>
+              ✅ Oui, je l'ai reçue
+            </button>
+            <button className="bouton-lien guide-retour" onClick={() => onReponse('non')}>
+              ❌ Non, rien reçu
+            </button>
+          </>
+        )}
+        {etat === 'oui' && (
+          <>
+            <p className="guide-etape">🎉 Parfait, tout fonctionne!</p>
+            <button className="bouton-copier" onClick={() => onReponse('fin')}>
+              Fermer
+            </button>
+          </>
+        )}
+        {etat === 'non' && (
+          <>
+            <p className="guide-etape">
+              ⚠️ Ça n'a pas fonctionné. <strong>Contacte Eric</strong> : les notifications sont
+              obligatoires pour une bonne communication dans le pool.
+            </p>
+            <button className="bouton-copier" onClick={() => onReponse('fin')}>
+              Fermer
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
@@ -961,6 +1040,7 @@ function Pool({ session }) {
   const [chargementStats, setChargementStats] = useState(false)
   const [notifsActivees, setNotifsActivees] = useState(false)
   const [guideIphone, setGuideIphone] = useState(false)
+  const [confirmTest, setConfirmTest] = useState('')
   const installPrompt = useRef(null)
   const horsSafariIOS = /FBAN|FBAV|Instagram|Messenger|CriOS|FxiOS|EdgiOS|Line\//i.test(
     navigator.userAgent
@@ -1491,6 +1571,24 @@ function Pool({ session }) {
     }
   }
 
+  async function desactiverNotifications() {
+    try {
+      const registration = await navigator.serviceWorker.getRegistration('/sw.js')
+      const subscription = await registration?.pushManager.getSubscription()
+      if (subscription) await subscription.unsubscribe()
+
+      const res = await fetch('/.netlify/functions/desactiver-abonnement', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) throw new Error(`Erreur ${res.status}`)
+
+      setNotifsActivees(false)
+    } catch (err) {
+      setErreur("Impossible de désactiver les notifications: " + err.message)
+    }
+  }
+
   async function activerNotifications() {
     try {
       // Détection iOS : Apple exige que le site soit installé sur l'écran
@@ -1539,6 +1637,13 @@ function Pool({ session }) {
       })
 
       setNotifsActivees(true)
+
+      // Notification de test pour confirmer que ça marche
+      fetch('/.netlify/functions/notif-test', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      }).catch(() => {})
+      setConfirmTest('demande')
     } catch (err) {
       setErreur("Impossible d'activer les notifications: " + err.message)
     }
@@ -1634,7 +1739,11 @@ function Pool({ session }) {
   if (chargement) {
     return (
       <div className="conteneur">
-        <header className="entete">
+        <ConfirmationTest
+        etat={confirmTest}
+        onReponse={(r) => setConfirmTest(r === 'fin' ? '' : r)}
+      />
+      <header className="entete">
           <div className="entete-titre">
             <Crest taille={36} />
             <h1>Pool de Hockey</h1>
@@ -1674,11 +1783,21 @@ function Pool({ session }) {
               📣 Annonce
             </button>
           )}
-          {!notifsActivees && (
-            <button className="bouton-lien" onClick={activerNotifications}>
-              🔔 Activer
+          <div className="notif-switch-groupe">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={notifsActivees}
+              aria-label="Notifications"
+              className={notifsActivees ? 'notif-switch on' : 'notif-switch off'}
+              onClick={notifsActivees ? desactiverNotifications : activerNotifications}
+            >
+              <span className="notif-switch-texte">{notifsActivees ? 'ON' : 'OFF'}</span>
+              <span className="notif-switch-bouton" aria-hidden="true">
+                {notifsActivees ? '🔔' : '🔕'}
+              </span>
             </button>
-          )}
+          </div>
           <button
             className="bouton-lien"
             onClick={toutMettreAJour}
@@ -1854,6 +1973,9 @@ function Pool({ session }) {
 
       {onglet === 'reglements' && (
         <section className="carte">
+          <p className="regle-alerte">
+            ⚠️ Les notifications sont obligatoires pour une bonne communication dans le pool ⚠️
+          </p>
           <h2>Comment ça marche</h2>
           <ul className="liste-regles">
             <li>Chacun choisit un joueur du Canadien avant chaque match.</li>

@@ -2207,3 +2207,142 @@ details[open] > .historique-entete .historique-chevron {
   gap: 0.6rem;
   line-height: 1.4;
 }
+
+.regle-alerte {
+  margin: 0 0 1rem;
+  padding: 0.9rem;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: 900;
+  font-size: 1.1rem;
+  background: #111;
+  color: #ffe600;
+  border: 3px solid #ffe600;
+  animation: regle-glow 1.2s ease-in-out infinite;
+}
+
+@keyframes regle-glow {
+  0%, 100% {
+    color: #ffe600;
+    border-color: #ffe600;
+    box-shadow: 0 0 6px #ffe600, 0 0 14px rgba(255, 230, 0, 0.6);
+    text-shadow: 0 0 6px #ffe600;
+  }
+  50% {
+    color: #fff7a0;
+    border-color: #fff7a0;
+    box-shadow: 0 0 18px #ffe600, 0 0 40px #ffe600;
+    text-shadow: 0 0 14px #ffe600, 0 0 24px #ffe600;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .regle-alerte {
+    animation: none;
+    box-shadow: 0 0 14px #ffe600;
+  }
+}
+
+.guide-compteur {
+  margin: 0 0 0.5rem;
+  text-align: center;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.guide-etape {
+  text-align: center;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  margin: 0.5rem 0 1rem;
+}
+
+.guide-icone {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.guide-retour {
+  display: block;
+  margin: 0.6rem auto 0;
+}
+
+.notif-switch-groupe {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.notif-switch {
+  position: relative;
+  width: 64px;
+  height: 30px;
+  border-radius: 15px;
+  border: 2px solid;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: all 0.25s;
+  font-weight: 900;
+  font-size: 0.7rem;
+}
+
+.notif-switch-bouton {
+  position: absolute;
+  top: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.25s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.notif-switch-texte {
+  position: absolute;
+}
+
+/* ON : vert qui glow */
+.notif-switch.on {
+  background: #0a8f3c;
+  border-color: #39ff7a;
+  color: #fff;
+  animation: notif-glow 1.6s ease-in-out infinite;
+}
+.notif-switch.on .notif-switch-bouton {
+  left: 34px;
+}
+.notif-switch.on .notif-switch-texte {
+  left: 9px;
+}
+
+/* OFF : noir, contour rouge, pas de glow */
+.notif-switch.off {
+  background: #000;
+  border-color: #d40000;
+  color: #ff4d4d;
+}
+.notif-switch.off .notif-switch-bouton {
+  left: 2px;
+  background: #fff;
+}
+.notif-switch.off .notif-switch-texte {
+  right: 9px;
+}
+
+@keyframes notif-glow {
+  0%, 100% { box-shadow: 0 0 6px #39ff7a, 0 0 12px rgba(57, 255, 122, 0.5); }
+  50% { box-shadow: 0 0 14px #39ff7a, 0 0 28px #39ff7a; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notif-switch.on {
+    animation: none;
+    box-shadow: 0 0 12px #39ff7a;
+  }
+}
