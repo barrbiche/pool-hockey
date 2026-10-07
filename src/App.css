@@ -2069,3 +2069,132 @@ details[open] > .historique-entete .historique-chevron {
   font-size: 0.85rem;
   font-weight: 700;
 }
+
+/* ===== Courbe du classement et trophées ===== */
+:root {
+  --serie-pere: #c9971f;
+  --serie-mike: #2f5bb8;
+  --serie-eric: #ce0e2d;
+}
+
+:root[data-theme='dark'] {
+  --serie-pere: #b88a17;
+  --serie-mike: #5a86e0;
+  --serie-eric: #e8374f;
+}
+
+.courbe-classement,
+.trophees {
+  margin-top: 22px;
+}
+
+.courbe-legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.courbe-legende-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.courbe-legende-trait {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.courbe-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  color: var(--encre);
+  touch-action: manipulation;
+}
+
+.courbe-grille {
+  stroke: var(--bordure);
+  stroke-width: 1;
+}
+
+.courbe-repere {
+  stroke: var(--gris-texte);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.6;
+}
+
+.courbe-axe {
+  font-size: 9px;
+  fill: var(--gris-texte);
+}
+
+.courbe-etiquette {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.courbe-point {
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.courbe-detail {
+  font-size: 0.85rem;
+  margin: 6px 0 8px;
+}
+
+.courbe-tableau summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gris-texte);
+}
+
+.trophees-grille {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.trophee {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+  padding: 12px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--bordure);
+  border-radius: 12px;
+}
+
+.trophee-icone {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.trophee-titre {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--gris-texte);
+  font-weight: 700;
+}
+
+.trophee-gagnant {
+  font-family: var(--font-titre);
+  font-size: 1.25rem;
+  color: var(--rouge);
+}
+
+.trophee-detail {
+  font-size: 0.75rem;
+  color: var(--gris-texte);
+}
