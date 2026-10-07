@@ -1498,7 +1498,7 @@ function PronosticPointage({ session, match, ferme, version = 0 }) {
             <Pastille userId={uid} nom={NOMS[uid]} taille={26} />
             <span className="pred-nom">
               {NOMS[uid] || 'Inconnu'}
-              {uid === session.user.id ? ' (toi)' : ''}
+              {uid === session.user.id && <span className="pred-toi"> (toi)</span>}
             </span>
             <span className="pred-score">
               {p
