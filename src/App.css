@@ -2198,3 +2198,39 @@ details[open] > .historique-entete .historique-chevron {
   font-size: 0.75rem;
   color: var(--gris-texte);
 }
+
+.guide-etapes {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  line-height: 1.4;
+}
+
+.regle-alerte {
+  margin: 0 0 1rem;
+  padding: 0.8rem;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: 900;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  border: 3px solid #000;
+  background: #ffd400;
+  color: #000;
+  animation: regle-flash 1.6s steps(1, end) infinite;
+}
+
+@keyframes regle-flash {
+  0%   { background: #ffd400; color: #000; }
+  33%  { background: #000; color: #ffd400; }
+  66%  { background: #d40000; color: #fff; }
+  100% { background: #ffd400; color: #000; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .regle-alerte {
+    animation: none;
+  }
+}

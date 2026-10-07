@@ -1883,6 +1883,9 @@ function Pool({ session }) {
 
       {onglet === 'reglements' && (
         <section className="carte">
+          <p className="regle-alerte">
+            ⚠️ LES NOTIFICATIONS SONT OBLIGATOIRES POUR UNE BONNE COMMUNICATION DANS LE POOL ⚠️
+          </p>
           <h2>Comment ça marche</h2>
           <ul className="liste-regles">
             <li>Chacun choisit un joueur du Canadien avant chaque match.</li>
