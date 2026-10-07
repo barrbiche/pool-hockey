@@ -36,7 +36,7 @@ export async function handler(event) {
       JSON.stringify({
         titre: '✅ Notifications activées!',
         corps:
-          "Ceci est un test du Pool de Hockey. Si tu vois ce message, tout fonctionne! Si tu ne l'as pas reçu, ça n'a pas fonctionné : contacte Eric. Les notifications sont obligatoires pour une bonne communication.",
+          'Ceci est un test du Pool de Hockey. Si tu vois ce message, tout fonctionne! 🏒',
       })
     )
     return { statusCode: 200, body: JSON.stringify({ ok: true }) }
