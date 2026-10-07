@@ -1965,7 +1965,7 @@ function Pool({ session }) {
       {onglet === 'reglements' && (
         <section className="carte">
           <p className="regle-alerte">
-            ⚠️ LES NOTIFICATIONS SONT OBLIGATOIRES POUR UNE BONNE COMMUNICATION DANS LE POOL ⚠️
+            ⚠️ Les notifications sont obligatoires pour une bonne communication dans le pool ⚠️
           </p>
           <h2>Comment ça marche</h2>
           <ul className="liste-regles">

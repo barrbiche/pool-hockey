@@ -2210,28 +2210,36 @@ details[open] > .historique-entete .historique-chevron {
 
 .regle-alerte {
   margin: 0 0 1rem;
-  padding: 0.8rem;
+  padding: 0.9rem;
   border-radius: 8px;
   text-align: center;
   font-weight: 900;
-  font-size: 1.05rem;
-  letter-spacing: 0.02em;
-  border: 3px solid #000;
-  background: #ffd400;
-  color: #000;
-  animation: regle-flash 1.6s steps(1, end) infinite;
+  font-size: 1.1rem;
+  background: #111;
+  color: #ffe600;
+  border: 3px solid #ffe600;
+  animation: regle-glow 1.2s ease-in-out infinite;
 }
 
-@keyframes regle-flash {
-  0%   { background: #ffd400; color: #000; }
-  33%  { background: #000; color: #ffd400; }
-  66%  { background: #d40000; color: #fff; }
-  100% { background: #ffd400; color: #000; }
+@keyframes regle-glow {
+  0%, 100% {
+    color: #ffe600;
+    border-color: #ffe600;
+    box-shadow: 0 0 6px #ffe600, 0 0 14px rgba(255, 230, 0, 0.6);
+    text-shadow: 0 0 6px #ffe600;
+  }
+  50% {
+    color: #fff7a0;
+    border-color: #fff7a0;
+    box-shadow: 0 0 18px #ffe600, 0 0 40px #ffe600;
+    text-shadow: 0 0 14px #ffe600, 0 0 24px #ffe600;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .regle-alerte {
     animation: none;
+    box-shadow: 0 0 14px #ffe600;
   }
 }
 
