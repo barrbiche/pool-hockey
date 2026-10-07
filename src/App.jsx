@@ -1990,7 +1990,8 @@ function Pool({ session }) {
           className={onglet === 'pool' ? 'onglet actif' : 'onglet'}
           onClick={() => setOnglet('pool')}
         >
-          Pool
+          <span className="onglet-icone" aria-hidden="true">🏒</span>
+          <span className="onglet-texte">Pool</span>
         </button>
         <button
           className={onglet === 'stats' ? 'onglet actif' : 'onglet'}
@@ -1999,7 +2000,8 @@ function Pool({ session }) {
             if (statsEquipe.length === 0) chargerStatsEquipe()
           }}
         >
-          Stats CH
+          <span className="onglet-icone" aria-hidden="true">📊</span>
+          <span className="onglet-texte">Stats CH</span>
         </button>
         <button
           className={onglet === 'calendrier' ? 'onglet actif' : 'onglet'}
@@ -2008,7 +2010,8 @@ function Pool({ session }) {
             if (calendrier.length === 0) chargerCalendrier()
           }}
         >
-          Calendrier
+          <span className="onglet-icone" aria-hidden="true">📅</span>
+          <span className="onglet-texte">Calendrier</span>
         </button>
         <button
           className={onglet === 'historique' ? 'onglet actif' : 'onglet'}
@@ -2017,7 +2020,8 @@ function Pool({ session }) {
             if (historique.length === 0) chargerHistorique()
           }}
         >
-          Historique
+          <span className="onglet-icone" aria-hidden="true">🕘</span>
+          <span className="onglet-texte">Historique</span>
         </button>
         <button
           className={onglet === 'classement' ? 'onglet actif' : 'onglet'}
@@ -2026,7 +2030,8 @@ function Pool({ session }) {
             if (historique.length === 0) chargerHistorique()
           }}
         >
-          Classement
+          <span className="onglet-icone" aria-hidden="true">🏆</span>
+          <span className="onglet-texte">Classement</span>
         </button>
         <button
           className={onglet === 'classement-nhl' ? 'onglet actif' : 'onglet'}
@@ -2035,7 +2040,8 @@ function Pool({ session }) {
             if (classementNhl.length === 0) chargerClassementNhl()
           }}
         >
-          Classement LNH
+          <span className="onglet-icone" aria-hidden="true">📈</span>
+          <span className="onglet-texte">Classement LNH</span>
         </button>
         <button
           className={onglet === 'stats-ligue' ? 'onglet actif' : 'onglet'}
@@ -2044,13 +2050,15 @@ function Pool({ session }) {
             if (statsLigue.length === 0) chargerStatsLigue()
           }}
         >
-          Stats LNH
+          <span className="onglet-icone" aria-hidden="true">🌐</span>
+          <span className="onglet-texte">Stats LNH</span>
         </button>
         <button
           className={onglet === 'reglements' ? 'onglet actif' : 'onglet'}
           onClick={() => setOnglet('reglements')}
         >
-          Règlements
+          <span className="onglet-icone" aria-hidden="true">📜</span>
+          <span className="onglet-texte">Règlements</span>
         </button>
       </div>
 

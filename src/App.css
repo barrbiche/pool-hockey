@@ -2550,3 +2550,86 @@ details[open] > .historique-entete .historique-chevron {
   .entete-dock { gap: 6px; padding: 6px; }
   .entete-dock .bouton-theme { padding: 0; width: 38px; justify-content: center; }
 }
+
+/* ===== Onglets en tuiles (4 x 2) avec icônes ===== */
+.onglets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 6px;
+  border-radius: 16px;
+}
+
+.onglet {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 56px;
+  padding: 8px 2px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bleu-vif) 8%, transparent);
+  font-size: 0.68rem;
+  line-height: 1.1;
+  text-align: center;
+  transition: background var(--transition), color var(--transition), transform 140ms ease,
+    box-shadow var(--transition);
+}
+
+.onglet-icone {
+  font-size: 1.25rem;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+
+.onglet.actif {
+  box-shadow: 0 4px 14px rgba(12, 30, 61, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.onglet.actif .onglet-icone {
+  transform: scale(1.15);
+}
+
+/* ===== Boutons plus soignés (rouge) ===== */
+button {
+  border-radius: 12px;
+  letter-spacing: 0.01em;
+  box-shadow: 0 3px 10px rgba(206, 14, 45, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.bouton-copier,
+.bouton-partager {
+  padding: 11px 16px;
+  font-size: 0.92rem;
+}
+
+/* Mode sombre : onglet actif plus foncé pour que le texte blanc reste lisible */
+:root[data-theme='dark'] .onglet.actif {
+  background: linear-gradient(135deg, #2f5bb8 0%, #1d3f86 100%);
+  color: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .onglet.actif {
+    background: linear-gradient(135deg, #2f5bb8 0%, #1d3f86 100%);
+    color: #fff;
+  }
+}
+
+/* Mode sombre : boutons rouges plus profonds (texte blanc lisible).
+   :where() garde une spécificité minimale pour ne pas écraser les boutons
+   qui ont leur propre style (onglets, switch, etc.). */
+:where(:root[data-theme='dark']) button {
+  background: linear-gradient(135deg, #d3162f 0%, #8f0b22 100%);
+}
+@media (prefers-color-scheme: dark) {
+  :where(:root:not([data-theme='light'])) button {
+    background: linear-gradient(135deg, #d3162f 0%, #8f0b22 100%);
+  }
+}
