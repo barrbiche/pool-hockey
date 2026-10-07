@@ -26,6 +26,9 @@ const ORDRE_BASE = [
   'b5c5d9e5-1c91-4da8-ab5e-adcc40057090', // Eric
 ]
 
+// Seul compte qui voit le bouton d'annonce (le serveur revérifie de son côté).
+const ADMIN_ID = 'b5c5d9e5-1c91-4da8-ab5e-adcc40057090' // Eric
+
 const NOMS = {
   '58220e78-2226-4983-a026-3abefc8431a7': 'Mike',
   'b5c5d9e5-1c91-4da8-ab5e-adcc40057090': 'Eric',
@@ -169,6 +172,306 @@ function classementProvisoire(classement, choix, statsDirect) {
     .sort((a, b) => b.points - a.points)
 }
 
+// Points cumulés de chaque participant, match après match (du plus vieux au plus récent).
+function serieCumulee(historique) {
+  const parMatch = {}
+  for (const r of historique) {
+    if (!parMatch[r.match_id]) {
+      parMatch[r.match_id] = {
+        id: r.match_id,
+        date: r.matchs?.date_match,
+        adversaire: r.matchs?.adversaire,
+        points: {},
+      }
+    }
+    parMatch[r.match_id].points[r.user_id] = (parMatch[r.match_id].points[r.user_id] || 0) + r.points
+  }
+  const matchs = Object.values(parMatch).sort((a, b) => new Date(a.date) - new Date(b.date))
+  const total = {}
+  for (const uid of ORDRE_BASE) total[uid] = 0
+  const cumul = matchs.map((m) => {
+    const ligne = {}
+    for (const uid of ORDRE_BASE) {
+      total[uid] += m.points[uid] || 0
+      ligne[uid] = total[uid]
+    }
+    return ligne
+  })
+  return { matchs, cumul }
+}
+
+// Trophées de la saison, calculés à partir de l'historique. Retourne seulement
+// ceux qui ont au moins un gagnant.
+function calculerTrophees(historique) {
+  const { matchs } = serieCumulee(historique)
+  const trophees = []
+  const noms = (uids) => uids.map((u) => NOMS[u] || 'Inconnu').join(' et ')
+  const meilleurs = (compte, minimum = 1) => {
+    const max = Math.max(...ORDRE_BASE.map((u) => compte[u] || 0))
+    if (max < minimum) return null
+    return { max, uids: ORDRE_BASE.filter((u) => (compte[u] || 0) === max) }
+  }
+
+  // 🎩 Roi du chapeau
+  const chapeaux = {}
+  for (const r of historique) if (r.tour_chapeau) chapeaux[r.user_id] = (chapeaux[r.user_id] || 0) + 1
+  const roi = meilleurs(chapeaux)
+  if (roi) {
+    trophees.push({
+      icone: '🎩',
+      titre: 'Roi du chapeau',
+      gagnant: noms(roi.uids),
+      detail: `${roi.max} tour${roi.max > 1 ? 's' : ''} du chapeau`,
+    })
+  }
+
+  // 💥 Meilleur match (plus de points en un match avec un seul joueur)
+  const meilleur = [...historique].sort((a, b) => b.points - a.points)[0]
+  if (meilleur && meilleur.points > 0) {
+    trophees.push({
+      icone: '💥',
+      titre: 'Meilleur match',
+      gagnant: NOMS[meilleur.user_id] || 'Inconnu',
+      detail: `${meilleur.points} pts avec ${meilleur.joueurs?.nom || '?'}`,
+    })
+  }
+
+  // 🥇 Le plus de matchs gagnés (seulement si un seul gagnant dans le match)
+  const victoires = {}
+  for (const m of matchs) {
+    const pts = ORDRE_BASE.map((u) => m.points[u] || 0)
+    const top = Math.max(...pts)
+    const gagnants = ORDRE_BASE.filter((u) => (m.points[u] || 0) === top)
+    if (top > 0 && gagnants.length === 1) victoires[gagnants[0]] = (victoires[gagnants[0]] || 0) + 1
+  }
+  const roiVictoires = meilleurs(victoires)
+  if (roiVictoires) {
+    trophees.push({
+      icone: '🥇',
+      titre: 'Plus de matchs gagnés',
+      gagnant: noms(roiVictoires.uids),
+      detail: `${roiVictoires.max} match${roiVictoires.max > 1 ? 's' : ''}`,
+    })
+  }
+
+  // 🔥 Plus longue série de matchs avec au moins 1 point
+  const series = {}
+  for (const uid of ORDRE_BASE) {
+    let courante = 0
+    let max = 0
+    for (const m of matchs) {
+      if (m.points[uid] !== undefined && m.points[uid] > 0) {
+        courante += 1
+        max = Math.max(max, courante)
+      } else {
+        courante = 0
+      }
+    }
+    series[uid] = max
+  }
+  const roiSerie = meilleurs(series, 2)
+  if (roiSerie) {
+    trophees.push({
+      icone: '🔥',
+      titre: 'Plus longue série',
+      gagnant: noms(roiSerie.uids),
+      detail: `${roiSerie.max} matchs de suite avec des points`,
+    })
+  }
+
+  // 🧊 Le plus de matchs à 0 point
+  const zeros = {}
+  for (const m of matchs) {
+    for (const uid of ORDRE_BASE) {
+      if (m.points[uid] !== undefined && m.points[uid] === 0) zeros[uid] = (zeros[uid] || 0) + 1
+    }
+  }
+  const malchanceux = meilleurs(zeros)
+  if (malchanceux) {
+    trophees.push({
+      icone: '🧊',
+      titre: 'Le plus malchanceux',
+      gagnant: noms(malchanceux.uids),
+      detail: `${malchanceux.max} match${malchanceux.max > 1 ? 's' : ''} à 0 point`,
+    })
+  }
+
+  return trophees
+}
+
+const VARIABLE_COULEUR = {
+  '0918539e-788e-4ed9-9c84-b8f39b83f05c': 'var(--serie-pere)',
+  '58220e78-2226-4983-a026-3abefc8431a7': 'var(--serie-mike)',
+  'b5c5d9e5-1c91-4da8-ab5e-adcc40057090': 'var(--serie-eric)',
+}
+
+// Courbe des points cumulés. SVG maison, sans bibliothèque. Toucher/survoler
+// une colonne affiche le détail du match; une vue en tableau est disponible.
+function CourbeClassement({ historique }) {
+  const [survol, setSurvol] = useState(null)
+  const { matchs, cumul } = serieCumulee(historique)
+  if (matchs.length === 0) return null
+
+  const L = 320
+  const H = 190
+  const marge = { g: 30, d: 58, h: 12, b: 26 }
+  const largeurUtile = L - marge.g - marge.d
+  const hauteurUtile = H - marge.h - marge.b
+  const maxBrut = Math.max(1, ...cumul.flatMap((l) => ORDRE_BASE.map((u) => l[u])))
+  const pas = maxBrut <= 10 ? 2 : maxBrut <= 30 ? 5 : maxBrut <= 60 ? 10 : 20
+  const maxY = Math.ceil(maxBrut / pas) * pas
+  const x = (i) =>
+    matchs.length === 1 ? marge.g + largeurUtile / 2 : marge.g + (i * largeurUtile) / (matchs.length - 1)
+  const y = (v) => marge.h + hauteurUtile - (v / maxY) * hauteurUtile
+  const graduations = []
+  for (let v = 0; v <= maxY; v += pas) graduations.push(v)
+  const dateCourte = (d) =>
+    d ? formaterDateHeureMontreal(new Date(d), { day: 'numeric', month: 'short' }) : ''
+
+  // Étiquettes de fin de ligne, espacées d'au moins 12px pour ne pas se chevaucher
+  const dernier = cumul[cumul.length - 1]
+  const etiquettes = ORDRE_BASE.map((u) => ({ uid: u, valeur: dernier[u], y: y(dernier[u]) })).sort(
+    (a, b) => a.y - b.y
+  )
+  for (let i = 1; i < etiquettes.length; i++) {
+    if (etiquettes[i].y - etiquettes[i - 1].y < 13) etiquettes[i].y = etiquettes[i - 1].y + 13
+  }
+
+  const actif = survol !== null ? survol : matchs.length - 1
+  const pasEtiquetteX = Math.ceil(matchs.length / 6)
+
+  return (
+    <div className="courbe-classement">
+      <h3>Évolution du classement</h3>
+      <div className="courbe-legende">
+        {ORDRE_BASE.map((u) => (
+          <span key={u} className="courbe-legende-item">
+            <span className="courbe-legende-trait" style={{ background: VARIABLE_COULEUR[u] }} />
+            {NOMS[u]}
+          </span>
+        ))}
+      </div>
+      <svg viewBox={`0 0 ${L} ${H}`} className="courbe-svg" role="img" aria-label="Points cumulés par participant, match après match">
+        {graduations.map((v) => (
+          <g key={v}>
+            <line x1={marge.g} x2={L - marge.d} y1={y(v)} y2={y(v)} className="courbe-grille" />
+            <text x={marge.g - 6} y={y(v) + 3} textAnchor="end" className="courbe-axe">
+              {v}
+            </text>
+          </g>
+        ))}
+        {matchs.map((m, i) =>
+          i % pasEtiquetteX === 0 || i === matchs.length - 1 ? (
+            <text key={m.id} x={x(i)} y={H - 8} textAnchor="middle" className="courbe-axe">
+              {dateCourte(m.date)}
+            </text>
+          ) : null
+        )}
+        <line x1={x(actif)} x2={x(actif)} y1={marge.h} y2={marge.h + hauteurUtile} className="courbe-repere" />
+        {ORDRE_BASE.map((u) => (
+          <g key={u}>
+            {matchs.length > 1 && (
+              <polyline
+                points={cumul.map((l, i) => `${x(i)},${y(l[u])}`).join(' ')}
+                fill="none"
+                stroke={VARIABLE_COULEUR[u]}
+                strokeWidth="2"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            )}
+            {cumul.map((l, i) => (
+              <circle
+                key={i}
+                cx={x(i)}
+                cy={y(l[u])}
+                r={i === actif ? 4.5 : 3}
+                fill={VARIABLE_COULEUR[u]}
+                className="courbe-point"
+              />
+            ))}
+          </g>
+        ))}
+        {etiquettes.map((e) => (
+          <text key={e.uid} x={L - marge.d + 8} y={e.y + 3} className="courbe-etiquette" fill="currentColor">
+            {NOMS[e.uid]} {e.valeur}
+          </text>
+        ))}
+        {matchs.map((m, i) => (
+          <rect
+            key={m.id}
+            x={x(i) - largeurUtile / Math.max(1, matchs.length - 1) / 2}
+            y={marge.h}
+            width={Math.max(24, largeurUtile / Math.max(1, matchs.length - 1))}
+            height={hauteurUtile}
+            fill="transparent"
+            onMouseEnter={() => setSurvol(i)}
+            onMouseLeave={() => setSurvol(null)}
+            onClick={() => setSurvol(i)}
+          />
+        ))}
+      </svg>
+      <p className="courbe-detail">
+        <strong>
+          vs {matchs[actif].adversaire} · {dateCourte(matchs[actif].date)}
+        </strong>
+        {' : '}
+        {[...ORDRE_BASE]
+          .sort((a, b) => cumul[actif][b] - cumul[actif][a])
+          .map((u) => `${NOMS[u]} ${cumul[actif][u]} pts`)
+          .join(' · ')}
+      </p>
+      <details className="courbe-tableau">
+        <summary>Voir en tableau</summary>
+        <div className="table-stats-conteneur">
+          <table className="table-stats">
+            <thead>
+              <tr>
+                <th>Match</th>
+                {ORDRE_BASE.map((u) => (
+                  <th key={u}>{NOMS[u]}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {matchs.map((m, i) => (
+                <tr key={m.id}>
+                  <td>
+                    {dateCourte(m.date)} vs {m.adversaire}
+                  </td>
+                  {ORDRE_BASE.map((u) => (
+                    <td key={u}>{cumul[i][u]}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+  )
+}
+
+function Trophees({ historique }) {
+  const liste = calculerTrophees(historique)
+  if (liste.length === 0) return null
+  return (
+    <div className="trophees">
+      <h3>Trophées de la saison</h3>
+      <div className="trophees-grille">
+        {liste.map((t) => (
+          <div key={t.titre} className="trophee">
+            <span className="trophee-icone">{t.icone}</span>
+            <span className="trophee-titre">{t.titre}</span>
+            <span className="trophee-gagnant">{t.gagnant}</span>
+            <span className="trophee-detail">{t.detail}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // Retrouve le dernier match joué à partir des lignes brutes d'historique
 // (même regroupement que HistoriqueOnglet, en gardant juste le plus récent).
 function dernierMatchDeHistorique(historique) {
@@ -241,6 +544,122 @@ function PartageResume({ texte, onFermer }) {
           {copie ? '✓ Copié dans le presse-papier' : '📋 Copier'}
         </button>
         <p className="partage-resume-astuce">Colle ça dans votre groupe de texto!</p>
+      </div>
+    </div>
+  )
+}
+
+// Fenêtre d'annonce (réservée à Eric) : écrire un texte, l'envoyer en
+// notification à tout le monde.
+function AnnonceModal({ ouverte, accessToken, onFermer }) {
+  const [texte, setTexte] = useState('')
+  const [destinataire, setDestinataire] = useState('tous')
+  const [enCours, setEnCours] = useState(false)
+  const [resultat, setResultat] = useState('')
+
+  if (!ouverte) return null
+
+  async function envoyer() {
+    setEnCours(true)
+    setResultat('')
+    try {
+      const res = await fetch('/.netlify/functions/annonce', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ texte, destinataire }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setResultat(`❌ ${data.erreur || data.error || `Erreur ${res.status}`}`)
+      } else {
+        const manquants = data.pasRecus?.length
+          ? ` (pas reçu : ${data.pasRecus.join(', ')}, notifications pas activées)`
+          : ''
+        setResultat(
+          data.envoyes === 0
+            ? `⚠️ Personne n'a reçu le message${manquants}`
+            : `✓ Envoyé à ${data.envoyes} personne(s)${manquants}`
+        )
+        setTexte('')
+      }
+    } catch (err) {
+      setResultat(`❌ ${err.message}`)
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  return (
+    <div className="fiche-joueur-fond" onClick={onFermer}>
+      <div className="partage-resume-carte" onClick={(e) => e.stopPropagation()}>
+        <button className="fiche-joueur-fermer" onClick={onFermer} aria-label="Fermer">
+          ✕
+        </button>
+        <h3 className="partage-resume-titre">📣 Annonce</h3>
+        <label className="annonce-destinataire">
+          Envoyer à :{' '}
+          <select value={destinataire} onChange={(e) => setDestinataire(e.target.value)}>
+            <option value="tous">Tout le monde</option>
+            {ORDRE_BASE.map((uid) => (
+              <option key={uid} value={uid}>
+                {NOMS[uid]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <textarea
+          className="partage-resume-zone"
+          placeholder="Écris ton message ici..."
+          maxLength={300}
+          value={texte}
+          onChange={(e) => setTexte(e.target.value)}
+        />
+        <button
+          className="bouton-copier"
+          onClick={envoyer}
+          disabled={enCours || texte.trim().length === 0}
+        >
+          {enCours ? '⏳ Envoi...' : destinataire === 'tous' ? '📤 Envoyer à tout le monde' : `📤 Envoyer à ${NOMS[destinataire]}`}
+        </button>
+        {resultat && <p className="partage-resume-astuce">{resultat}</p>}
+      </div>
+    </div>
+  )
+}
+
+// Guide pas-à-pas pour iPhone : Apple interdit à un site de s'ajouter tout
+// seul à l'écran d'accueil, alors on guide la personne.
+function GuideIphone({ ouverte, horsSafari, onFermer }) {
+  if (!ouverte) return null
+  const etapes = [
+    ...(horsSafari
+      ? ['Ouvre ce site dans **Safari** (l\'icône boussole bleue). Copie le lien et colle-le dans Safari.']
+      : []),
+    'Appuie sur le bouton **Partager** (le carré avec une flèche vers le haut ⬆️), en bas de l\'écran.',
+    'Descends et appuie sur **« Sur l\'écran d\'accueil »**, puis **Ajouter**.',
+    'Ferme Safari et ouvre **Pool de Hockey** avec la nouvelle icône sur ton écran d\'accueil.',
+    'Appuie sur **🔔 Activer** puis **Autoriser**. C\'est fini! 🎉',
+  ]
+  return (
+    <div className="fiche-joueur-fond" onClick={onFermer}>
+      <div className="partage-resume-carte" onClick={(e) => e.stopPropagation()}>
+        <button className="fiche-joueur-fermer" onClick={onFermer} aria-label="Fermer">
+          ✕
+        </button>
+        <h3 className="partage-resume-titre">📱 Activer les notifications</h3>
+        <p className="partage-resume-astuce">
+          Sur iPhone, Apple demande d'ajouter le site à l'écran d'accueil d'abord. 5 petites étapes :
+        </p>
+        <ol className="guide-etapes">
+          {etapes.map((e, i) => (
+            <li key={i}>
+              {e.split('**').map((morceau, j) => (j % 2 ? <strong key={j}>{morceau}</strong> : morceau))}
+            </li>
+          ))}
+        </ol>
+        <button className="bouton-copier" onClick={onFermer}>
+          J'ai compris
+        </button>
       </div>
     </div>
   )
@@ -541,6 +960,20 @@ function Pool({ session }) {
   const [statsEquipe, setStatsEquipe] = useState([])
   const [chargementStats, setChargementStats] = useState(false)
   const [notifsActivees, setNotifsActivees] = useState(false)
+  const [guideIphone, setGuideIphone] = useState(false)
+  const installPrompt = useRef(null)
+  const horsSafariIOS = /FBAN|FBAV|Instagram|Messenger|CriOS|FxiOS|EdgiOS|Line\//i.test(
+    navigator.userAgent
+  )
+
+  useEffect(() => {
+    const capter = (e) => {
+      e.preventDefault()
+      installPrompt.current = e
+    }
+    window.addEventListener('beforeinstallprompt', capter)
+    return () => window.removeEventListener('beforeinstallprompt', capter)
+  }, [])
   const [calendrier, setCalendrier] = useState([])
   const [chargementCalendrier, setChargementCalendrier] = useState(false)
   const [maintenant, setMaintenant] = useState(new Date())
@@ -556,6 +989,9 @@ function Pool({ session }) {
   const [triClassementNhl, setTriClassementNhl] = useState(null)
   const [ficheJoueur, setFicheJoueur] = useState(null)
   const [resumePartage, setResumePartage] = useState(null)
+  const [annonceOuverte, setAnnonceOuverte] = useState(false)
+  const [rappelEnCours, setRappelEnCours] = useState(null)
+  const [messageRappel, setMessageRappel] = useState('')
   const [celebration, setCelebration] = useState(false)
   const celebrationVictoireFaite = useRef(false)
 
@@ -574,7 +1010,25 @@ function Pool({ session }) {
   const matchDemarrePourVrai =
     !!infosNhl && ['LIVE', 'CRIT', 'FINAL', 'OFF'].includes(infosNhl.statut)
   const jumbotronMontreLePointage = matchCommence || matchDemarrePourVrai
-  const matchEnCoursProvisoire = !!pointsDirect && match?.statut !== 'termine'
+  // Dernières stats en direct gardées en base par notifier-points (la dernière
+  // fois que n'importe qui a cliqué 🔄 Mise à jour). Ça permet à tout le monde
+  // de revoir le classement provisoire en ouvrant le site, sans rappeler la
+  // NHL. Il disparaît tout seul quand le match passe à "terminé".
+  let statsDepuisBase = null
+  if (match?.derniere_stats_direct) {
+    try {
+      const parUser = JSON.parse(match.derniere_stats_direct)
+      statsDepuisBase = {}
+      for (const c of tousLesChoix) {
+        const st = parUser[c.user_id]
+        if (st && c.joueurs?.nhl_id) statsDepuisBase[c.joueurs.nhl_id] = st
+      }
+    } catch {
+      statsDepuisBase = null
+    }
+  }
+  const statsDirectEffectives = pointsDirect?.stats || statsDepuisBase
+  const matchEnCoursProvisoire = !!statsDirectEffectives && match?.statut !== 'termine'
 
   const prochainAChoisir =
     match?.ordre_choix?.find((uid) => !tousLesChoix.some((c) => c.user_id === uid)) || null
@@ -641,6 +1095,12 @@ function Pool({ session }) {
             )
             if (!resDirect.ok) throw new Error('boxscore')
             setPointsDirect(await resDirect.json())
+            // Prévient tout le monde (notification) si des points ont changé
+            // depuis la dernière notif. Le serveur évite les doublons.
+            fetch('/.netlify/functions/notifier-points', {
+              method: 'POST',
+              body: JSON.stringify({ match_id: match.id }),
+            }).catch(() => {})
           } else {
             setPointsDirect(null)
           }
@@ -679,6 +1139,31 @@ function Pool({ session }) {
       )
     } finally {
       setRafraichissementEnCours(false)
+    }
+  }
+
+  // Réservé à Eric : rappel amical « c'est ton tour de choisir » à une personne.
+  async function envoyerRappel(userId) {
+    setRappelEnCours(userId)
+    setMessageRappel('')
+    try {
+      const res = await fetch('/.netlify/functions/rappel', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ user_id: userId, match_id: match.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setMessageRappel(`❌ ${data.erreur || data.error || `Erreur ${res.status}`}`)
+      } else if (data.envoye) {
+        setMessageRappel(`✓ Rappel envoyé à ${NOMS[userId]}`)
+      } else {
+        setMessageRappel(`⚠️ ${data.raison || 'Pas envoyé'}`)
+      }
+    } catch (err) {
+      setMessageRappel(`❌ ${err.message}`)
+    } finally {
+      setRappelEnCours(null)
     }
   }
 
@@ -1016,11 +1501,19 @@ function Pool({ session }) {
         window.navigator.standalone === true
 
       if (estIOS && !estStandalone) {
-        setErreur(
-          "📱 Sur iPhone, ajoute d'abord le site à l'écran d'accueil (bouton Partager → " +
-            "\"Sur l'écran d'accueil\"), puis ouvre l'app depuis l'icône et réessaie."
-        )
+        setGuideIphone(true)
         return
+      }
+
+      // Android / Chrome : proposer d'installer l'app d'abord (1 seul clic)
+      if (!estStandalone && installPrompt.current) {
+        try {
+          installPrompt.current.prompt()
+          await installPrompt.current.userChoice
+        } catch {
+          // pas grave, on continue avec les notifications
+        }
+        installPrompt.current = null
       }
 
       const permission = await Notification.requestPermission()
@@ -1157,6 +1650,18 @@ function Pool({ session }) {
       {celebration && <Confettis />}
       <FicheJoueur joueur={ficheJoueur} onFermer={() => setFicheJoueur(null)} />
       <PartageResume texte={resumePartage} onFermer={() => setResumePartage(null)} />
+      {session.user.id === ADMIN_ID && (
+        <AnnonceModal
+          ouverte={annonceOuverte}
+          accessToken={session.access_token}
+          onFermer={() => setAnnonceOuverte(false)}
+        />
+      )}
+      <GuideIphone
+        ouverte={guideIphone}
+        horsSafari={horsSafariIOS}
+        onFermer={() => setGuideIphone(false)}
+      />
       <header className="entete">
         <div className="entete-titre">
           <Crest taille={36} />
@@ -1164,6 +1669,11 @@ function Pool({ session }) {
         </div>
         <div className="entete-actions">
           <BoutonTheme />
+          {session.user.id === ADMIN_ID && (
+            <button className="bouton-lien" onClick={() => setAnnonceOuverte(true)}>
+              📣 Annonce
+            </button>
+          )}
           {!notifsActivees && (
             <button className="bouton-lien" onClick={activerNotifications}>
               🔔 Activer
@@ -1331,6 +1841,12 @@ function Pool({ session }) {
                   )
                 })}
               </ol>
+              {historique.length > 0 && (
+                <>
+                  <CourbeClassement historique={historique} />
+                  <Trophees historique={historique} />
+                </>
+              )}
             </>
           )}
         </section>
@@ -1655,6 +2171,30 @@ function Pool({ session }) {
                   </li>
                 ))}
               </ol>
+              {session.user.id === ADMIN_ID && !jumbotronMontreLePointage && (
+                <div className="rappels-admin">
+                  {match.ordre_choix
+                    .filter(
+                      (uid) => uid !== session.user.id && !tousLesChoix.some((c) => c.user_id === uid)
+                    )
+                    .map((uid) => (
+                      <button
+                        key={uid}
+                        className="bouton-rappel"
+                        onClick={() => envoyerRappel(uid)}
+                        disabled={rappelEnCours !== null || uid !== prochainAChoisir}
+                        title={
+                          uid === prochainAChoisir
+                            ? `Envoyer un rappel à ${NOMS[uid]}`
+                            : `Ce n'est pas encore le tour de ${NOMS[uid]}`
+                        }
+                      >
+                        {rappelEnCours === uid ? '⏳' : '🔔'} Rappeler {NOMS[uid]}
+                      </button>
+                    ))}
+                  {messageRappel && <p className="rappels-message">{messageRappel}</p>}
+                </div>
+              )}
             </>
           )}
 
@@ -1734,7 +2274,7 @@ function Pool({ session }) {
                 </span>
                 {matchEnCoursProvisoire && (
                   <span className="points-provisoires">
-                    {pointsProvisoires(c, pointsDirect.stats).points} pts
+                    {pointsProvisoires(c, statsDirectEffectives).points} pts
                   </span>
                 )}
               </li>
@@ -1758,7 +2298,7 @@ function Pool({ session }) {
                 Le vrai classement se met à jour quand le match est terminé.
               </p>
               <ol className="classement-provisoire-liste">
-                {classementProvisoire(classement, tousLesChoix, pointsDirect.stats).map((c) => (
+                {classementProvisoire(classement, tousLesChoix, statsDirectEffectives).map((c) => (
                   <li key={c.user_id}>
                     <span>
                       <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={20} />{' '}
@@ -1781,8 +2321,10 @@ function Pool({ session }) {
             </button>
             {messageMaj && <p className="actualiser-message">{messageMaj}</p>}
             <p className="actualiser-note">
-              Met tout à jour d'un coup : score du match, points, classement du pool et stats.
-              À utiliser si quelque chose ne semble pas à jour.
+              Relit le score du match, recalcule les points si un match est terminé, et met à
+              jour le classement du pool et les stats. Pendant un match, affiche le classement
+              provisoire (buts et passes en direct) et prévient tout le monde par notification
+              quand un joueur choisi marque ou fait une passe.
             </p>
           </div>
         </section>
