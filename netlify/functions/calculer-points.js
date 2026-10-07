@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 import { NOMS } from './_participants.js'
+import { bonusPrediction } from './_prediction.js'
 
 export const config = {
   schedule: '*/15 * * * *', // vérifie toutes les 15 minutes
@@ -21,11 +22,14 @@ async function notifierResultatPersonnel(supabase, resultat, nomJoueurChoisi) {
 
   if (!abonnement) return
 
-  const emoji = resultat.tour_chapeau ? '🎩' : resultat.points > 0 ? '🎉' : '😴'
-  const corps =
-    resultat.points > 0
-      ? `${emoji} ${nomJoueurChoisi} t'a rapporté ${resultat.points} points ce soir! (${resultat.buts} buts, ${resultat.passes} passes)`
+  const bonus = resultat.bonus || 0
+  const pointsJoueur = resultat.points - bonus
+  const emoji = resultat.tour_chapeau ? '🎩' : pointsJoueur > 0 ? '🎉' : '😴'
+  let corps =
+    pointsJoueur > 0
+      ? `${emoji} ${nomJoueurChoisi} t'a rapporté ${pointsJoueur} points ce soir! (${resultat.buts} buts, ${resultat.passes} passes)`
       : `${emoji} ${nomJoueurChoisi} n'a pas eu de but/passe ce soir — 0 point.`
+  if (bonus > 0) corps += ` 🎯 +${bonus} pour ton pointage deviné!`
 
   try {
     await webpush.sendNotification(
@@ -94,21 +98,48 @@ export async function handler() {
         .select('id, user_id, joueur_id, joueurs(nhl_id, nom)')
         .eq('match_id', match.id)
 
+      // Pointage final (prolongation et fusillade inclus) vu du côté du Canadien
+      const mtlEstDomicile = boxscore.homeTeam?.abbrev === 'MTL'
+      const scoreMtl = mtlEstDomicile ? boxscore.homeTeam?.score : boxscore.awayTeam?.score
+      const scoreAdversaire = mtlEstDomicile ? boxscore.awayTeam?.score : boxscore.homeTeam?.score
+
+      // Pointages devinés pour ce match. Si la table n'existe pas encore (SQL
+      // pas roulé), on continue sans bonus plutôt que de bloquer les points.
+      let predictions = []
+      try {
+        const { data, error } = await supabase
+          .from('predictions')
+          .select('user_id, score_mtl, score_adversaire')
+          .eq('match_id', String(match.id))
+        if (!error && data) predictions = data
+      } catch {
+        predictions = []
+      }
+
       if (choix && choix.length > 0) {
         const resultats = choix.map((c) => {
           const stats = statsParJoueur[c.joueurs.nhl_id] || { buts: 0, passes: 0 }
           const tourChapeau = stats.buts >= 3
-          const points = stats.buts * 2 + stats.passes * 1 + (tourChapeau ? 3 : 0)
-          return {
+          const pointsJoueur = stats.buts * 2 + stats.passes * 1 + (tourChapeau ? 3 : 0)
+          const bonus = bonusPrediction(
+            predictions.find((p) => p.user_id === c.user_id),
+            scoreMtl,
+            scoreAdversaire
+          )
+          const resultat = {
             match_id: match.id,
             user_id: c.user_id,
             joueur_id: c.joueur_id,
             buts: stats.buts,
             passes: stats.passes,
             tour_chapeau: tourChapeau,
-            points,
+            points: pointsJoueur + bonus,
             nomJoueurChoisi: c.joueurs.nom,
           }
+          // La colonne `bonus` n'est écrite que s'il y a eu des pointages
+          // devinés : ça évite une erreur tant que le SQL n'est pas roulé.
+          if (predictions.length > 0) resultat.bonus = bonus
+          return resultat
         })
 
         await supabase

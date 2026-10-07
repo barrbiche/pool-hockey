@@ -1,29 +1,33 @@
 import { createClient } from '@supabase/supabase-js'
+import { ORDRE_BASE } from './_participants.js'
 
 export const config = {
   schedule: '*/15 * * * *', // vérifie toutes les 15 minutes
 }
 
 // Délais (en minutes avant le match) pour chaque position dans l'ordre de
-// choix : la 1re personne doit avoir choisi 1h30 avant le match, la 2e 1h
-// avant, la 3e 30 min avant. Une personne qui manque son délai se fait
+// choix, espacés de 30 minutes : avec 3 participants, la 1re personne doit
+// avoir choisi 1h30 avant le match, la 2e 1h avant, la 3e 30 min avant (avec 4 :
+// 2h, 1h30, 1h, 30 min). Une personne qui manque son délai se fait
 // auto-assigner (son joueur du match précédent, sinon le meilleur pointeur
 // encore libre), et le suivant garde son propre délai.
-const DELAIS_MINUTES = [90, 60, 30]
+const PAS_MINUTES = 30
+const delaiPourPosition = (position, total) => (total - position) * PAS_MINUTES
 
 export async function handler() {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
   try {
     const maintenant = new Date()
-    const dansUneHeureTrente = new Date(maintenant.getTime() + 90 * 60 * 1000)
+    // Fenêtre = le délai le plus long (1er choix) selon le nombre de participants
+    const fenetre = new Date(maintenant.getTime() + ORDRE_BASE.length * PAS_MINUTES * 60 * 1000)
 
-    // Matchs qui commencent dans les prochaines 1h30 et pas encore "verrouillés"
+    // Matchs qui commencent dans cette fenêtre et pas encore "verrouillés"
     const { data: matchs, error: erreurMatchs } = await supabase
       .from('matchs')
       .select('*')
       .gte('date_match', maintenant.toISOString())
-      .lte('date_match', dansUneHeureTrente.toISOString())
+      .lte('date_match', fenetre.toISOString())
       .eq('statut', 'a_venir')
 
     if (erreurMatchs) throw erreurMatchs
@@ -68,7 +72,7 @@ export async function handler() {
         const userId = match.ordre_choix[position]
         if (usersAvecChoix.has(userId)) continue
 
-        const delaiMinutes = DELAIS_MINUTES[position] ?? 30
+        const delaiMinutes = delaiPourPosition(position, match.ordre_choix.length)
         const heureLimite = new Date(dateMatch.getTime() - delaiMinutes * 60 * 1000)
         if (maintenant < heureLimite) continue // délai pas encore dépassé pour cette personne
 

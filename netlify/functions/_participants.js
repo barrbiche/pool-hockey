@@ -1,23 +1,34 @@
-// Source unique de vérité pour les IDs et l'ordre de rotation.
-// Si un compte est recréé et change d'ID, modifier SEULEMENT ici.
-export const ORDRE_BASE = [
-  '0918539e-788e-4ed9-9c84-b8f39b83f05c', // Père
-  '58220e78-2226-4983-a026-3abefc8431a7', // Mike (frère)
-  'b5c5d9e5-1c91-4da8-ab5e-adcc40057090', // Eric
+// SOURCE UNIQUE pour les participants du pool : le site (src/) et toutes les
+// fonctions Netlify lisent cette liste. Pour ajouter quelqu'un : une seule
+// ligne dans PARTICIPANTS (son ID vient de Supabase > Authentication > Users).
+// L'ordre de la liste = l'ordre de base du match 1. La rotation se fait
+// ensuite toute seule, peu importe le nombre de participants.
+// `serie` = nom de la couleur de sa courbe (--serie-<nom> dans App.css).
+export const PARTICIPANTS = [
+  { id: '0918539e-788e-4ed9-9c84-b8f39b83f05c', nom: 'Père', couleur: '#c9971f', serie: 'pere' },
+  { id: '58220e78-2226-4983-a026-3abefc8431a7', nom: 'Mike', couleur: '#2f5bb8', serie: 'mike' },
+  { id: 'b5c5d9e5-1c91-4da8-ab5e-adcc40057090', nom: 'Eric', couleur: '#ce0e2d', serie: 'eric' },
+  // { id: 'COLLER-ICI-LID-DE-SYLVAIN', nom: 'Sylvain', couleur: '#1f9d55', serie: 'sylvain' },
 ]
+
+export const ORDRE_BASE = PARTICIPANTS.map((p) => p.id)
+
+export const NOMS = Object.fromEntries(PARTICIPANTS.map((p) => [p.id, p.nom]))
 
 // Seul compte autorisé à envoyer des annonces à tout le monde (Eric).
 export const ADMIN_ID = 'b5c5d9e5-1c91-4da8-ab5e-adcc40057090'
 
-export const NOMS = {
-  '58220e78-2226-4983-a026-3abefc8431a7': 'Mike',
-  'b5c5d9e5-1c91-4da8-ab5e-adcc40057090': 'Eric',
-  '0918539e-788e-4ed9-9c84-b8f39b83f05c': 'Père',
+export function ordreChoixPourMatch(numeroMatch) {
+  const decalage = (numeroMatch - 1) % ORDRE_BASE.length
+  return [...ORDRE_BASE.slice(decalage), ...ORDRE_BASE.slice(0, decalage)]
 }
 
-export function ordreChoixPourMatch(numeroMatch) {
-  const decalage = (numeroMatch - 1) % 3
-  return [...ORDRE_BASE.slice(decalage), ...ORDRE_BASE.slice(0, decalage)]
+// Un match créé avant l'arrivée d'un nouveau participant n'a pas son nom dans
+// l'ordre de choix : on l'ajoute à la fin (et on garde l'ordre déjà prévu).
+export function completerOrdre(ordre) {
+  const base = Array.isArray(ordre) ? ordre : []
+  const manquants = ORDRE_BASE.filter((id) => !base.includes(id))
+  return manquants.length > 0 ? [...base, ...manquants] : base
 }
 
 // L'API de la NHL utilise DEUX états pour un match terminé : "FINAL" juste
