@@ -1503,9 +1503,9 @@ function PronosticPointage({ session, match, ferme, version = 0 }) {
             <span className="pred-score">
               {p
                 ? `MTL ${p.score_mtl} – ${p.score_adversaire} ${match.adversaire}`
-                : fermeReel
-                  ? 'n’a pas deviné'
-                  : 'pas encore deviné'}
+                : etat.ont_predit.includes(uid)
+                  ? '✅ a deviné'
+                  : 'n’a pas deviné'}
             </span>
           </li>
         )
@@ -1562,8 +1562,19 @@ function PronosticPointage({ session, match, ferme, version = 0 }) {
       {message && <p className="pred-message">{message}</p>}
       {erreur && <p className="pred-erreur">{erreur}</p>}
 
-      <p className="pred-sous-titre">👀 Les pointages de tout le monde</p>
-      {listePronostics}
+      <p className="pred-sous-titre">🙈 Les pointages des autres sont cachés jusqu’au début du match</p>
+      <ul className="pred-qui">
+        {ORDRE_BASE.map((uid) => {
+          const aDevine = etat.ont_predit.includes(uid)
+          return (
+            <li key={uid} className={aDevine ? 'pred-qui-item fait' : 'pred-qui-item'}>
+              <Pastille userId={uid} nom={NOMS[uid]} taille={20} />
+              {NOMS[uid] || 'Inconnu'}
+              <span>{aDevine ? '✅' : '⏳'}</span>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
@@ -2772,8 +2783,8 @@ function Pool({ session }) {
               <strong>Pointage deviné :</strong> avant chaque match, chacun peut deviner le
               pointage final. Si le pointage est exact (prolongation et fusillade incluses),
               tu gagnes <strong>2 points</strong> en plus de ceux de ton joueur. Tu peux changer
-              ton pointage jusqu'au début du match, et tout le monde voit les pointages des
-              autres.
+              ton pointage jusqu'au début du match; ceux des autres ne se montrent qu'à ce
+              moment-là (deux personnes peuvent avoir le même pointage).
             </p>
           </article>
 
