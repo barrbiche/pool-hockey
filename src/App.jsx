@@ -342,7 +342,7 @@ function CourbeClassement({ historique }) {
 
   return (
     <div className="courbe-classement">
-      <h3>Évolution du classement</h3>
+      <h3>📈 Évolution du classement</h3>
       <div className="courbe-legende">
         {ORDRE_BASE.map((u) => (
           <span key={u} className="courbe-legende-item">
@@ -457,7 +457,7 @@ function Trophees({ historique }) {
   if (liste.length === 0) return null
   return (
     <div className="trophees">
-      <h3>Trophées de la saison</h3>
+      <h3>🏅 Trophées de la saison</h3>
       <div className="trophees-grille">
         {liste.map((t) => (
           <div key={t.titre} className="trophee">
@@ -2068,7 +2068,7 @@ function Pool({ session }) {
       {onglet === 'classement' && (
         <section className="carte">
           <div className="classement-entete-section">
-            <h2>Classement</h2>
+            <h2>🏆 Classement</h2>
             {classement.length > 0 && (
               <button
                 className="bouton-partager"
@@ -2204,7 +2204,7 @@ function Pool({ session }) {
           )}
             </>
           )}
-          <h2>Comment ça marche</h2>
+          <h2>📜 Comment ça marche</h2>
           <ul className="liste-regles">
             <li>Chacun choisit un joueur du Canadien avant chaque match.</li>
             <li>1 but = 2 points, 1 passe = 1 point, tour du chapeau = +3 points bonus.</li>
@@ -2231,7 +2231,7 @@ function Pool({ session }) {
 
       {onglet === 'calendrier' && (
         <section className="carte carte-rouge">
-          <h2>Calendrier {saisonEnCours().libelle}</h2>
+          <h2>📅 Calendrier {saisonEnCours().libelle}</h2>
           {chargementCalendrier && <Squelette lignes={8} hauteur={34} />}
           {!chargementCalendrier && (
             <ul className="liste-calendrier">
@@ -2268,7 +2268,7 @@ function Pool({ session }) {
 
       {onglet === 'classement-nhl' && (
         <section className="carte carte-rouge">
-          <h2>Classement LNH</h2>
+          <h2>📈 Classement LNH</h2>
           {chargementClassementNhl && <Squelette lignes={8} hauteur={34} />}
           {!chargementClassementNhl &&
             (() => {
@@ -2328,7 +2328,7 @@ function Pool({ session }) {
 
       {onglet === 'stats-ligue' && (
         <section className="carte carte-rouge">
-          <h2>Statistiques des joueurs — LNH</h2>
+          <h2>🌐 Statistiques des joueurs — LNH</h2>
           <p className="note-tc">
             Tous les patineurs de la ligue, triés par points. Pas de tours du chapeau ni de
             forme récente ici (ça, c'est juste pour le Canadien, dans Stats CH).
@@ -2408,7 +2408,7 @@ function Pool({ session }) {
 
       {onglet === 'stats' && (
         <section className="carte carte-rouge">
-          <h2>Statistiques des joueurs — saison</h2>
+          <h2>📊 Statistiques des joueurs — saison</h2>
           <p className="note-tc">
             TC = tours du chapeau · <IconeFeu /> chaud / <IconeGlace /> froid (5 derniers matchs) ·{' '}
             <IconePlasteur /> possiblement blessé (source non-officielle, à valider)
@@ -2696,7 +2696,7 @@ function HistoriqueOnglet({ historique, chargement, session }) {
   if (historique.length === 0) {
     return (
       <section className="carte carte-rouge">
-        <h2>Historique</h2>
+        <h2>🕘 Historique</h2>
         <p className="info">
           Cette section va afficher, une fois le premier match calculé :
         </p>
@@ -2780,7 +2780,7 @@ function HistoriqueOnglet({ historique, chargement, session }) {
       </section>
 
       <section className="carte carte-rouge">
-        <h2>Statistiques personnelles</h2>
+        <h2>🙋 Statistiques personnelles</h2>
         {Object.entries(statsParPersonne).map(([uid, s]) => {
           const joueurFavori = Object.entries(s.joueursChoisis).sort((a, b) => b[1] - a[1])[0]
           return (
@@ -2800,7 +2800,7 @@ function HistoriqueOnglet({ historique, chargement, session }) {
       </section>
 
       <section className="carte carte-rouge">
-        <h2>Historique par match</h2>
+        <h2>🗂 Historique par match</h2>
         <ul className="liste-historique">
           {matchsTries.map((m, i) => (
             <li key={i}>

@@ -2740,3 +2740,135 @@ button:hover:not(:disabled) {
   font-size: 0.95rem;
   font-weight: 700;
 }
+
+/* ===== Toutes les autres pages : même style que l'onglet Pool ===== */
+.carte:not(.pool-carte) {
+  border-left: none;
+  border-radius: 20px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--bleu-vif) 5%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--bleu-vif) 16%, transparent);
+  box-shadow: var(--ombre);
+}
+
+/* Titre de page = bandeau bleu comme le "Prochain match" */
+.carte:not(.pool-carte) > h2,
+.carte:not(.pool-carte) > .classement-entete-section {
+  background: linear-gradient(130deg, #0c1e3d 0%, #16305c 62%, #8c1226 150%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 6px 18px rgba(12, 30, 61, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin: 0 0 12px;
+}
+
+.carte:not(.pool-carte) > h2,
+.carte:not(.pool-carte) > .classement-entete-section h2 {
+  color: #fff;
+  font-size: 1.1rem;
+  line-height: 1.15;
+}
+
+.carte:not(.pool-carte) > .classement-entete-section h2 {
+  margin: 0;
+}
+
+/* Sous-titres : puce bleue à gauche */
+.carte:not(.pool-carte) h3:not(.pool-titre):not(.classement-nhl-titre-division):not(.stats-perso-titre) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bleu-vif) 12%, transparent);
+  font-size: 0.95rem;
+}
+
+/* Lignes en tuiles arrondies */
+.liste-calendrier li,
+.classement li,
+.liste-historique > li {
+  border-radius: 14px;
+}
+
+.liste-calendrier li {
+  padding: 10px 12px;
+}
+
+.liste-calendrier li:hover,
+.classement li:hover {
+  transform: translateY(-1px);
+}
+
+.table-stats-conteneur {
+  border: 1px solid color-mix(in srgb, var(--bleu-vif) 25%, transparent);
+  border-radius: 14px;
+  box-shadow: var(--ombre);
+}
+
+.table-stats thead th:first-child { border-radius: 14px 0 0 0; }
+.table-stats thead th:last-child { border-radius: 0 14px 0 0; }
+
+/* Règlements : chaque règle dans sa tuile numérotée */
+.liste-regles {
+  padding-left: 0;
+  list-style: none;
+  counter-reset: regle;
+  gap: 8px;
+}
+
+.liste-regles li {
+  counter-increment: regle;
+  position: relative;
+  padding: 10px 12px 10px 44px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bleu-vif) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--bleu-vif) 16%, transparent);
+}
+
+.liste-regles li::before {
+  content: counter(regle);
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #2f5bb8 0%, #1d3f86 100%);
+  box-shadow: 0 2px 6px rgba(12, 30, 61, 0.35);
+}
+
+/* Panneaux dans Classement LNH et Stats perso */
+.classement-nhl-division,
+.stats-perso-bloc {
+  padding: 10px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bleu-vif) 6%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--bleu-vif) 16%, transparent);
+  margin-bottom: 12px;
+}
+
+.stats-perso-bloc:last-child,
+.classement-nhl-division:last-child {
+  margin-bottom: 0;
+  padding-bottom: 10px;
+}
+
+.stats-perso-bloc {
+  border-bottom: 1px solid color-mix(in srgb, var(--bleu-vif) 16%, transparent);
+}
+
+.carte:not(.pool-carte) > .classement-entete-section {
+  flex-wrap: nowrap;
+}
+.carte:not(.pool-carte) > .classement-entete-section .bouton-partager {
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
