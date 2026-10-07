@@ -638,6 +638,8 @@ function Pool({ session }) {
   const [ficheJoueur, setFicheJoueur] = useState(null)
   const [resumePartage, setResumePartage] = useState(null)
   const [annonceOuverte, setAnnonceOuverte] = useState(false)
+  const [rappelEnCours, setRappelEnCours] = useState(null)
+  const [messageRappel, setMessageRappel] = useState('')
   const [celebration, setCelebration] = useState(false)
   const celebrationVictoireFaite = useRef(false)
 
@@ -785,6 +787,31 @@ function Pool({ session }) {
       )
     } finally {
       setRafraichissementEnCours(false)
+    }
+  }
+
+  // Réservé à Eric : rappel amical « c'est ton tour de choisir » à une personne.
+  async function envoyerRappel(userId) {
+    setRappelEnCours(userId)
+    setMessageRappel('')
+    try {
+      const res = await fetch('/.netlify/functions/rappel', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ user_id: userId, match_id: match.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setMessageRappel(`❌ ${data.erreur || data.error || `Erreur ${res.status}`}`)
+      } else if (data.envoye) {
+        setMessageRappel(`✓ Rappel envoyé à ${NOMS[userId]}`)
+      } else {
+        setMessageRappel(`⚠️ ${data.raison || 'Pas envoyé'}`)
+      }
+    } catch (err) {
+      setMessageRappel(`❌ ${err.message}`)
+    } finally {
+      setRappelEnCours(null)
     }
   }
 
@@ -1773,6 +1800,30 @@ function Pool({ session }) {
                   </li>
                 ))}
               </ol>
+              {session.user.id === ADMIN_ID && !jumbotronMontreLePointage && (
+                <div className="rappels-admin">
+                  {match.ordre_choix
+                    .filter(
+                      (uid) => uid !== session.user.id && !tousLesChoix.some((c) => c.user_id === uid)
+                    )
+                    .map((uid) => (
+                      <button
+                        key={uid}
+                        className="bouton-rappel"
+                        onClick={() => envoyerRappel(uid)}
+                        disabled={rappelEnCours !== null || uid !== prochainAChoisir}
+                        title={
+                          uid === prochainAChoisir
+                            ? `Envoyer un rappel à ${NOMS[uid]}`
+                            : `Ce n'est pas encore le tour de ${NOMS[uid]}`
+                        }
+                      >
+                        {rappelEnCours === uid ? '⏳' : '🔔'} Rappeler {NOMS[uid]}
+                      </button>
+                    ))}
+                  {messageRappel && <p className="rappels-message">{messageRappel}</p>}
+                </div>
+              )}
             </>
           )}
 

@@ -2043,3 +2043,29 @@ details[open] > .historique-entete .historique-chevron {
   background: var(--surface-2);
   color: var(--encre);
 }
+
+/* ===== Rappels (visibles seulement par Eric) ===== */
+.rappels-admin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 4px;
+}
+
+.bouton-rappel {
+  font-size: 0.85rem;
+  padding: 8px 14px;
+}
+
+.bouton-rappel:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rappels-message {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
