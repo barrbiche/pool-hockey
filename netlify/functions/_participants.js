@@ -8,7 +8,7 @@ export const PARTICIPANTS = [
   { id: '0918539e-788e-4ed9-9c84-b8f39b83f05c', nom: 'Père', couleur: '#c9971f', serie: 'pere' },
   { id: '58220e78-2226-4983-a026-3abefc8431a7', nom: 'Mike', couleur: '#2f5bb8', serie: 'mike' },
   { id: 'b5c5d9e5-1c91-4da8-ab5e-adcc40057090', nom: 'Eric', couleur: '#ce0e2d', serie: 'eric' },
-  // { id: 'COLLER-ICI-LID-DE-SYLVAIN', nom: 'Sylvain', couleur: '#1f9d55', serie: 'sylvain' },
+  { id: '47c5e9ed-8e57-4933-a1f9-509627195cae', nom: 'Sylvain', couleur: '#1f9d55', serie: 'sylvain' },
 ]
 
 export const ORDRE_BASE = PARTICIPANTS.map((p) => p.id)
