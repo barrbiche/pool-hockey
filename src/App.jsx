@@ -1290,6 +1290,25 @@ async function lireReponseFonction(res, nomFonction) {
   throw new Error(data.erreur || data.error || data.errorMessage || `Erreur ${res.status}`)
 }
 
+// Vrai si une nouvelle version du site a été publiée depuis que cette page est
+// ouverte : le fichier JS référencé par le index.html du serveur n'est plus
+// celui qui tourne ici. (En développement local, il n'y a pas de fichier
+// /assets/index-xxx.js : on répond « non ».)
+async function nouvelleVersionDisponible() {
+  try {
+    const actuel = [...document.scripts]
+      .map((s) => s.src)
+      .find((src) => /\/assets\/index-[^/]+\.js$/.test(src))
+    if (!actuel) return false
+    const res = await fetch(`/?v=${Date.now()}`, { cache: 'no-store' })
+    const html = await res.text()
+    const publie = html.match(/\/assets\/index-[^"'\s]+\.js/)
+    return !!publie && !actuel.endsWith(publie[0])
+  } catch {
+    return false
+  }
+}
+
 // Appelle une fonction Netlify avec une clé de connexion TOUJOURS fraîche.
 // getSession() renouvelle tout seul une clé expirée; si le serveur répond quand
 // même 401, on force un renouvellement et on réessaie une fois.
@@ -1353,7 +1372,7 @@ function CompteurPointage({ valeur, onChange, etiquette }) {
 // Pronostic : deviner le pointage final du match (+2 points si exact, prolongation
 // et fusillade incluses). Modifiable jusqu'au début du match; les pronostics des
 // autres ne s'affichent qu'une fois le match commencé (pour qu'on ne copie pas).
-function PronosticPointage({ session, match, ferme }) {
+function PronosticPointage({ session, match, ferme, version = 0 }) {
   const [etat, setEtat] = useState(null)
   const [mtl, setMtl] = useState(null)
   const [adv, setAdv] = useState(null)
@@ -1399,6 +1418,13 @@ function PronosticPointage({ session, match, ferme }) {
     charger()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId, ferme])
+
+  // Bouton « Bouton à Pa! » du haut : relit les pointages tout de suite, sans
+  // toucher à ce que tu es en train de taper.
+  useEffect(() => {
+    if (version > 0 && matchId) charger()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [version])
 
   // Met à jour les pointages des autres pendant que le bloc est affiché
   useEffect(() => {
@@ -1548,6 +1574,8 @@ function Pool({ session }) {
   const [infosNhl, setInfosNhl] = useState(null)
   const [rafraichissementEnCours, setRafraichissementEnCours] = useState(false)
   const [majGlobaleEnCours, setMajGlobaleEnCours] = useState(false)
+  const [majResultat, setMajResultat] = useState('') // '', 'ok' ou 'partiel' (affiché 3 s sur le bouton)
+  const [versionMaj, setVersionMaj] = useState(0) // +1 à chaque mise à jour manuelle
   const [messageMaj, setMessageMaj] = useState('')
   const [pointsDirect, setPointsDirect] = useState(null)
   const [alignementEnErreur, setAlignementEnErreur] = useState(false)
@@ -1757,6 +1785,7 @@ function Pool({ session }) {
           ? '✓ Tout est à jour!'
           : `⚠️ Mis à jour, sauf : ${problemes.join(', ')}.`
       )
+      return problemes.length === 0
     } finally {
       setRafraichissementEnCours(false)
     }
@@ -1787,20 +1816,32 @@ function Pool({ session }) {
     }
   }
 
-  // Bouton d'en-tête "Tout mettre à jour" : force le calcul des points (ce
-  // qui va chercher le boxscore à l'API de la NHL, au cas où le cron
-  // automatique des 15 minutes n'aurait pas encore tourné), puis recharge
-  // la page au complet pour que chaque onglet reparte à zéro et relise des
-  // données fraîches dès qu'on clique dessus.
+  // Bouton d'en-tête "Bouton à Pa!" : force le calcul des points (ce qui va
+  // chercher le boxscore à l'API de la NHL, au cas où le cron automatique
+  // n'aurait pas encore tourné), puis relit tout SUR PLACE (match, choix,
+  // classement, onglets déjà ouverts, pointages devinés). Plus de rechargement
+  // de la page : on reste sur le même onglet, au même endroit.
+  // Seule exception : si une NOUVELLE VERSION du site a été publiée (après un
+  // upload sur GitHub), on recharge quand même la page pour la récupérer, sinon
+  // un cellulaire qui garde le site ouvert resterait sur l'ancienne version.
   async function toutMettreAJour() {
     setMajGlobaleEnCours(true)
+    setMajResultat('')
+    let ok = false
     try {
-      await fetch('/.netlify/functions/calculer-points')
+      ok = await rafraichirPointage()
+      setVersionMaj((v) => v + 1)
+      if (await nouvelleVersionDisponible()) {
+        setMajResultat('version')
+        window.location.reload()
+        return
+      }
     } catch {
-      // pas grave, on recharge quand même avec ce qu'on a déjà
-    } finally {
-      window.location.reload()
+      ok = false
     }
+    setMajGlobaleEnCours(false)
+    setMajResultat(ok ? 'ok' : 'partiel')
+    setTimeout(() => setMajResultat(''), 3000)
   }
 
   // Plus aucun rafraîchissement automatique pendant un match : le pointage
@@ -2445,10 +2486,18 @@ function Pool({ session }) {
             className={majGlobaleEnCours ? 'dock-maj en-cours' : 'dock-maj'}
             onClick={toutMettreAJour}
             disabled={majGlobaleEnCours}
-            title="Calcule les points du match (si terminé) et recharge tout le site avec les dernières infos de la NHL"
+            title="Calcule les points du match (si terminé) et met tout à jour avec les dernières infos de la NHL, sans recharger la page"
           >
             <span className="dock-maj-icone">🔄</span>
-            {majGlobaleEnCours ? 'Mise à jour...' : 'Bouton à Pa!'}
+            {majResultat === 'version'
+              ? 'Nouvelle version...'
+              : majGlobaleEnCours
+                ? 'Mise à jour...'
+                : majResultat === 'ok'
+                  ? '✓ À jour!'
+                  : majResultat === 'partiel'
+                    ? '⚠️ Partiel'
+                    : 'Bouton à Pa!'}
           </button>
           <BoutonTheme />
         </div>
@@ -3352,6 +3401,7 @@ function Pool({ session }) {
             session={session}
             match={match}
             ferme={jumbotronMontreLePointage}
+            version={versionMaj}
           />
 
           <div className="pool-bloc">
