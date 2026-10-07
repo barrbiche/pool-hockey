@@ -1142,7 +1142,14 @@ function Pool({ session }) {
   const [guideIphone, setGuideIphone] = useState(false)
   const [confirmTest, setConfirmTest] = useState('')
   const [verifNotifsFaite, setVerifNotifsFaite] = useState(false)
-  const [rappelNotifsFerme, setRappelNotifsFerme] = useState(false)
+  const [rappelNotifsFerme, setRappelNotifsFerme] = useState(() => {
+    // Le rappel plein écran ne s'affiche qu'une seule fois par appareil
+    try {
+      return localStorage.getItem('rappelNotifsVu') === '1'
+    } catch {
+      return false
+    }
+  })
   const [aideNotifs, setAideNotifs] = useState('')
   const [clignoteAide, setClignoteAide] = useState(false)
   const [aideVue, setAideVue] = useState(() => {
@@ -1725,6 +1732,15 @@ function Pool({ session }) {
 
   // Première fois : on envoie la personne lire l'aide dans Règlements (boutons
   // rouges qui clignotent). Ensuite, le switch active directement.
+  function fermerRappelNotifs() {
+    setRappelNotifsFerme(true)
+    try {
+      localStorage.setItem('rappelNotifsVu', '1')
+    } catch {
+      // pas grave
+    }
+  }
+
   function demarrerActivation() {
     if (!aideVue) {
       setRappelNotifsFerme(true)
@@ -1746,6 +1762,16 @@ function Pool({ session }) {
       // pas grave
     }
   }
+
+  useEffect(() => {
+    if (verifNotifsFaite && !notifsActivees && !rappelNotifsFerme) {
+      try {
+        localStorage.setItem('rappelNotifsVu', '1')
+      } catch {
+        // pas grave
+      }
+    }
+  }, [verifNotifsFaite, notifsActivees, rappelNotifsFerme])
 
   async function activerNotifications() {
     try {
@@ -1889,15 +1915,15 @@ function Pool({ session }) {
         <RappelNotifications
         ouvert={verifNotifsFaite && !notifsActivees && !rappelNotifsFerme && !guideIphone && !confirmTest && !estNavigateurIntegre()}
         onActiver={() => {
-          setRappelNotifsFerme(true)
+          fermerRappelNotifs()
           demarrerActivation()
         }}
         onGuideIphone={() => {
-          setRappelNotifsFerme(true)
+          fermerRappelNotifs()
           if (!aideVue) demarrerActivation()
           else setGuideIphone(true)
         }}
-        onPlusTard={() => setRappelNotifsFerme(true)}
+        onPlusTard={fermerRappelNotifs}
       />
       <ConfirmationTest
         etat={confirmTest}
