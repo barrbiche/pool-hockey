@@ -641,6 +641,12 @@ function Pool({ session }) {
             )
             if (!resDirect.ok) throw new Error('boxscore')
             setPointsDirect(await resDirect.json())
+            // Prévient tout le monde (notification) si des points ont changé
+            // depuis la dernière notif. Le serveur évite les doublons.
+            fetch('/.netlify/functions/notifier-points', {
+              method: 'POST',
+              body: JSON.stringify({ match_id: match.id }),
+            }).catch(() => {})
           } else {
             setPointsDirect(null)
           }
