@@ -1276,6 +1276,11 @@ async function lireReponseFonction(res, nomFonction) {
     data = null
   }
   if (res.ok && data) return data
+  if (res.status === 401) {
+    throw new Error(
+      'Ta session a expiré. Ferme le site et rouvre-le, ou fais ☰ → Déconnexion puis reconnecte-toi.'
+    )
+  }
   if (res.status === 404 || !data) {
     throw new Error(
       `La fonction « ${nomFonction} » n’est pas encore publiée (fichier à uploader dans netlify/functions, puis attendre « Published »).`
@@ -1283,6 +1288,37 @@ async function lireReponseFonction(res, nomFonction) {
   }
   // Une fonction qui plante côté Netlify répond en JSON avec errorMessage
   throw new Error(data.erreur || data.error || data.errorMessage || `Erreur ${res.status}`)
+}
+
+// Appelle une fonction Netlify avec une clé de connexion TOUJOURS fraîche.
+// getSession() renouvelle tout seul une clé expirée; si le serveur répond quand
+// même 401, on force un renouvellement et on réessaie une fois.
+// (Avant, « Devine le pointage » gardait la clé du premier chargement : après
+// ~1 h elle expirait et la mise à jour automatique donnait « Session invalide ».)
+async function fetchAvecSession(url, options = {}) {
+  const cle = async (forcer) => {
+    const { data } = forcer
+      ? await supabase.auth.refreshSession()
+      : await supabase.auth.getSession()
+    return data?.session?.access_token || null
+  }
+  const lancer = (jeton) =>
+    fetch(url, {
+      ...options,
+      headers: { ...(options.headers || {}), Authorization: `Bearer ${jeton}` },
+    })
+  const jeton = await cle(false)
+  if (!jeton) {
+    throw new Error(
+      'Ta session a expiré. Ferme le site et rouvre-le, ou fais ☰ → Déconnexion puis reconnecte-toi.'
+    )
+  }
+  let res = await lancer(jeton)
+  if (res.status === 401) {
+    const neuf = await cle(true)
+    if (neuf) res = await lancer(neuf)
+  }
+  return res
 }
 
 // Petit compteur − / + pour un pointage deviné (0 à 20). Vide au départ.
@@ -1331,9 +1367,8 @@ function PronosticPointage({ session, match, ferme }) {
 
   async function charger() {
     try {
-      const res = await fetch(
-        `/.netlify/functions/prediction?match_id=${encodeURIComponent(matchId)}`,
-        { headers: { Authorization: `Bearer ${session.access_token}` } }
+      const res = await fetchAvecSession(
+        `/.netlify/functions/prediction?match_id=${encodeURIComponent(matchId)}`
       )
       const data = await lireReponseFonction(res, 'prediction')
       setEtat(data)
@@ -1380,12 +1415,9 @@ function PronosticPointage({ session, match, ferme }) {
     setMessage('')
     setErreur('')
     try {
-      const res = await fetch('/.netlify/functions/prediction', {
+      const res = await fetchAvecSession('/.netlify/functions/prediction', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ match_id: matchId, score_mtl: mtl, score_adversaire: adv }),
       })
       await lireReponseFonction(res, 'prediction')
