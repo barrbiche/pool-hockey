@@ -2363,3 +2363,27 @@ details[open] > .historique-entete .historique-chevron {
   line-height: 1.4;
   word-break: break-word;
 }
+
+.aide-clignote {
+  background: #d40000 !important;
+  color: #fff !important;
+  animation: aide-rouge 0.9s ease-in-out infinite;
+}
+
+@keyframes aide-rouge {
+  0%, 100% { box-shadow: 0 0 6px #ff2a2a, 0 0 12px rgba(255, 42, 42, 0.5); }
+  50% { box-shadow: 0 0 18px #ff2a2a, 0 0 36px #ff2a2a; }
+}
+
+.aide-invite {
+  margin: 0 0 0.6rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aide-clignote {
+    animation: none;
+    box-shadow: 0 0 14px #ff2a2a;
+  }
+}
