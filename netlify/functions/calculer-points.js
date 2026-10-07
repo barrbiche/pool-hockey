@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 import { NOMS } from './_participants.js'
-import { bonusPrediction } from './_prediction.js'
 
 export const config = {
   schedule: '*/15 * * * *', // vérifie toutes les 15 minutes
@@ -12,6 +11,18 @@ webpush.setVapidDetails(
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 )
+
+// +2 points si le pointage deviné est exactement le pointage final.
+// (Copie volontaire de la règle de prediction.js : ce fichier ne dépend ainsi d'aucun autre
+// pour calculer les points.)
+const POINTS_PREDICTION = 2
+function bonusPrediction(prediction, scoreMtl, scoreAdversaire) {
+  if (!prediction) return 0
+  if (!Number.isInteger(scoreMtl) || !Number.isInteger(scoreAdversaire)) return 0
+  return prediction.score_mtl === scoreMtl && prediction.score_adversaire === scoreAdversaire
+    ? POINTS_PREDICTION
+    : 0
+}
 
 async function notifierResultatPersonnel(supabase, resultat, nomJoueurChoisi) {
   const { data: abonnement } = await supabase
