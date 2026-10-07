@@ -227,6 +227,7 @@ function pointsProvisoires(choix, statsDirect) {
 // Classement du pool = points officiels en base + points provisoires du match.
 function classementProvisoire(classement, choix, statsDirect) {
   const total = {}
+  for (const uid of ORDRE_BASE) total[uid] = 0
   for (const c of classement) total[c.user_id] = c.points || 0
   for (const ch of choix) {
     total[ch.user_id] = (total[ch.user_id] || 0) + pointsProvisoires(ch, statsDirect).points
@@ -1910,6 +1911,12 @@ function Pool({ session }) {
 
     function totaliser(lignes) {
       const totaux = {}
+      // Tout le monde apparaît au classement, même sans point encore (nouveau participant)
+      if (lignes.length > 0) {
+        for (const uid of ORDRE_BASE) {
+          totaux[uid] = { user_id: uid, points: 0, buts: 0, passes: 0, tc: 0 }
+        }
+      }
       for (const r of lignes) {
         if (!totaux[r.user_id]) {
           totaux[r.user_id] = { user_id: r.user_id, points: 0, buts: 0, passes: 0, tc: 0 }
@@ -3399,6 +3406,16 @@ function HistoriqueOnglet({ historique, chargement, session }) {
 
   // Stats personnelles agrégées par personne
   const statsParPersonne = {}
+  for (const uid of ORDRE_BASE) {
+    statsParPersonne[uid] = {
+      matchs: 0,
+      points: 0,
+      buts: 0,
+      passes: 0,
+      tc: 0,
+      joueursChoisis: {},
+    }
+  }
   for (const r of historique) {
     if (!statsParPersonne[r.user_id]) {
       statsParPersonne[r.user_id] = {
