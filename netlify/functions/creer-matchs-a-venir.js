@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import { ordreChoixPourMatch, completerOrdre, matchTermine } from './_participants.js'
+import { ORDRE_BASE, matchTermine } from './_participants.js'
+import { reorganiserOrdres } from './_ordres.js'
 
 export const config = {
   schedule: '0 */6 * * *', // vérifie toutes les 6 heures
@@ -29,12 +30,6 @@ export async function handler() {
       })
       .sort((a, b) => new Date(a.startTimeUTC) - new Date(b.startTimeUTC))
 
-    // Compter combien de matchs existent déjà (pour la rotation)
-    const { count: totalExistants } = await supabase
-      .from('matchs')
-      .select('*', { count: 'exact', head: true })
-
-    let compteur = totalExistants || 0
     const matchsCrees = []
 
     for (const m of matchsAVenir) {
@@ -49,40 +44,25 @@ export async function handler() {
       const adversaireEstDom = m.homeTeam.abbrev === 'MTL'
       const adversaire = adversaireEstDom ? m.awayTeam.abbrev : m.homeTeam.abbrev
 
-      compteur += 1
-      const ordre = ordreChoixPourMatch(compteur)
-
       await supabase.from('matchs').insert({
         nhl_game_id: m.id,
         date_match: m.startTimeUTC,
         adversaire,
         statut: 'a_venir',
-        ordre_choix: ordre,
+        // Provisoire : reorganiserOrdres ci-dessous met la bonne rotation
+        ordre_choix: ORDRE_BASE,
       })
 
       matchsCrees.push(m.id)
     }
 
-    // Nouveau participant : les matchs déjà créés (pas encore commencés) n'ont
-    // pas son nom dans l'ordre de choix. On l'ajoute à la fin.
-    const matchsCorriges = []
-    const { data: matchsOuverts } = await supabase
-      .from('matchs')
-      .select('id, ordre_choix')
-      .neq('statut', 'termine')
-      .gt('date_match', maintenant.toISOString())
-    for (const m of matchsOuverts || []) {
-      const complet = completerOrdre(m.ordre_choix)
-      if (complet.length !== (m.ordre_choix || []).length) {
-        await supabase.from('matchs').update({ ordre_choix: complet }).eq('id', m.id)
-        matchsCorriges.push(m.id)
-      }
-    }
+    // Rotation de l'ordre de choix pour tous les matchs à venir sans choix
+    const changements = await reorganiserOrdres(supabase)
 
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ matchsCrees, matchsCorriges }),
+      body: JSON.stringify({ matchsCrees, ordresModifies: changements.length }),
     }
   } catch (err) {
     return { statusCode: 500, body: JSON.stringify({ error: err.message }) }

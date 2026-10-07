@@ -33,6 +33,16 @@ export async function handler(event) {
       body: JSON.stringify(corps),
     }
   } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) }
+    const message = String(err?.message || err)
+    // Table pas encore créée dans Supabase (le SQL n'a pas été roulé)
+    const tableManquante = /could not find the table|schema cache|relation .* does not exist/i.test(message)
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: tableManquante
+          ? 'La table « predictions » n’existe pas encore dans Supabase : roule le SQL du pointage deviné, puis réessaie.'
+          : message,
+      }),
+    }
   }
 }
