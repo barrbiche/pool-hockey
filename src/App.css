@@ -1991,3 +1991,39 @@ details[open] > .historique-entete .historique-chevron {
 :root[data-theme='dark'] .carte-joueur-forme.chaud {
   color: #ff9147;
 }
+
+.actualiser-message {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin: 10px 0 0;
+}
+
+/* ===== Points provisoires (match en direct) ===== */
+.liste-choix-ligne .points-provisoires {
+  margin-left: auto;
+  font-weight: 800;
+  color: var(--rouge);
+  white-space: nowrap;
+}
+
+.classement-provisoire {
+  margin-top: 16px;
+}
+
+.classement-provisoire-liste {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.classement-provisoire-liste li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  margin-bottom: 6px;
+  font-weight: 700;
+}

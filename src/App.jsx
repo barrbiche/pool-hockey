@@ -148,6 +148,27 @@ function appliquerTri(liste, tri, valeurColonne) {
   return tri.direction === 'desc' ? triee.reverse() : triee
 }
 
+// Points provisoires d'un match en cours : même règle que calculer-points
+// (but = 2, passe = 1, tour du chapeau = +3), mais calculée côté site à partir
+// du boxscore en direct. Rien n'est enregistré, c'est juste de l'affichage.
+function pointsProvisoires(choix, statsDirect) {
+  const s = statsDirect?.[choix.joueurs?.nhl_id] || { buts: 0, passes: 0 }
+  const tc = s.buts >= 3
+  return { buts: s.buts, passes: s.passes, points: s.buts * 2 + s.passes + (tc ? 3 : 0) }
+}
+
+// Classement du pool = points officiels en base + points provisoires du match.
+function classementProvisoire(classement, choix, statsDirect) {
+  const total = {}
+  for (const c of classement) total[c.user_id] = c.points || 0
+  for (const ch of choix) {
+    total[ch.user_id] = (total[ch.user_id] || 0) + pointsProvisoires(ch, statsDirect).points
+  }
+  return Object.entries(total)
+    .map(([user_id, points]) => ({ user_id, points }))
+    .sort((a, b) => b.points - a.points)
+}
+
 // Retrouve le dernier match joué à partir des lignes brutes d'historique
 // (même regroupement que HistoriqueOnglet, en gardant juste le plus récent).
 function dernierMatchDeHistorique(historique) {
@@ -508,6 +529,8 @@ function Pool({ session }) {
   const [infosNhl, setInfosNhl] = useState(null)
   const [rafraichissementEnCours, setRafraichissementEnCours] = useState(false)
   const [majGlobaleEnCours, setMajGlobaleEnCours] = useState(false)
+  const [messageMaj, setMessageMaj] = useState('')
+  const [pointsDirect, setPointsDirect] = useState(null)
   const [alignementEnErreur, setAlignementEnErreur] = useState(false)
   const [raisonAlignement, setRaisonAlignement] = useState('')
   const [tousLesChoix, setTousLesChoix] = useState([])
@@ -551,6 +574,7 @@ function Pool({ session }) {
   const matchDemarrePourVrai =
     !!infosNhl && ['LIVE', 'CRIT', 'FINAL', 'OFF'].includes(infosNhl.statut)
   const jumbotronMontreLePointage = matchCommence || matchDemarrePourVrai
+  const matchEnCoursProvisoire = !!pointsDirect && match?.statut !== 'termine'
 
   const prochainAChoisir =
     match?.ordre_choix?.find((uid) => !tousLesChoix.some((c) => c.user_id === uid)) || null
@@ -573,12 +597,86 @@ function Pool({ session }) {
   // 🔄 manuel du tableau en direct.
   async function rafraichirPointage() {
     setRafraichissementEnCours(true)
+    setMessageMaj('')
+    const problemes = []
     try {
-      const res = await fetch('/.netlify/functions/prochain-match')
-      const data = await res.json()
-      if (data.match) setInfosNhl(data.match)
-    } catch {
-      // pas grave, on retentera au prochain passage
+      // 1. Force le calcul des points si un match est terminé (appelle la NHL)
+      try {
+        const resCalcul = await fetch('/.netlify/functions/calculer-points')
+        if (!resCalcul.ok) problemes.push(`calcul des points (erreur ${resCalcul.status})`)
+      } catch {
+        problemes.push('calcul des points (pas de réponse)')
+      }
+
+      // 2. Pointage / période du match en direct
+      let infosFraiches = null
+      try {
+        const res = await fetch('/.netlify/functions/prochain-match')
+        const data = await res.json()
+        if (data.match) {
+          infosFraiches = data.match
+          setInfosNhl(data.match)
+        }
+      } catch {
+        problemes.push('score du match')
+      }
+
+      // 2b. Points provisoires en direct (buts/passes du boxscore NHL), tant
+      // que le match n'est pas encore calculé officiellement
+      try {
+        if (match) {
+          const { data: matchFrais } = await supabase
+            .from('matchs')
+            .select('*')
+            .eq('id', match.id)
+            .maybeSingle()
+          if (matchFrais) setMatch(matchFrais)
+
+          const aDemarre =
+            (infosFraiches && ['LIVE', 'CRIT', 'FINAL', 'OFF'].includes(infosFraiches.statut)) ||
+            new Date() >= new Date(match.date_match)
+          if (matchFrais?.statut !== 'termine' && aDemarre) {
+            const resDirect = await fetch(
+              `/.netlify/functions/points-en-direct?id=${match.nhl_game_id}`
+            )
+            if (!resDirect.ok) throw new Error('boxscore')
+            setPointsDirect(await resDirect.json())
+          } else {
+            setPointsDirect(null)
+          }
+        }
+      } catch {
+        problemes.push('points en direct')
+      }
+
+      // 3. Choix de tout le monde pour le match affiché + classement du pool
+      try {
+        if (match) {
+          const { data: choixFrais } = await supabase
+            .from('choix')
+            .select('*, joueurs(nom, nhl_id)')
+            .eq('match_id', match.id)
+          setTousLesChoix(choixFrais || [])
+        }
+        await chargerClassement()
+      } catch {
+        problemes.push('classement du pool')
+      }
+
+      // 4. Les onglets déjà ouverts (les autres se chargent frais quand on clique dessus)
+      const rechargements = []
+      if (statsEquipe.length > 0) rechargements.push(chargerStatsEquipe())
+      if (calendrier.length > 0) rechargements.push(chargerCalendrier())
+      if (classementNhl.length > 0) rechargements.push(chargerClassementNhl())
+      if (statsLigue.length > 0) rechargements.push(chargerStatsLigue())
+      if (historique.length > 0) rechargements.push(chargerHistorique())
+      await Promise.all(rechargements)
+
+      setMessageMaj(
+        problemes.length === 0
+          ? '✓ Tout est à jour!'
+          : `⚠️ Mis à jour, sauf : ${problemes.join(', ')}.`
+      )
     } finally {
       setRafraichissementEnCours(false)
     }
@@ -1634,6 +1732,11 @@ function Pool({ session }) {
                 <span>
                   {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
                 </span>
+                {matchEnCoursProvisoire && (
+                  <span className="points-provisoires">
+                    {pointsProvisoires(c, pointsDirect.stats).points} pts
+                  </span>
+                )}
               </li>
             ))}
             {match.ordre_choix &&
@@ -1647,6 +1750,27 @@ function Pool({ session }) {
                 ))}
           </ul>
 
+          {matchEnCoursProvisoire && (
+            <div className="classement-provisoire">
+              <h3>Classement provisoire</h3>
+              <p className="note-tc">
+                🔴 En direct, pas final : points officiels + buts et passes du match en cours.
+                Le vrai classement se met à jour quand le match est terminé.
+              </p>
+              <ol className="classement-provisoire-liste">
+                {classementProvisoire(classement, tousLesChoix, pointsDirect.stats).map((c) => (
+                  <li key={c.user_id}>
+                    <span>
+                      <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={20} />{' '}
+                      {NOMS[c.user_id] || 'Inconnu'}
+                    </span>
+                    <span className="points">{c.points} pts</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
           <div className="actualiser-bloc">
             <button
               className="bouton-actualiser"
@@ -1655,11 +1779,10 @@ function Pool({ session }) {
             >
               {rafraichissementEnCours ? '⏳ Mise à jour en cours...' : '🔄 Mise à jour'}
             </button>
+            {messageMaj && <p className="actualiser-message">{messageMaj}</p>}
             <p className="actualiser-note">
-              À utiliser seulement si le score ou les points ne semblent pas à jour. Ce bouton
-              aide à garder l'information à jour sur le site, sans surcharger l'API de la NHL —
-              question de ne pas risquer de s'en faire couper l'accès aux données automatiques du
-              site.
+              Met tout à jour d'un coup : score du match, points, classement du pool et stats.
+              À utiliser si quelque chose ne semble pas à jour.
             </p>
           </div>
         </section>
