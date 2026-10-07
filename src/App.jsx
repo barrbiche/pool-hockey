@@ -1115,7 +1115,7 @@ export default function App() {
   if (estNavigateurIntegre() && !ignorerNavigateur) {
     return <NavigateurIntegre onContinuer={() => setIgnorerNavigateur(true)} />
   }
-  if (chargement) return <div className="ecran-centre">Chargement...</div>
+  if (chargement) return <div className="ecran-centre" />
   if (!session) return <Login />
 
   return <Pool session={session} />
