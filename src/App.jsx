@@ -1066,6 +1066,104 @@ function NavigateurIntegre({ onContinuer }) {
   )
 }
 
+// ===== Classement LNH : qualification pour les séries =====
+// 16 équipes sur 32 : les 3 premières de chaque division + 2 cartes sauvages
+// par conférence (les 2 meilleures équipes restantes de la conférence).
+const CONFERENCE_PAR_DIVISION = {
+  Atlantique: 'Est',
+  Métropolitaine: 'Est',
+  Centrale: 'Ouest',
+  Pacifique: 'Ouest',
+}
+
+function conferenceDe(e) {
+  return e.conference || CONFERENCE_PAR_DIVISION[e.division] || ''
+}
+
+function calculerQualifications(equipes) {
+  const qualifs = {}
+  const parConference = {}
+  for (const e of equipes) {
+    const c = conferenceDe(e)
+    if (!parConference[c]) parConference[c] = []
+    parConference[c].push(e)
+  }
+  for (const liste of Object.values(parConference)) {
+    const restantes = []
+    for (const e of liste) {
+      if (e.rang_division <= 3) qualifs[e.abbrev] = { type: 'div', libelle: '✔' }
+      else restantes.push(e)
+    }
+    restantes.sort(
+      (a, b) => b.points - a.points || b.victoires - a.victoires || b.differentiel - a.differentiel
+    )
+    restantes.slice(0, 2).forEach((e, i) => {
+      qualifs[e.abbrev] = { type: 'wc', libelle: `WC${i + 1}` }
+    })
+  }
+  return qualifs
+}
+
+function EquipeNhlLigne({ e, rang, qualif }) {
+  return (
+    <tr className={(e.abbrev === 'MTL' ? 'ligne-mtl ' : '') + (qualif ? 'qualifiee qualifiee-' + qualif.type : '')}>
+      <td>{rang}</td>
+      <td className="classement-nhl-equipe">
+        <LogoEquipe abbrev={e.abbrev} taille={22} />
+        {e.nom}
+        {qualif && <span className={'badge-series badge-' + qualif.type}>{qualif.libelle}</span>}
+      </td>
+      <td>{e.matchs_joues}</td>
+      <td>{e.victoires}</td>
+      <td>{e.defaites}</td>
+      <td>{e.defaites_prolongation}</td>
+      <td className="col-cle">{e.points}</td>
+      <td>{e.differentiel > 0 ? `+${e.differentiel}` : e.differentiel}</td>
+    </tr>
+  )
+}
+
+// equipes déjà dans l'ordre par défaut ; ligneApres = nombre d'équipes avant
+// la ligne « séries » (affichée seulement quand aucun tri n'est choisi).
+function TableauNhl({ equipes, rangs, qualifs, tri, onTrier, ligneApres }) {
+  const lignes = tri
+    ? appliquerTri(equipes, tri, (e, col) => e[col]).map((e, i) => ({ e, rang: i + 1 }))
+    : equipes.map((e, i) => ({ e, rang: rangs ? rangs[i] : i + 1 }))
+  return (
+    <div className="table-stats-conteneur">
+      <table className="table-stats">
+        <thead>
+          <tr>
+            <th>#</th>
+            <ThTriable colonne="nom" tri={tri} onTrier={onTrier} estTexte enfant="Équipe" />
+            <ThTriable colonne="matchs_joues" tri={tri} onTrier={onTrier} enfant="PJ" />
+            <ThTriable colonne="victoires" tri={tri} onTrier={onTrier} enfant="V" />
+            <ThTriable colonne="defaites" tri={tri} onTrier={onTrier} enfant="D" />
+            <ThTriable colonne="defaites_prolongation" tri={tri} onTrier={onTrier} enfant="DP" />
+            <ThTriable colonne="points" tri={tri} onTrier={onTrier} enfant="Pts" />
+            <ThTriable colonne="differentiel" tri={tri} onTrier={onTrier} enfant="Diff" />
+          </tr>
+        </thead>
+        <tbody>
+          {lignes.map(({ e, rang }, i) => (
+            <Fragment key={e.abbrev}>
+              <EquipeNhlLigne e={e} rang={rang} qualif={qualifs[e.abbrev]} />
+              {!tri && ligneApres != null && i === ligneApres - 1 && i < lignes.length - 1 && (
+                <tr className="ligne-series">
+                  <td colSpan={8}>
+                    <span>▲ Dans les séries</span>
+                    <span>Hors des séries ▼</span>
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [chargement, setChargement] = useState(true)
@@ -2376,6 +2474,7 @@ function Pool({ session }) {
           {chargementClassementNhl && <Squelette lignes={8} hauteur={34} />}
           {!chargementClassementNhl &&
             (() => {
+              const qualifs = calculerQualifications(classementNhl)
               const parDivision = {}
               for (const e of classementNhl) {
                 if (!parDivision[e.division]) parDivision[e.division] = []
@@ -2386,46 +2485,74 @@ function Pool({ session }) {
                 ...ordrePrefere.filter((d) => parDivision[d]),
                 ...Object.keys(parDivision).filter((d) => !ordrePrefere.includes(d)),
               ]
-              return divisions.map((div) => (
-                <div key={div} className="classement-nhl-division">
-                  <h3 className="classement-nhl-titre-division">{div}</h3>
-                  <div className="table-stats-conteneur">
-                    <table className="table-stats">
-                      <thead>
-                        <tr>
-                          <th>#</th>
-                          <ThTriable colonne="nom" tri={triClassementNhl} onTrier={setTriClassementNhl} estTexte enfant="Équipe" />
-                          <ThTriable colonne="matchs_joues" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="PJ" />
-                          <ThTriable colonne="victoires" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="V" />
-                          <ThTriable colonne="defaites" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="D" />
-                          <ThTriable colonne="defaites_prolongation" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="DP" />
-                          <ThTriable colonne="points" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="Pts" />
-                          <ThTriable colonne="differentiel" tri={triClassementNhl} onTrier={setTriClassementNhl} enfant="Diff" />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {appliquerTri(parDivision[div], triClassementNhl, (e, col) => e[col]).map(
-                          (e, i) => (
-                            <tr key={e.abbrev} className={e.abbrev === 'MTL' ? 'ligne-mtl' : ''}>
-                              <td>{triClassementNhl ? i + 1 : e.rang_division}</td>
-                              <td className="classement-nhl-equipe">
-                                <LogoEquipe abbrev={e.abbrev} taille={22} />
-                                {e.nom}
-                              </td>
-                              <td>{e.matchs_joues}</td>
-                              <td>{e.victoires}</td>
-                              <td>{e.defaites}</td>
-                              <td>{e.defaites_prolongation}</td>
-                              <td className="col-cle">{e.points}</td>
-                              <td>{e.differentiel > 0 ? `+${e.differentiel}` : e.differentiel}</td>
-                            </tr>
-                          )
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))
+
+              // Conférences : les qualifiées (par points) puis les autres
+              const parPoints = (a, b) =>
+                b.points - a.points || b.victoires - a.victoires || b.differentiel - a.differentiel
+              const conferences = ['Est', 'Ouest']
+                .map((nom) => {
+                  const liste = classementNhl.filter((e) => conferenceDe(e) === nom)
+                  const q = liste.filter((e) => qualifs[e.abbrev]).sort(parPoints)
+                  const hors = liste.filter((e) => !qualifs[e.abbrev]).sort(parPoints)
+                  return { nom, equipes: [...q, ...hors], nbQualifiees: q.length }
+                })
+                .filter((c) => c.equipes.length > 0)
+
+              // Ligue : les 32 équipes par points
+              const ligue = [...classementNhl].sort((a, b) =>
+                a.rang_ligue !== b.rang_ligue && a.rang_ligue < 99 && b.rang_ligue < 99
+                  ? a.rang_ligue - b.rang_ligue
+                  : parPoints(a, b)
+              )
+
+              return (
+                <>
+                  <p className="note-tc">
+                    <span className="badge-series badge-div">✔</span> 3 premières de la division ·{' '}
+                    <span className="badge-series badge-wc">WC</span> carte sauvage. 16 équipes sur
+                    32 passent en séries.
+                  </p>
+
+                  {divisions.map((div) => (
+                    <details key={div} className="repliable" open>
+                      <summary className="repliable-titre">{div}</summary>
+                      <TableauNhl
+                        equipes={[...parDivision[div]].sort((a, b) => a.rang_division - b.rang_division)}
+                        rangs={[...parDivision[div]]
+                          .sort((a, b) => a.rang_division - b.rang_division)
+                          .map((e) => e.rang_division)}
+                        qualifs={qualifs}
+                        tri={triClassementNhl}
+                        onTrier={setTriClassementNhl}
+                        ligneApres={3}
+                      />
+                    </details>
+                  ))}
+
+                  {conferences.map((c) => (
+                    <details key={c.nom} className="repliable">
+                      <summary className="repliable-titre">Conférence {c.nom}</summary>
+                      <TableauNhl
+                        equipes={c.equipes}
+                        qualifs={qualifs}
+                        tri={triClassementNhl}
+                        onTrier={setTriClassementNhl}
+                        ligneApres={c.nbQualifiees}
+                      />
+                    </details>
+                  ))}
+
+                  <details className="repliable">
+                    <summary className="repliable-titre">🌍 Toute la ligue</summary>
+                    <TableauNhl
+                      equipes={ligue}
+                      qualifs={qualifs}
+                      tri={triClassementNhl}
+                      onTrier={setTriClassementNhl}
+                    />
+                  </details>
+                </>
+              )
             })()}
         </section>
       )}

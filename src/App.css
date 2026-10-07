@@ -3355,3 +3355,69 @@ button:hover:not(:disabled) {
 .article-numero {
   line-height: 1.3;
 }
+
+/* ===== Classement LNH : séries ===== */
+.badge-series {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+  color: #fff;
+}
+
+.badge-div {
+  background: linear-gradient(135deg, #1f9d55, #15753f);
+}
+
+.badge-wc {
+  background: linear-gradient(135deg, #d99a00, #a87200);
+}
+
+.table-stats tbody tr.qualifiee-div td:first-child {
+  box-shadow: inset 4px 0 0 #1f9d55;
+}
+
+.table-stats tbody tr.qualifiee-wc td:first-child {
+  box-shadow: inset 4px 0 0 #d99a00;
+}
+
+.table-stats tbody tr.ligne-mtl td:first-child {
+  box-shadow: inset 4px 0 0 var(--rouge);
+}
+
+/* Ligne de séparation « dans / hors des séries » */
+.table-stats tbody tr.ligne-series td {
+  padding: 0 4px;
+  background: transparent !important;
+  border-radius: 0;
+  border-top: 2px dashed color-mix(in srgb, var(--rouge) 70%, transparent);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--rouge);
+  text-align: center;
+}
+
+.table-stats tbody tr.ligne-series td span {
+  display: inline-block;
+  width: 49%;
+  padding: 3px 0;
+}
+
+.table-stats tbody tr.ligne-series td span:first-child {
+  text-align: left;
+}
+
+.table-stats tbody tr.ligne-series td span:last-child {
+  text-align: right;
+}
+
+.note-tc .badge-series {
+  margin: 0 4px 0 0;
+  line-height: 1.4;
+}
