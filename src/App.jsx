@@ -2356,6 +2356,41 @@ function Pool({ session }) {
             <h3 className="article-titre">Verrouillage</h3>
             <p>Une fois le match commencé, il n'est plus possible de changer de joueur.</p>
           </article>
+
+          <article className="article">
+            <span className="article-numero">Article 5</span>
+            <h3 className="article-titre">Activer les notifications</h3>
+            {EST_MOBILE && (
+              <p className={notifsActivees ? 'statut-notifs statut-on' : 'statut-notifs statut-off'}>
+                {notifsActivees ? '🔔 NOTIFICATIONS ACTIVÉES' : '🔕 NOTIFICATIONS DÉSACTIVÉES'}
+              </p>
+            )}
+            <p>
+              <strong>Les notifications sont obligatoires</strong> pour une bonne communication
+              dans le pool : c'est par elles qu'on t'avertit quand c'est ton tour de choisir et
+              quand tes points changent. Une notification de test confirme que tout fonctionne.
+            </p>
+            <details className="repliable">
+              <summary className="repliable-titre">🍎 iPhone</summary>
+              <ol className="aide-notifs-etapes">
+                <li>Copie le lien : <strong>{URL_SITE}</strong></li>
+                <li>Ouvre <strong>Safari</strong> (la boussole bleue, pas Messenger)</li>
+                <li>Appuie dans la <strong>barre de recherche en haut</strong>, colle le lien, puis <strong>Aller</strong></li>
+                <li>Appuie sur <strong>Partager</strong> (le carré avec la flèche ⬆️ en bas)</li>
+                <li>Choisis <strong>« Sur l'écran d'accueil »</strong>, puis <strong>Ajouter</strong></li>
+                <li>Ouvre <strong>Pool de Hockey</strong> avec la <strong>nouvelle icône</strong></li>
+                <li>Appuie sur le <strong>switch</strong> en haut pour qu'il devienne <strong>vert (ON)</strong>, puis <strong>Autoriser</strong></li>
+              </ol>
+            </details>
+            <details className="repliable">
+              <summary className="repliable-titre">🤖 Android</summary>
+              <ol className="aide-notifs-etapes">
+                <li>Ouvre le site dans <strong>Chrome</strong> : <strong>{URL_SITE}</strong></li>
+                <li>Appuie sur le <strong>switch</strong> en haut pour qu'il devienne <strong>vert (ON)</strong>, puis <strong>Autoriser</strong></li>
+                <li>Facultatif, pour l'avoir sur ta page d'accueil : <strong>⋮</strong> en haut à droite de Chrome, puis <strong>« Ajouter à l'écran d'accueil »</strong></li>
+              </ol>
+            </details>
+          </article>
         </section>
       )}
 

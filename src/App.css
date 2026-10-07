@@ -3531,3 +3531,35 @@ button:hover:not(:disabled) {
 .ordre-choix li.ordre-tuile.tour-actuel .ordre-rang {
   background: linear-gradient(135deg, #e0a600, #b87f00);
 }
+
+/* Statut des notifications (Règlements, article 5) */
+.article .statut-notifs {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.article .statut-on {
+  color: #fff;
+  background: linear-gradient(135deg, #0a8f3c, #067a31);
+  border: 2px solid #39ff7a;
+  text-shadow: 0 0 8px rgba(57, 255, 122, 0.8);
+  animation: notif-glow 1.6s ease-in-out infinite;
+}
+
+.article .statut-off {
+  color: #ff6b6b;
+  background: #000;
+  border: 2px solid #d40000;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .article .statut-on {
+    animation: none;
+    box-shadow: 0 0 12px #39ff7a;
+  }
+}
