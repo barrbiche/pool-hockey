@@ -3915,3 +3915,44 @@ button:hover:not(:disabled) {
     content: none;
   }
 }
+
+/* ===== Connexion : champ mot de passe avec bouton « Voir » ===== */
+.champ-mdp {
+  position: relative;
+  display: flex;
+}
+
+.champ-mdp input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 78px;
+}
+
+.champ-mdp .voir-mdp {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  background: transparent;
+  box-shadow: none;
+  color: var(--bleu-vif);
+}
+
+.champ-mdp .voir-mdp:hover {
+  box-shadow: none;
+  background: rgba(47, 91, 184, 0.08);
+}
+
+.champ-mdp .voir-mdp:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+:root[data-theme='dark'] .champ-mdp .voir-mdp {
+  color: #9db8f0;
+}
+
+:root[data-theme='dark'] .champ-mdp .voir-mdp:hover {
+  background: rgba(157, 184, 240, 0.12);
+}
