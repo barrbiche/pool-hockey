@@ -633,7 +633,7 @@ function GuideIphone({ ouverte, horsSafari, onFermer }) {
   if (!ouverte) return null
   const etapes = [
     ...(horsSafari
-      ? ['Ouvre ce site dans **Safari** (l\'icône boussole bleue). Copie le lien et colle-le dans Safari.']
+      ? ['Copie ce lien : **https://pool-hockey.netlify.app**. Ouvre **Safari** (boussole bleue), appuie dans la **barre de recherche en haut**, colle le lien (appui long → Coller) et appuie sur **Aller**.']
       : []),
     'Appuie sur le bouton **Partager** (le carré avec une flèche vers le haut ⬆️), en bas de l\'écran.',
     'Descends et appuie sur **« Sur l\'écran d\'accueil »**, puis **Ajouter**.',
