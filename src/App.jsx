@@ -1543,7 +1543,26 @@ function Pool({ session }) {
       if (!registration) return
 
       const subscription = await registration.pushManager.getSubscription()
-      if (subscription) setNotifsActivees(true)
+      if (!subscription) return
+
+      // Le téléphone se souvient d'un abonnement : on vérifie qu'il existe
+      // aussi dans la base (sinon il a été remis à zéro → switch OFF).
+      let actifSurServeur = true
+      try {
+        const res = await fetch('/.netlify/functions/statut-abonnement', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        if (res.ok) actifSurServeur = (await res.json()).actif !== false
+      } catch {
+        // pas de réseau : on se fie au téléphone
+      }
+
+      if (actifSurServeur) {
+        setNotifsActivees(true)
+      } else {
+        await subscription.unsubscribe()
+        setNotifsActivees(false)
+      }
     } catch {
       // pas grave, le bouton "Activer" reste juste disponible
     }
@@ -1784,7 +1803,6 @@ function Pool({ session }) {
             </button>
           )}
           <div className="notif-switch-groupe">
-            <span aria-hidden="true">{notifsActivees ? '🔔' : '🔕'}</span>
             <button
               type="button"
               role="switch"
@@ -1794,7 +1812,9 @@ function Pool({ session }) {
               onClick={notifsActivees ? desactiverNotifications : activerNotifications}
             >
               <span className="notif-switch-texte">{notifsActivees ? 'ON' : 'OFF'}</span>
-              <span className="notif-switch-bouton" />
+              <span className="notif-switch-bouton" aria-hidden="true">
+                {notifsActivees ? '🔔' : '🔕'}
+              </span>
             </button>
           </div>
           <button
