@@ -1,27 +1,36 @@
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
+import { ORDRE_BASE } from './_participants.js'
 
 export const config = {
   schedule: '*/15 * * * *', // vérifie toutes les 15 minutes
 }
 
 webpush.setVapidDetails(
-  'mailto:eric.vanier.piquette@gmail.com',
+  'mailto:pool-hockey@example.com',
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 )
 
-// 2h avant chaque match, envoie UNE fois un rappel seulement à la personne
-// dont c'est le tour de choisir présentement (pas à tout le monde).
+// Le 1er de l'ordre est auto-assigné (nombre de participants × 30 min) avant le
+// match : 90 min à 3, 120 min à 4. Le rappel part 15 à 30 min AVANT cette échéance
+// (à 3 : « 2 h », comme avant; à 4 : « 2 h 30 »), sinon il arriverait au moment où
+// le choix est déjà fait automatiquement.
+const ECHEANCE_PREMIER_MIN = ORDRE_BASE.length * 30
+const RAPPEL_MIN = ECHEANCE_PREMIER_MIN + 30
+const RAPPEL_LIBELLE = `${Math.floor(RAPPEL_MIN / 60)} h${RAPPEL_MIN % 60 ? ' ' + (RAPPEL_MIN % 60) : ''}`
+
+// Environ 2 h (2 h 30 à 4 participants) avant chaque match, envoie UNE fois un rappel
+// seulement à la personne dont c'est le tour de choisir présentement (pas à tout le monde).
 export async function handler() {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
   try {
     const maintenant = new Date()
-    // Fenêtre de 15 min autour de la marque des 2h avant le match, pour
-    // s'assurer que le cron (qui tourne aux 15 min) l'attrape une seule fois
-    const debutFenetre = new Date(maintenant.getTime() + 105 * 60 * 1000) // 1h45
-    const finFenetre = new Date(maintenant.getTime() + 120 * 60 * 1000) // 2h00
+    // Fenêtre de 15 min autour de la marque du rappel, pour s'assurer que le
+    // cron (qui tourne aux 15 min) l'attrape une seule fois
+    const debutFenetre = new Date(maintenant.getTime() + (RAPPEL_MIN - 15) * 60 * 1000)
+    const finFenetre = new Date(maintenant.getTime() + RAPPEL_MIN * 60 * 1000)
 
     const { data: matchs, error: erreurMatchs } = await supabase
       .from('matchs')
@@ -62,7 +71,7 @@ export async function handler() {
               abonnement.subscription,
               JSON.stringify({
                 titre: 'Pool de Hockey 🏒',
-                corps: `⏰ La partie commence dans 2h — c'est à toi de choisir ton joueur!`,
+                corps: `⏰ La partie commence dans environ ${RAPPEL_LIBELLE} — c'est à toi de choisir ton joueur!`,
               })
             )
             rappelsEnvoyes.push({ match_id: match.id, user_id: prochainAChoisir })

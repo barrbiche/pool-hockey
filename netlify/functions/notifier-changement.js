@@ -3,18 +3,32 @@ import webpush from 'web-push'
 import { ORDRE_BASE, NOMS } from './_participants.js'
 
 webpush.setVapidDetails(
-  'mailto:eric.vanier.piquette@gmail.com',
+  'mailto:pool-hockey@example.com',
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 )
 
 // Envoie une notification à tout le monde sauf l'auteur quand cette
 // personne change son choix de joueur (elle avait déjà choisi avant).
+// L'auteur est la personne CONNECTÉE (jeton Authorization: Bearer ...), pas celle
+// qu'indique la requête : impossible de se faire passer pour quelqu'un d'autre.
 export async function handler(event) {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
   try {
-    const { user_id, nouveau_joueur } = JSON.parse(event.body)
+    const entete = event.headers?.authorization || event.headers?.Authorization || ''
+    const token = entete.startsWith('Bearer ') ? entete.slice(7) : ''
+    if (!token) return { statusCode: 401, body: JSON.stringify({ error: 'Pas connecté.' }) }
+    const { data: auth, error: erreurAuth } = await supabase.auth.getUser(token)
+    if (erreurAuth || !auth?.user) {
+      return { statusCode: 401, body: JSON.stringify({ error: 'Session invalide.' }) }
+    }
+    if (!ORDRE_BASE.includes(auth.user.id)) {
+      return { statusCode: 403, body: JSON.stringify({ error: 'Pas dans le pool.' }) }
+    }
+
+    const user_id = auth.user.id
+    const nouveau_joueur = String(JSON.parse(event.body || '{}').nouveau_joueur ?? '').slice(0, 80)
     const auteur = NOMS[user_id] || 'Quelqu\'un'
     const destinataires = ORDRE_BASE.filter((uid) => uid !== user_id)
 
