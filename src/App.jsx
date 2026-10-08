@@ -161,16 +161,21 @@ function Chrono({ ms, urgent }) {
 // volontairement ces infos pour la vie privée). On calcule nous-mêmes le
 // décalage EDT/EST selon la date, puis on affiche en 'UTC' pour éviter que
 // le navigateur réinterprète l'heure avec son propre fuseau.
+// Jour du mois (UTC) du n-ième dimanche d'un mois (n = 1 : le premier).
+function nieDimancheDuMois(annee, mois, n) {
+  const jourDuPremier = new Date(Date.UTC(annee, mois, 1)).getUTCDay() // 0 = dimanche
+  return 1 + ((7 - jourDuPremier) % 7) + (n - 1) * 7
+}
+
 function estHeureAvanceeEst(date) {
-  // Approximation fiable pour nos besoins : l'heure avancée de l'Est (EDT,
-  // UTC-4) s'applique de mi-mars à début novembre, l'heure normale (EST,
-  // UTC-5) le reste de l'année. Un pool de hockey (saison sept-juin) tombe
-  // presque toujours en EDT sauf de novembre à mi-mars (EST).
-  const mois = date.getUTCMonth() // 0 = janvier
-  if (mois >= 3 && mois <= 9) return true // avril à octobre : toujours EDT
-  if (mois === 10) return date.getUTCDate() < 2 // début novembre, avant le changement
-  if (mois === 2) return date.getUTCDate() >= 8 // mi-mars, après le changement
-  return false // nov (après le 1er) à fév : EST
+  // Règle exacte de l'Est (Canada / États-Unis) : l'heure avancée (EDT, UTC-4)
+  // commence le 2e dimanche de mars à 2 h (heure normale) = 07:00 UTC, et finit
+  // le 1er dimanche de novembre à 2 h (heure avancée) = 06:00 UTC.
+  const annee = date.getUTCFullYear()
+  const debut = Date.UTC(annee, 2, nieDimancheDuMois(annee, 2, 2), 7)
+  const fin = Date.UTC(annee, 10, nieDimancheDuMois(annee, 10, 1), 6)
+  const t = date.getTime()
+  return t >= debut && t < fin
 }
 
 function versHeureMontreal(dateUTC) {
@@ -1247,10 +1252,13 @@ export default function App() {
   const [ignorerNavigateur, setIgnorerNavigateur] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setChargement(false)
-    })
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session)
+        setChargement(false)
+      })
+      .catch(() => setChargement(false)) // pas de session lisible : on affiche la connexion
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
     })
@@ -1382,14 +1390,19 @@ function PronosticPointage({ session, match, ferme, version = 0 }) {
   const [indisponible, setIndisponible] = useState(false)
   const [raison, setRaison] = useState('')
   const valeursInitialisees = useRef(null)
+  const dernierAppel = useRef(0)
   const matchId = match?.id
 
   async function charger() {
+    // Une réponse qui arrive après un appel plus récent est périmée : on l'ignore
+    // (sinon un vieux sondage pourrait écraser un pointage qu'on vient d'enregistrer).
+    const numero = ++dernierAppel.current
     try {
       const res = await fetchAvecSession(
         `/.netlify/functions/prediction?match_id=${encodeURIComponent(matchId)}`
       )
       const data = await lireReponseFonction(res, 'prediction')
+      if (numero !== dernierAppel.current) return
       setEtat(data)
       setIndisponible(false)
       setRaison('')
@@ -1402,6 +1415,7 @@ function PronosticPointage({ session, match, ferme, version = 0 }) {
         }
       }
     } catch (e) {
+      if (numero !== dernierAppel.current) return
       setIndisponible(true)
       setRaison(e.message)
     }
@@ -1713,22 +1727,33 @@ function Pool({ session }) {
     setMessageMaj('')
     const problemes = []
     try {
-      // 1. Force le calcul des points si un match est terminé (appelle la NHL)
+      // 1. Force le calcul des points si un match est terminé (appelle la NHL).
+      // Netlify interdit d'appeler par URL la fonction planifiée « calculer-points » :
+      // on passe par « calculer-points-maintenant » (même calcul, jamais fait deux fois).
       try {
-        const resCalcul = await fetch('/.netlify/functions/calculer-points')
+        let resCalcul = await fetch('/.netlify/functions/calculer-points-maintenant')
+        // Pas encore publiée : on essaie l'ancienne adresse
+        if (resCalcul.status === 404) resCalcul = await fetch('/.netlify/functions/calculer-points')
         if (!resCalcul.ok) problemes.push(`calcul des points (erreur ${resCalcul.status})`)
       } catch {
         problemes.push('calcul des points (pas de réponse)')
       }
 
-      // 2. Pointage / période du match en direct
+      // 2. Pointage / période du match en direct. Si la NHL renvoie un AUTRE match
+      // que celui affiché, c'est que le nôtre est terminé : on passera au suivant
+      // plus bas, sans mélanger le pointage du prochain match avec celui-ci.
       let infosFraiches = null
+      let autreMatch = false
       try {
         const res = await fetch('/.netlify/functions/prochain-match')
         const data = await res.json()
         if (data.match) {
-          infosFraiches = data.match
-          setInfosNhl(data.match)
+          if (match && data.match.nhl_game_id !== match.nhl_game_id) {
+            autreMatch = true
+          } else {
+            infosFraiches = data.match
+            setInfosNhl(data.match)
+          }
         }
       } catch {
         problemes.push('score du match')
@@ -1771,10 +1796,12 @@ function Pool({ session }) {
       // 3. Choix de tout le monde pour le match affiché + classement du pool
       try {
         if (match) {
-          const { data: choixFrais } = await supabase
+          const { data: choixFrais, error: erreurChoix } = await supabase
             .from('choix')
             .select('*, joueurs(nom, nhl_id)')
             .eq('match_id', match.id)
+          // En cas d'erreur on garde ce qui est affiché (au lieu de tout vider)
+          if (erreurChoix) throw erreurChoix
           setTousLesChoix(choixFrais || [])
         }
         await chargerClassement()
@@ -1790,6 +1817,10 @@ function Pool({ session }) {
       if (statsLigue.length > 0) rechargements.push(chargerStatsLigue())
       if (historique.length > 0) rechargements.push(chargerHistorique())
       await Promise.all(rechargements)
+
+      // 5. Le match affiché est terminé et la NHL en annonce un autre : on passe
+      // au suivant sur place (sans écran de chargement).
+      if (autreMatch) await initialiser({ silencieux: true })
 
       setMessageMaj(
         problemes.length === 0
@@ -1893,14 +1924,22 @@ function Pool({ session }) {
     }
   }
 
-  async function initialiser() {
-    setChargement(true)
+  // silencieux : met tout à jour sur place, sans écran de chargement (donc sans
+  // perdre la page, l'onglet ni ce qu'on est en train de taper).
+  async function initialiser({ silencieux = false } = {}) {
+    if (!silencieux) setChargement(true)
     try {
       const resMatch = await fetch('/.netlify/functions/prochain-match')
+      if (!resMatch.ok) {
+        // NHL en panne : on affiche au moins le classement avant de signaler l'erreur
+        await chargerClassement().catch(() => {})
+        throw new Error(`Impossible de lire le prochain match (erreur ${resMatch.status}).`)
+      }
       const dataMatch = await resMatch.json()
 
       if (!dataMatch.match) {
-        setChargement(false)
+        // Pas de match à venir : on charge quand même le classement
+        await chargerClassement()
         return
       }
 
@@ -1913,11 +1952,12 @@ function Pool({ session }) {
       const remettreOrdresEnRegle = () => fetch('/.netlify/functions/ordre-choix').catch(() => {})
       await remettreOrdresEnRegle()
 
-      let { data: matchExistant } = await supabase
+      let { data: matchExistant, error: erreurMatchExistant } = await supabase
         .from('matchs')
         .select('*')
         .eq('nhl_game_id', dataMatch.match.nhl_game_id)
         .maybeSingle()
+      if (erreurMatchExistant) throw erreurMatchExistant
 
       if (!matchExistant) {
         // Ordre provisoire : la fonction ordre-choix met ensuite la bonne rotation
@@ -1962,10 +2002,11 @@ function Pool({ session }) {
 
       await chargerAlignement()
 
-      const { data: choixExistants } = await supabase
+      const { data: choixExistants, error: erreurChoixExistants } = await supabase
         .from('choix')
         .select('*, joueurs(nom, nhl_id)')
         .eq('match_id', matchExistant.id)
+      if (erreurChoixExistants) throw erreurChoixExistants
 
       setTousLesChoix(choixExistants || [])
 
@@ -1985,10 +2026,11 @@ function Pool({ session }) {
     // saison sans jamais effacer l'historique des saisons passées.
     // La date sert aussi à retrouver le match le plus récent, pour les
     // flèches de tendance et le badge « en série ».
-    const { data: matchsSaison } = await supabase
+    const { data: matchsSaison, error: erreurMatchsSaison } = await supabase
       .from('matchs')
       .select('id, date_match')
       .gte('date_match', debutSaison.toISOString())
+    if (erreurMatchsSaison) throw erreurMatchsSaison // on garde l'affichage actuel
 
     const idsMatchsSaison = new Set((matchsSaison || []).map((m) => m.id))
     if (idsMatchsSaison.size === 0) {
@@ -1996,10 +2038,11 @@ function Pool({ session }) {
       return
     }
 
-    const { data } = await supabase
+    const { data, error: erreurResultats } = await supabase
       .from('resultats')
       .select('user_id, match_id, points, buts, passes, tour_chapeau')
       .in('match_id', Array.from(idsMatchsSaison))
+    if (erreurResultats) throw erreurResultats
     if (!data) return
 
     function totaliser(lignes) {
@@ -2105,7 +2148,7 @@ function Pool({ session }) {
 
       if (erreurChoix) throw erreurChoix
 
-      await initialiser()
+      await initialiser({ silencieux: true })
       lancerCelebration()
 
       if (dejaChoisi) {
@@ -2120,12 +2163,9 @@ function Pool({ session }) {
 
   async function notifierChangementChoix(nouveauNomJoueur) {
     try {
-      await fetch('/.netlify/functions/notifier-changement', {
+      await fetchAvecSession('/.netlify/functions/notifier-changement', {
         method: 'POST',
-        body: JSON.stringify({
-          user_id: session.user.id,
-          nouveau_joueur: nouveauNomJoueur,
-        }),
+        body: JSON.stringify({ user_id: session.user.id, nouveau_joueur: nouveauNomJoueur }),
       })
     } catch {
       // pas grave si ça échoue, c'est juste une notif
@@ -2144,7 +2184,7 @@ function Pool({ session }) {
     if (!prochain) return
 
     try {
-      await fetch('/.netlify/functions/envoyer-notification', {
+      await fetchAvecSession('/.netlify/functions/envoyer-notification', {
         method: 'POST',
         body: JSON.stringify({
           user_id: prochain,
@@ -2194,7 +2234,7 @@ function Pool({ session }) {
   async function testerNotification() {
     setErreur('')
     try {
-      const res = await fetch('/.netlify/functions/envoyer-notification', {
+      const res = await fetchAvecSession('/.netlify/functions/envoyer-notification', {
         method: 'POST',
         body: JSON.stringify({
           user_id: session.user.id,
@@ -2295,10 +2335,14 @@ function Pool({ session }) {
         })
       }
 
-      await fetch('/.netlify/functions/enregistrer-abonnement', {
+      const resAbonnement = await fetchAvecSession('/.netlify/functions/enregistrer-abonnement', {
         method: 'POST',
+        // user_id reste envoyé pour l'ancienne version de la fonction; la nouvelle
+        // l'ignore et prend la personne connectée.
         body: JSON.stringify({ user_id: session.user.id, subscription }),
       })
+      // Si l'enregistrement échoue, on ne montre pas « ON » pour rien
+      await lireReponseFonction(resAbonnement, 'enregistrer-abonnement')
 
       setNotifsActivees(true)
 
@@ -2369,10 +2413,12 @@ function Pool({ session }) {
     setChargementHistorique(true)
     try {
       const { debutSaison } = saisonEnCours()
-      const { data: resultatsData } = await supabase
+      const { data: resultatsData, error: erreurResultatsHistorique } = await supabase
         .from('resultats')
         .select('*, joueurs(nom, nhl_id), matchs(date_match, adversaire)')
         .order('calcule_le', { ascending: false })
+      // En cas d'erreur on garde l'historique déjà affiché (au lieu de le vider)
+      if (erreurResultatsHistorique) throw erreurResultatsHistorique
 
       // Filtrer sur la saison en cours (le "reset" se fait tout seul chaque
       // nouvelle saison, sans jamais supprimer l'historique des anciennes)
@@ -2434,6 +2480,10 @@ function Pool({ session }) {
         ouverte={guideIphone}
         horsSafari={horsSafariIOS}
         onFermer={() => setGuideIphone(false)}
+      />
+      <ConfirmationTest
+        etat={confirmTest}
+        onReponse={(r) => setConfirmTest(r === 'fin' ? '' : r)}
       />
       <header className="entete">
         <div className="entete-haut">
@@ -2675,7 +2725,8 @@ function Pool({ session }) {
                         />
                       </div>
                       <div className="classement-detail">
-                        {c.buts} buts · {c.passes} passes · {c.tc} tours du chapeau
+                        {c.buts} {c.buts > 1 ? 'buts' : 'but'} · {c.passes} {c.passes > 1 ? 'passes' : 'passe'} · {c.tc}{' '}
+                        {c.tc > 1 ? 'tours' : 'tour'} du chapeau
                       </div>
                     </li>
                   )

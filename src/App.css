@@ -2556,13 +2556,17 @@ details[open] > .historique-entete .historique-chevron {
 /* ===== Onglets en tuiles (4 x 2) avec icônes ===== */
 .onglets {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* minmax(0, 1fr) : une colonne ne s'élargit jamais à cause d'un long mot, donc
+     la barre d'onglets ne déborde plus sur un petit écran ou avec du texte agrandi. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   padding: 6px;
   border-radius: 16px;
 }
 
 .onglet {
+  min-width: 0;
+  overflow: hidden;
   flex: none;
   display: flex;
   flex-direction: column;
@@ -2867,7 +2871,8 @@ button:hover:not(:disabled) {
 }
 
 .carte:not(.pool-carte) > .classement-entete-section {
-  flex-wrap: nowrap;
+  /* le bouton passe sous le titre quand il n'y a pas assez de place (petit écran) */
+  flex-wrap: wrap;
 }
 .carte:not(.pool-carte) > .classement-entete-section .bouton-partager {
   padding: 8px 10px;
@@ -3988,5 +3993,13 @@ button:hover:not(:disabled) {
     min-width: clamp(28px, 14cqw, 40px);
     padding: 4px clamp(3px, 1.5cqw, 6px);
     font-size: clamp(1.5rem, 10cqw, 2.2rem);
+  }
+}
+
+/* Très petits écrans : onglets un peu plus compacts pour que « Règlements » et
+   « Historique » restent lisibles en entier. */
+@media (max-width: 360px) {
+  .onglet {
+    font-size: 0.6rem;
   }
 }
