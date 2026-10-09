@@ -123,7 +123,7 @@ function partiesCompteARebours(ms) {
 
 // Chrono style tableau de pointage : panneau sombre, chiffres lumineux,
 // deux-points qui clignotent à la seconde. Passe au rouge quand ça presse.
-function Chrono({ ms, urgent }) {
+function Chrono({ ms, urgent, titre = 'Temps restant pour choisir' }) {
   const p = partiesCompteARebours(ms)
   if (!p) return null
 
@@ -136,7 +136,7 @@ function Chrono({ ms, urgent }) {
 
   return (
     <div className={urgent ? 'chrono urgent' : 'chrono'}>
-      <div className="chrono-titre">Temps restant pour choisir</div>
+      <div className="chrono-titre">{titre}</div>
       <div className="chrono-blocs">
         {blocs.map((b, i) => (
           <Fragment key={b.cle}>
@@ -2221,6 +2221,8 @@ function Pool({ session }) {
 
   async function choisirJoueur(joueurNhl) {
     setErreur('')
+    // Les choix du match d'après n'ouvrent qu'une fois le match en cours terminé.
+    if (voirSuivant) return
 
     const dejaChoisi = tousLesChoix.some((c) => c.user_id === session.user.id)
 
@@ -3505,12 +3507,13 @@ function Pool({ session }) {
           {!jumbotronMontreLePointage && (
             <Chrono
               ms={new Date(match.date_match) - maintenant}
-              urgent={new Date(match.date_match) - maintenant < 60 * 60 * 1000}
+              urgent={!voirSuivant && new Date(match.date_match) - maintenant < 60 * 60 * 1000}
+              titre={voirSuivant ? 'Début du match dans' : undefined}
             />
           )}
           </div>
 
-          {match.ordre_choix && (
+          {match.ordre_choix && !voirSuivant && (
             <div className="pool-bloc">
               <h3 className="pool-titre"><span className="pool-titre-icone">🎯</span>Ordre de choix</h3>
               <p className="pool-info">
@@ -3576,7 +3579,13 @@ function Pool({ session }) {
             </div>
           )}
 
-          {jumbotronMontreLePointage ? (
+          {voirSuivant ? (
+            <div className="pool-bloc">
+              <p className="verrou">
+                ⏳ Les choix pour ce match ouvriront dès que le match de ce soir sera terminé.
+              </p>
+            </div>
+          ) : jumbotronMontreLePointage ? (
             <div className="pool-bloc">
               <TableauDirect infos={infosNhl} adversaire={match.adversaire} />
               <p className="verrou">🔒 Les choix sont verrouillés, le match a commencé.</p>
@@ -3641,14 +3650,17 @@ function Pool({ session }) {
             </div>
           )}
 
-          <PronosticPointage
-            key={match.id}
-            session={session}
-            match={match}
-            ferme={jumbotronMontreLePointage}
-            version={versionMaj}
-          />
+          {!voirSuivant && (
+            <PronosticPointage
+              key={match.id}
+              session={session}
+              match={match}
+              ferme={jumbotronMontreLePointage}
+              version={versionMaj}
+            />
+          )}
 
+          {!voirSuivant && (
           <div className="pool-bloc">
           <h3 className="pool-titre"><span className="pool-titre-icone">👥</span>Choix de tout le monde</h3>
           <ul className="liste-choix">
@@ -3677,6 +3689,7 @@ function Pool({ session }) {
                 ))}
           </ul>
           </div>
+          )}
 
           {matchEnCoursProvisoire && !voirSuivant && (
             <div className="classement-provisoire pool-bloc">
