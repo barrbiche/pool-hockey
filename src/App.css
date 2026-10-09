@@ -2541,6 +2541,40 @@ details[open] > .historique-entete .historique-chevron {
 .menu-wrap { flex: 0 0 auto; }
 .dock-maj { min-width: 0; white-space: nowrap; padding: 0 8px; }
 
+.dock-maj-groupe {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dock-maj-groupe .dock-maj {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 40px;
+  padding: 0 6px;
+  line-height: 1.1;
+  text-align: center;
+  white-space: normal;
+}
+
+.dock-maj-groupe .dock-maj:first-child {
+  flex-grow: 1.25;
+}
+
+.dock-message {
+  margin: 8px 2px 0;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 400px) {
+  .dock-maj-groupe .dock-maj { font-size: 0.72rem; gap: 3px; }
+}
+
 @media (max-width: 360px) {
   .entete h1 { font-size: 1.15rem; }
   .dock-maj { font-size: 0.78rem; gap: 4px; }

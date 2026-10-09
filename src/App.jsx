@@ -1886,6 +1886,13 @@ function Pool({ session }) {
     setTimeout(() => setMajResultat(''), 3000)
   }
 
+  // Le message « Tout est à jour » sous les boutons disparaît tout seul
+  useEffect(() => {
+    if (!messageMaj) return undefined
+    const t = setTimeout(() => setMessageMaj(''), 6000)
+    return () => clearTimeout(t)
+  }, [messageMaj])
+
   // Plus aucun rafraîchissement automatique pendant un match : le pointage
   // vient du chargement de la page et du bouton 🔄 manuel sur le tableau
   // en direct, point final. Zéro appel à la NHL tant que personne ne clique.
@@ -2543,10 +2550,11 @@ function Pool({ session }) {
               </button>
             </div>
           )}
+          <div className="dock-maj-groupe">
           <button
             className={majGlobaleEnCours ? 'dock-maj en-cours' : 'dock-maj'}
             onClick={toutMettreAJour}
-            disabled={majGlobaleEnCours}
+            disabled={majGlobaleEnCours || rafraichissementEnCours}
             title="Calcule les points du match (si terminé) et met tout à jour avec les dernières infos de la NHL, sans recharger la page"
           >
             <span className="dock-maj-icone">🔄</span>
@@ -2560,8 +2568,22 @@ function Pool({ session }) {
                     ? '⚠️ Partiel'
                     : 'Bouton à Pa!'}
           </button>
+          <button
+            className={rafraichissementEnCours ? 'dock-maj dock-maj-score en-cours' : 'dock-maj dock-maj-score'}
+            onClick={rafraichirPointage}
+            disabled={majGlobaleEnCours || rafraichissementEnCours}
+            title="Relit le score du match, recalcule les points si un match est terminé, et met à jour le classement du pool et les stats. Pendant un match, affiche le classement provisoire (buts et passes en direct) et prévient tout le monde par notification quand un joueur choisi marque ou fait une passe."
+          >
+            {rafraichissementEnCours ? '⏳ En cours...' : 'Mise à jour'}
+          </button>
+          </div>
           <BoutonTheme />
         </div>
+        {messageMaj && (
+          <p className="dock-message" role="status">
+            {messageMaj}
+          </p>
+        )}
       </header>
 
       {EST_MOBILE && verifNotifsFaite && !notifsActivees && !estNavigateurIntegre() && (
@@ -3531,23 +3553,6 @@ function Pool({ session }) {
               </ol>
             </div>
           )}
-
-          <div className="actualiser-bloc">
-            <button
-              className="bouton-actualiser"
-              onClick={rafraichirPointage}
-              disabled={rafraichissementEnCours}
-            >
-              {rafraichissementEnCours ? '⏳ Mise à jour en cours...' : '🔄 Mise à jour'}
-            </button>
-            {messageMaj && <p className="actualiser-message">{messageMaj}</p>}
-            <p className="actualiser-note">
-              Relit le score du match, recalcule les points si un match est terminé, et met à
-              jour le classement du pool et les stats. Pendant un match, affiche le classement
-              provisoire (buts et passes en direct) et prévient tout le monde par notification
-              quand un joueur choisi marque ou fait une passe.
-            </p>
-          </div>
         </section>
       )}
         </>
