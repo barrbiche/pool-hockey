@@ -847,8 +847,463 @@ function ComptesBloc() {
   )
 }
 
-// Page réservée à Eric (☰ → Admin) : qui a activé les notifications, annonces,
-// rappels de choix. Le serveur revérifie lui-même que c'est bien Eric.
+// Fonctions du site qu'on peut « réveiller » sans danger (elles répondent 401 ou 405
+// sans rien faire quand on les appelle sans clé) : un 404 veut dire « pas publiée ».
+const FONCTIONS_A_VERIFIER = [
+  'prediction',
+  'statut-abonnement',
+  'enregistrer-abonnement',
+  'desactiver-abonnement',
+  'envoyer-notification',
+  'notifier-changement',
+  'rappel',
+  'notif-test',
+  'annonce',
+  'admin-notifications',
+  'admin-comptes',
+  'admin-matchs',
+  'bandeau',
+]
+
+const SQL_BANDEAU = `create table if not exists public.site_annonce (
+  id int primary key default 1,
+  texte text not null default '',
+  actif boolean not null default false,
+  updated_at timestamptz not null default now(),
+  constraint une_seule_ligne check (id = 1)
+);
+alter table public.site_annonce enable row level security;
+insert into public.site_annonce (id) values (1) on conflict do nothing;`
+
+// 🩺 État du site : vert / jaune / rouge pour chaque morceau qui peut casser.
+function EtatSiteBloc() {
+  const [etat, setEtat] = useState(null)
+  const [erreur, setErreur] = useState('')
+  const [chargement, setChargement] = useState(true)
+
+  async function verifier() {
+    setChargement(true)
+    setErreur('')
+    try {
+      const [res, publiees] = await Promise.all([
+        fetchAvecSession('/.netlify/functions/admin-diagnostic'),
+        Promise.all(
+          FONCTIONS_A_VERIFIER.map(async (nom) => {
+            try {
+              const r = await fetch(`/.netlify/functions/${nom}`)
+              return { nom, publiee: r.status !== 404 }
+            } catch {
+              return { nom, publiee: null } // pas de réseau : on ne sait pas
+            }
+          })
+        ),
+      ])
+      const data = await lireReponseFonction(res, 'admin-diagnostic')
+      const verifs = [...data.verifs]
+      for (const f of publiees) {
+        verifs.push({
+          groupe: 'Fonctions publiées',
+          nom: f.nom,
+          niveau: f.publiee === false ? 'erreur' : f.publiee === null ? 'avertissement' : 'ok',
+          detail:
+            f.publiee === false
+              ? 'PAS PUBLIÉE : envoie le fichier dans netlify/functions sur GitHub'
+              : f.publiee === null
+                ? 'pas de réponse'
+                : 'publiée',
+        })
+      }
+      const erreurs = verifs.filter((v) => v.niveau === 'erreur').length
+      const avertissements = verifs.filter((v) => v.niveau === 'avertissement').length
+      setEtat({ verifs, erreurs, avertissements })
+    } catch (err) {
+      setErreur(err.message)
+    } finally {
+      setChargement(false)
+    }
+  }
+
+  useEffect(() => {
+    verifier()
+  }, [])
+
+  const groupes = []
+  for (const v of etat?.verifs || []) {
+    let g = groupes.find((x) => x.nom === v.groupe)
+    if (!g) {
+      g = { nom: v.groupe, lignes: [] }
+      groupes.push(g)
+    }
+    g.lignes.push(v)
+  }
+  const icone = { ok: '✅', avertissement: '⚠️', erreur: '❌' }
+  const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`
+
+  return (
+    <div className="pool-bloc">
+      <h3 className="pool-titre"><span className="pool-titre-icone">🩺</span>État du site</h3>
+      {chargement && !etat && <Squelette lignes={4} hauteur={30} />}
+      {erreur && <p className="erreur">⚠️ {erreur}</p>}
+      {etat && (
+        <p
+          className={'etat-resume ' + (etat.erreurs ? 'rouge' : etat.avertissements ? 'jaune' : 'vert')}
+          role="status"
+        >
+          {etat.erreurs
+            ? `❌ ${pluriel(etat.erreurs, 'problème')}${
+                etat.avertissements ? `, ${pluriel(etat.avertissements, 'avertissement')}` : ''
+              }`
+            : etat.avertissements
+              ? `⚠️ ${pluriel(etat.avertissements, 'avertissement')}`
+              : '✅ Tout va bien'}
+        </p>
+      )}
+      {groupes.map((g) => {
+        const pire = g.lignes.some((l) => l.niveau === 'erreur')
+          ? 'erreur'
+          : g.lignes.some((l) => l.niveau === 'avertissement')
+            ? 'avertissement'
+            : 'ok'
+        return (
+          <details key={g.nom} className="repliable etat-groupe" open={pire !== 'ok'}>
+            <summary className="repliable-titre">
+              {icone[pire]} {g.nom}
+            </summary>
+            <ul className="etat-liste">
+              {g.lignes.map((l) => (
+                <li key={g.nom + l.nom} className={'etat-ligne ' + l.niveau}>
+                  <span aria-hidden="true">{icone[l.niveau]}</span>
+                  <span className="etat-texte">
+                    <strong>{l.nom}</strong>
+                    {l.detail && <span className="admin-notif-detail">{l.detail}</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )
+      })}
+      {etat && (
+        <p className="note-tc">
+          Les tâches planifiées (calcul des points, rappels, création des matchs) ne peuvent pas
+          être vérifiées d’ici : regarde Netlify → Functions si tu as un doute.
+        </p>
+      )}
+      <button className="bouton-copier" onClick={verifier} disabled={chargement}>
+        {chargement ? '⏳ Vérification...' : '🩺 Vérifier'}
+      </button>
+    </div>
+  )
+}
+
+// 📢 Bandeau affiché en haut du site à tout le monde.
+function BandeauAdmin({ bandeau, chargerBandeau }) {
+  const [texte, setTexte] = useState('')
+  const [actif, setActif] = useState(false)
+  const [enCours, setEnCours] = useState(false)
+  const [message, setMessage] = useState('')
+  const initialise = useRef(false)
+
+  // On remplit le formulaire avec ce qui est affiché présentement (une seule fois)
+  useEffect(() => {
+    if (bandeau && !initialise.current) {
+      initialise.current = true
+      setTexte(bandeau.texte || '')
+      setActif(!!bandeau.actif)
+    }
+  }, [bandeau])
+
+  async function enregistrer(nouveauTexte, nouvelActif) {
+    setEnCours(true)
+    setMessage('')
+    try {
+      const res = await fetchAvecSession('/.netlify/functions/bandeau', {
+        method: 'POST',
+        body: JSON.stringify({ texte: nouveauTexte, actif: nouvelActif }),
+      })
+      await lireReponseFonction(res, 'bandeau')
+      setMessage(nouvelActif ? '✓ Bandeau affiché pour tout le monde.' : '✓ Bandeau retiré.')
+      await chargerBandeau()
+    } catch (err) {
+      setMessage(`❌ ${err.message}`)
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  return (
+    <div className="pool-bloc">
+      <h3 className="pool-titre"><span className="pool-titre-icone">📢</span>Bandeau d’annonce</h3>
+      <p className="note-tc">
+        Un message en haut du site que tout le monde voit en ouvrant la page (même sans les
+        notifications). Ils peuvent le fermer; il revient si tu le changes.
+      </p>
+      {bandeau && bandeau.table_ok === false && (
+        <details className="repliable" open>
+          <summary className="repliable-titre">⚠️ Table à créer dans Supabase (une seule fois)</summary>
+          <p className="note-tc">Supabase → SQL Editor → New query → colle ceci → Run :</p>
+          <pre className="admin-sql">{SQL_BANDEAU}</pre>
+        </details>
+      )}
+      <textarea
+        className="partage-resume-zone zone-courte"
+        placeholder="Ex. : Le pool est en maintenance ce soir, les points seront calculés demain."
+        maxLength={300}
+        value={texte}
+        onChange={(e) => setTexte(e.target.value)}
+      />
+      <label className="admin-case">
+        <input type="checkbox" checked={actif} onChange={(e) => setActif(e.target.checked)} />
+        Afficher le bandeau
+      </label>
+      <div className="admin-bandeau-actions">
+        <button
+          onClick={() => enregistrer(texte, actif)}
+          disabled={enCours || (actif && texte.trim().length === 0)}
+        >
+          {enCours ? '⏳' : '💾 Enregistrer'}
+        </button>
+        <button
+          onClick={() => {
+            setTexte('')
+            setActif(false)
+            enregistrer('', false)
+          }}
+          disabled={enCours || !bandeau?.actif}
+        >
+          🗑️ Retirer
+        </button>
+      </div>
+      {message && <p className="rappels-message">{message}</p>}
+    </div>
+  )
+}
+
+const LIBELLE_STATUT = { termine: 'terminé', a_venir: 'à venir', en_cours: 'en cours' }
+
+// ✏️ Corriger un match : choisir un joueur à la place de quelqu'un, corriger les buts et
+// passes, recalculer depuis la NHL. Chaque changement demande une confirmation.
+function CorrigerMatchBloc({ joueurs, onModifie }) {
+  const [matchs, setMatchs] = useState(null)
+  const [matchId, setMatchId] = useState('')
+  const [detail, setDetail] = useState(null)
+  const [saisies, setSaisies] = useState({}) // user_id -> { buts, passes } (texte)
+  const [erreur, setErreur] = useState('')
+  const [message, setMessage] = useState('')
+  const [enCours, setEnCours] = useState(false)
+
+  async function appeler(url, options) {
+    const res = await fetchAvecSession(url, options)
+    return lireReponseFonction(res, 'admin-matchs')
+  }
+
+  async function chargerDetail(id) {
+    if (!id) {
+      setDetail(null)
+      return
+    }
+    try {
+      const d = await appeler(`/.netlify/functions/admin-matchs?match_id=${encodeURIComponent(id)}`)
+      setDetail(d)
+      const s = {}
+      for (const p of d.participants) {
+        if (p.resultat) s[p.user_id] = { buts: String(p.resultat.buts), passes: String(p.resultat.passes) }
+      }
+      setSaisies(s)
+    } catch (err) {
+      setErreur(err.message)
+    }
+  }
+
+  useEffect(() => {
+    appeler('/.netlify/functions/admin-matchs')
+      .then((d) => setMatchs(d.matchs))
+      .catch((err) => setErreur(err.message))
+  }, [])
+
+  async function agir(action, corps, confirmation, succes) {
+    if (!window.confirm(confirmation)) return
+    setEnCours(true)
+    setMessage('')
+    try {
+      await appeler('/.netlify/functions/admin-matchs', {
+        method: 'POST',
+        body: JSON.stringify({ action, match_id: detail.match.id, ...corps }),
+      })
+      setMessage(`✓ ${succes}`)
+      await chargerDetail(String(detail.match.id))
+      onModifie?.() // relit le classement et les choix du site
+    } catch (err) {
+      setMessage(`❌ ${err.message}`)
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  function enregistrerStats(p) {
+    const s = saisies[p.user_id]
+    const buts = Number(s.buts)
+    const passes = Number(s.passes)
+    if (!Number.isInteger(buts) || !Number.isInteger(passes) || buts < 0 || passes < 0 || buts > 15 || passes > 15) {
+      setMessage('❌ Les buts et les passes doivent être des nombres entiers de 0 à 15.')
+      return
+    }
+    agir(
+      'corriger',
+      { user_id: p.user_id, buts, passes },
+      `Corriger ${p.nom} : ${buts} but(s) et ${passes} passe(s) ? Ses points seront recalculés.`,
+      `Résultat de ${p.nom} corrigé.`
+    )
+  }
+
+  const termine = detail?.match.statut === 'termine'
+
+  return (
+    <div className="pool-bloc">
+      <h3 className="pool-titre"><span className="pool-titre-icone">✏️</span>Corriger un match</h3>
+      {erreur && <p className="erreur">⚠️ {erreur}</p>}
+      {!matchs && !erreur && <Squelette lignes={2} hauteur={36} />}
+      {matchs && (
+        <label className="annonce-destinataire">
+          Match :{' '}
+          <select
+            value={matchId}
+            onChange={(e) => {
+              setMatchId(e.target.value)
+              setMessage('')
+              setErreur('')
+              chargerDetail(e.target.value)
+            }}
+          >
+            <option value="">— Choisis un match —</option>
+            {matchs.map((m) => (
+              <option key={m.id} value={m.id}>
+                {formaterDateHeureMontreal(new Date(m.date_match), { day: 'numeric', month: 'short' })} ·{' '}
+                {m.adversaire} · {LIBELLE_STATUT[m.statut] || m.statut}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {detail && (
+        <>
+          <ul className="liste-choix admin-matchs-liste">
+            {detail.participants.map((p) => {
+              const pris = detail.participants
+                .filter((x) => x.user_id !== p.user_id && x.joueur)
+                .map((x) => x.joueur.nom)
+              const s = saisies[p.user_id]
+              return (
+                <li key={p.user_id} className="admin-match-ligne">
+                  <div className="liste-choix-ligne admin-match-haut">
+                    <Pastille userId={p.user_id} nom={p.nom} taille={24} />
+                    <span className="admin-notif-texte">
+                      <strong>{p.nom}</strong>
+                      <span className="admin-notif-detail">
+                        {p.joueur ? p.joueur.nom : 'Pas de choix'}
+                      </span>
+                    </span>
+                  </div>
+                  {!termine &&
+                    (joueurs.length > 0 ? (
+                      <SelecteurJoueur
+                        joueurs={joueurs}
+                        nomsPris={pris}
+                        nhlIdChoisi={p.joueur?.nhl_id || null}
+                        onChoisir={(j) =>
+                          agir(
+                            'choisir',
+                            { user_id: p.user_id, nhl_id: j.nhl_id, nom: j.nom },
+                            `Choisir ${j.nom} pour ${p.nom} ?`,
+                            `${j.nom} choisi pour ${p.nom}.`
+                          )
+                        }
+                      />
+                    ) : (
+                      <p className="note-tc">La liste des joueurs n’est pas chargée.</p>
+                    ))}
+                  {p.resultat && s && (
+                    <div className="admin-stats">
+                      <label>
+                        Buts
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          max="15"
+                          value={s.buts}
+                          onChange={(e) =>
+                            setSaisies({ ...saisies, [p.user_id]: { ...s, buts: e.target.value } })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Passes
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          max="15"
+                          value={s.passes}
+                          onChange={(e) =>
+                            setSaisies({ ...saisies, [p.user_id]: { ...s, passes: e.target.value } })
+                          }
+                        />
+                      </label>
+                      <button
+                        onClick={() => enregistrerStats(p)}
+                        disabled={
+                          enCours ||
+                          (s.buts === String(p.resultat.buts) && s.passes === String(p.resultat.passes))
+                        }
+                      >
+                        💾
+                      </button>
+                      <span className="admin-pts">
+                        = {p.resultat.points} pts
+                        {p.resultat.bonus ? ` (dont 🎯 +${p.resultat.bonus})` : ''}
+                      </span>
+                    </div>
+                  )}
+                  {termine && !p.resultat && (
+                    <p className="note-tc">Pas de résultat enregistré pour ce match.</p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+          {termine ? (
+            <button
+              className="bouton-copier"
+              disabled={enCours}
+              onClick={() =>
+                agir(
+                  'recalculer',
+                  {},
+                  'Relire le match à la NHL et refaire les points de tout le monde ? Tes corrections manuelles seront remplacées. (Aucune notification n’est envoyée.)',
+                  'Points recalculés depuis la NHL.'
+                )
+              }
+            >
+              {enCours ? '⏳' : '🔁 Recalculer depuis la NHL'}
+            </button>
+          ) : (
+            <p className="note-tc">
+              Ce match n’est pas encore calculé : tu peux choisir un joueur à la place de quelqu’un.
+              Les buts et passes se corrigent une fois les points calculés.
+            </p>
+          )}
+        </>
+      )}
+      {message && <p className="rappels-message">{message}</p>}
+    </div>
+  )
+}
+
+// Page réservée à Eric (☰ → Admin) : état du site, notifications, comptes, bandeau,
+// annonces, rappels de choix, corrections de match. Le serveur revérifie à chaque appel
+// que c'est bien Eric.
 function AdminPage({
   match,
   tousLesChoix,
@@ -857,10 +1312,16 @@ function AdminPage({
   rappelEnCours,
   messageRappel,
   envoyerRappel,
+  joueurs,
+  onModifie,
+  bandeau,
+  chargerBandeau,
 }) {
   const [notifs, setNotifs] = useState(null)
   const [erreurNotifs, setErreurNotifs] = useState('')
   const [chargement, setChargement] = useState(true)
+  const [testEnCours, setTestEnCours] = useState(null)
+  const [messageTest, setMessageTest] = useState('')
 
   async function charger() {
     setChargement(true)
@@ -879,8 +1340,40 @@ function AdminPage({
     charger()
   }, [])
 
+  // Envoie une petite notification de test à UNE personne (même fonction que l'annonce)
+  async function tester(p) {
+    setTestEnCours(p.id)
+    setMessageTest('')
+    try {
+      const res = await fetchAvecSession('/.netlify/functions/annonce', {
+        method: 'POST',
+        body: JSON.stringify({
+          texte: '🔔 Test de notification : si tu lis ça, tout fonctionne!',
+          destinataire: p.id,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setMessageTest(`❌ ${data.erreur || data.error || `Erreur ${res.status}`}`)
+      } else if (data.envoyes === 0) {
+        setMessageTest(
+          `⚠️ ${p.nom} n’a rien reçu : son abonnement est expiré ou invalide. Il doit désactiver puis réactiver les notifications.`
+        )
+        charger() // la fonction retire les abonnements morts : on relit la liste
+      } else {
+        setMessageTest(`✓ Test envoyé à ${p.nom}. Demande-lui s’il l’a reçu.`)
+      }
+    } catch (err) {
+      setMessageTest(`❌ ${err.message}`)
+    } finally {
+      setTestEnCours(null)
+    }
+  }
+
   return (
     <section className="carte carte-rouge pool-carte">
+      <EtatSiteBloc />
+
       <div className="pool-bloc">
         <h3 className="pool-titre"><span className="pool-titre-icone">🔔</span>Notifications</h3>
         {chargement && !notifs && <Squelette lignes={4} hauteur={40} />}
@@ -913,20 +1406,35 @@ function AdminPage({
                       <span className="admin-notif-detail">Pas d’appareil enregistré</span>
                     )}
                   </span>
-                  <span className={p.actif ? 'admin-notif-etat oui' : 'admin-notif-etat non'}>
-                    {p.actif ? '✅ Activées' : '❌ Pas activées'}
+                  <span className="admin-notif-actions">
+                    <span className={p.actif ? 'admin-notif-etat oui' : 'admin-notif-etat non'}>
+                      {p.actif ? '✅ Activées' : '❌ Pas activées'}
+                    </span>
+                    {p.actif && (
+                      <button
+                        className="bouton-rappel"
+                        onClick={() => tester(p)}
+                        disabled={testEnCours !== null}
+                        title={`Envoyer une notification de test à ${p.nom}`}
+                      >
+                        {testEnCours === p.id ? '⏳' : '🔔 Tester'}
+                      </button>
+                    )}
                   </span>
                 </li>
               ))}
             </ul>
           </>
         )}
+        {messageTest && <p className="rappels-message">{messageTest}</p>}
         <button className="bouton-copier" onClick={charger} disabled={chargement}>
           {chargement ? '⏳ Vérification...' : '🔄 Actualiser'}
         </button>
       </div>
 
       <ComptesBloc />
+
+      <BandeauAdmin bandeau={bandeau} chargerBandeau={chargerBandeau} />
 
       <AnnonceBloc />
 
@@ -977,6 +1485,8 @@ function AdminPage({
           </>
         )}
       </div>
+
+      <CorrigerMatchBloc joueurs={joueurs} onModifie={onModifie} />
     </section>
   )
 }
@@ -1870,6 +2380,14 @@ function PronosticPointage({ session, match, ferme, version = 0 }) {
 function Pool({ session }) {
   const [match, setMatch] = useState(null)
   const [joueurs, setJoueurs] = useState([])
+  const [bandeau, setBandeau] = useState(null) // { actif, texte, version, table_ok }
+  const [bandeauFerme, setBandeauFerme] = useState(() => {
+    try {
+      return localStorage.getItem('bandeau-ferme') || ''
+    } catch {
+      return ''
+    }
+  })
   const [infosNhl, setInfosNhl] = useState(null)
   const [rafraichissementEnCours, setRafraichissementEnCours] = useState(false)
   const [majGlobaleEnCours, setMajGlobaleEnCours] = useState(false)
@@ -1995,9 +2513,31 @@ function Pool({ session }) {
   // Va chercher le pointage à jour tout de suite, sans attendre le prochain
   // passage automatique. Sert à l'intervalle ci-dessous ET au bouton
   // 🔄 manuel du tableau en direct.
+  // Bandeau d'annonce (message d'Eric affiché en haut). Pas essentiel : en cas de
+  // problème on ne dit rien et le site fonctionne comme avant.
+  async function chargerBandeau() {
+    try {
+      const res = await fetchAvecSession('/.netlify/functions/bandeau')
+      if (!res.ok) return
+      setBandeau(await res.json())
+    } catch {
+      /* tant pis */
+    }
+  }
+
+  function fermerBandeau(cle) {
+    setBandeauFerme(cle)
+    try {
+      localStorage.setItem('bandeau-ferme', cle)
+    } catch {
+      /* stockage bloqué : le bandeau reviendra à la prochaine visite */
+    }
+  }
+
   async function rafraichirPointage() {
     setRafraichissementEnCours(true)
     setMessageMaj('')
+    chargerBandeau()
     const problemes = []
     try {
       // 1. Force le calcul des points si un match est terminé (appelle la NHL).
@@ -2208,6 +2748,7 @@ function Pool({ session }) {
   // perdre la page, l'onglet ni ce qu'on est en train de taper).
   async function initialiser({ silencieux = false } = {}) {
     if (!silencieux) setChargement(true)
+    chargerBandeau()
     try {
       const resMatch = await fetch('/.netlify/functions/prochain-match')
       if (!resMatch.ok) {
@@ -2862,6 +3403,21 @@ function Pool({ session }) {
         )}
       </header>
 
+      {bandeau?.actif && bandeauFerme !== (bandeau.version || bandeau.texte) && (
+        <div className="bandeau-site" role="status">
+          <span className="bandeau-site-icone" aria-hidden="true">📢</span>
+          <p className="bandeau-site-texte">{bandeau.texte}</p>
+          <button
+            type="button"
+            className="bandeau-site-fermer"
+            aria-label="Fermer l'annonce"
+            onClick={() => fermerBandeau(bandeau.version || bandeau.texte)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {EST_MOBILE && verifNotifsFaite && !notifsActivees && !estNavigateurIntegre() && (
         <div className="bandeau-notifs">
           <span>🔕 Tes notifications sont désactivées</span>
@@ -3214,6 +3770,10 @@ function Pool({ session }) {
           rappelEnCours={rappelEnCours}
           messageRappel={messageRappel}
           envoyerRappel={envoyerRappel}
+          joueurs={joueurs}
+          onModifie={() => initialiser({ silencieux: true })}
+          bandeau={bandeau}
+          chargerBandeau={chargerBandeau}
         />
       )}
 
