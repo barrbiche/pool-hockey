@@ -123,7 +123,7 @@ function partiesCompteARebours(ms) {
 
 // Chrono style tableau de pointage : panneau sombre, chiffres lumineux,
 // deux-points qui clignotent à la seconde. Passe au rouge quand ça presse.
-function Chrono({ ms, urgent, titre = 'Temps restant pour choisir' }) {
+function Chrono({ ms, urgent }) {
   const p = partiesCompteARebours(ms)
   if (!p) return null
 
@@ -136,7 +136,7 @@ function Chrono({ ms, urgent, titre = 'Temps restant pour choisir' }) {
 
   return (
     <div className={urgent ? 'chrono urgent' : 'chrono'}>
-      <div className="chrono-titre">{titre}</div>
+      <div className="chrono-titre">Temps restant pour choisir</div>
       <div className="chrono-blocs">
         {blocs.map((b, i) => (
           <Fragment key={b.cle}>
@@ -1594,12 +1594,7 @@ function PronosticPointage({ session, match, ferme, version = 0 }) {
 }
 
 function Pool({ session }) {
-  // « Courant » = le match que la NHL annonce en premier (à venir OU en cours).
-  // « Suivant » = celui d'après : affiché comme « Prochain match » pendant que
-  // le courant est en cours, avec le pointage de ce soir toujours accessible.
-  const [matchCourant, setMatchCourant] = useState(null)
-  const [matchSuivant, setMatchSuivant] = useState(null)
-  const [vueMatch, setVueMatch] = useState('suivant') // 'suivant' ou 'direct'
+  const [match, setMatch] = useState(null)
   const [joueurs, setJoueurs] = useState([])
   const [infosNhl, setInfosNhl] = useState(null)
   const [rafraichissementEnCours, setRafraichissementEnCours] = useState(false)
@@ -1610,8 +1605,7 @@ function Pool({ session }) {
   const [pointsDirect, setPointsDirect] = useState(null)
   const [alignementEnErreur, setAlignementEnErreur] = useState(false)
   const [raisonAlignement, setRaisonAlignement] = useState('')
-  const [choixCourant, setChoixCourant] = useState([])
-  const [choixSuivant, setChoixSuivant] = useState([])
+  const [tousLesChoix, setTousLesChoix] = useState([])
   const [classement, setClassement] = useState([])
   const [erreur, setErreur] = useState('')
   const [chargement, setChargement] = useState(true)
@@ -1680,39 +1674,25 @@ function Pool({ session }) {
     setTimeout(() => setCelebration(false), 4200)
   }
 
-  // Le match courant est « verrouillé » dès qu'il est commencé : l'heure prévue
-  // est passée, ou le pointage fraîchement demandé (bouton 🔄) dit qu'il est
-  // vraiment en cours ou fini — au cas où il aurait démarré un peu avant/après
-  // l'heure enregistrée.
-  const courantDemarrePourVrai =
-    !!infosNhl && ['LIVE', 'CRIT', 'FINAL', 'OFF'].includes(infosNhl.statut)
-  const courantVerrouille =
-    (matchCourant ? maintenant >= new Date(matchCourant.date_match) : false) ||
-    courantDemarrePourVrai
-  // Tant que le match courant n'est pas calculé (terminé), on offre aussi le
-  // match d'après. Par défaut on montre ce « prochain match »; un bouton ramène
-  // au match en direct.
-  const suivantDisponible =
-    !!matchCourant && !!matchSuivant && courantVerrouille && matchCourant.statut !== 'termine'
-  const voirSuivant = suivantDisponible && vueMatch === 'suivant'
-  // `match` et `tousLesChoix` = ce qui est affiché dans l'onglet Pool.
-  const match = voirSuivant ? matchSuivant : matchCourant
-  const tousLesChoix = voirSuivant ? choixSuivant : choixCourant
-
   const matchCommence = match ? maintenant >= new Date(match.date_match) : false
-  const matchDemarrePourVrai = !voirSuivant && courantDemarrePourVrai
+
+  // Si le pointage fraîchement demandé (bouton 🔄) dit que le match est
+  // vraiment en cours ou fini, on se fie à ça même si l'horloge du
+  // téléphone n'a pas encore atteint l'heure prévue — au cas où le match
+  // aurait démarré un peu avant/après l'heure enregistrée.
+  const matchDemarrePourVrai =
+    !!infosNhl && ['LIVE', 'CRIT', 'FINAL', 'OFF'].includes(infosNhl.statut)
   const jumbotronMontreLePointage = matchCommence || matchDemarrePourVrai
   // Dernières stats en direct gardées en base par notifier-points (la dernière
   // fois que n'importe qui a cliqué 🔄 Mise à jour). Ça permet à tout le monde
   // de revoir le classement provisoire en ouvrant le site, sans rappeler la
   // NHL. Il disparaît tout seul quand le match passe à "terminé".
-  // (Toujours calculé sur le match COURANT, jamais sur le suivant.)
   let statsDepuisBase = null
-  if (matchCourant?.derniere_stats_direct) {
+  if (match?.derniere_stats_direct) {
     try {
-      const parUser = JSON.parse(matchCourant.derniere_stats_direct)
+      const parUser = JSON.parse(match.derniere_stats_direct)
       statsDepuisBase = {}
-      for (const c of choixCourant) {
+      for (const c of tousLesChoix) {
         const st = parUser[c.user_id]
         if (st && c.joueurs?.nhl_id) statsDepuisBase[c.joueurs.nhl_id] = st
       }
@@ -1721,7 +1701,7 @@ function Pool({ session }) {
     }
   }
   const statsDirectEffectives = pointsDirect?.stats || statsDepuisBase
-  const matchEnCoursProvisoire = !!statsDirectEffectives && matchCourant?.statut !== 'termine'
+  const matchEnCoursProvisoire = !!statsDirectEffectives && match?.statut !== 'termine'
 
   const prochainAChoisir =
     match?.ordre_choix?.find((uid) => !tousLesChoix.some((c) => c.user_id === uid)) || null
@@ -1768,19 +1748,11 @@ function Pool({ session }) {
         const res = await fetch('/.netlify/functions/prochain-match')
         const data = await res.json()
         if (data.match) {
-          if (matchCourant && data.match.nhl_game_id !== matchCourant.nhl_game_id) {
+          if (match && data.match.nhl_game_id !== match.nhl_game_id) {
             autreMatch = true
           } else {
             infosFraiches = data.match
             setInfosNhl(data.match)
-            // Le match d'après n'est pas celui qu'on a en main (calendrier modifié,
-            // match reporté, ou pas encore chargé) : on relit tout plus bas.
-            const verrouille =
-              ['LIVE', 'CRIT', 'FINAL', 'OFF'].includes(data.match.statut) ||
-              new Date() >= new Date(data.match.date_match)
-            if (verrouille && (data.suivant?.nhl_game_id ?? null) !== (matchSuivant?.nhl_game_id ?? null)) {
-              autreMatch = true
-            }
           }
         }
       } catch {
@@ -1790,20 +1762,20 @@ function Pool({ session }) {
       // 2b. Points provisoires en direct (buts/passes du boxscore NHL), tant
       // que le match n'est pas encore calculé officiellement
       try {
-        if (matchCourant) {
+        if (match) {
           const { data: matchFrais } = await supabase
             .from('matchs')
             .select('*')
-            .eq('id', matchCourant.id)
+            .eq('id', match.id)
             .maybeSingle()
-          if (matchFrais) setMatchCourant(matchFrais)
+          if (matchFrais) setMatch(matchFrais)
 
           const aDemarre =
             (infosFraiches && ['LIVE', 'CRIT', 'FINAL', 'OFF'].includes(infosFraiches.statut)) ||
-            new Date() >= new Date(matchCourant.date_match)
+            new Date() >= new Date(match.date_match)
           if (matchFrais?.statut !== 'termine' && aDemarre) {
             const resDirect = await fetch(
-              `/.netlify/functions/points-en-direct?id=${matchCourant.nhl_game_id}`
+              `/.netlify/functions/points-en-direct?id=${match.nhl_game_id}`
             )
             if (!resDirect.ok) throw new Error('boxscore')
             setPointsDirect(await resDirect.json())
@@ -1811,7 +1783,7 @@ function Pool({ session }) {
             // depuis la dernière notif. Le serveur évite les doublons.
             fetch('/.netlify/functions/notifier-points', {
               method: 'POST',
-              body: JSON.stringify({ match_id: matchCourant.id }),
+              body: JSON.stringify({ match_id: match.id }),
             }).catch(() => {})
           } else {
             setPointsDirect(null)
@@ -1823,27 +1795,14 @@ function Pool({ session }) {
 
       // 3. Choix de tout le monde pour le match affiché + classement du pool
       try {
-        if (matchCourant) {
+        if (match) {
           const { data: choixFrais, error: erreurChoix } = await supabase
             .from('choix')
             .select('*, joueurs(nom, nhl_id)')
-            .eq('match_id', matchCourant.id)
+            .eq('match_id', match.id)
           // En cas d'erreur on garde ce qui est affiché (au lieu de tout vider)
           if (erreurChoix) throw erreurChoix
-          setChoixCourant(choixFrais || [])
-        }
-        if (matchSuivant) {
-          const [{ data: suivantFrais }, { data: choixSuivantFrais, error: erreurChoixSuivant }] =
-            await Promise.all([
-              supabase.from('matchs').select('*').eq('id', matchSuivant.id).maybeSingle(),
-              supabase
-                .from('choix')
-                .select('*, joueurs(nom, nhl_id)')
-                .eq('match_id', matchSuivant.id),
-            ])
-          if (erreurChoixSuivant) throw erreurChoixSuivant
-          if (suivantFrais) setMatchSuivant(suivantFrais)
-          setChoixSuivant(choixSuivantFrais || [])
+          setTousLesChoix(choixFrais || [])
         }
         await chargerClassement()
       } catch {
@@ -1859,8 +1818,8 @@ function Pool({ session }) {
       if (historique.length > 0) rechargements.push(chargerHistorique())
       await Promise.all(rechargements)
 
-      // 5. Le match courant est terminé et la NHL en annonce un autre (ou le match
-      // d'après a changé) : on relit tout sur place (sans écran de chargement).
+      // 5. Le match affiché est terminé et la NHL en annonce un autre : on passe
+      // au suivant sur place (sans écran de chargement).
       if (autreMatch) await initialiser({ silencieux: true })
 
       setMessageMaj(
@@ -1965,71 +1924,6 @@ function Pool({ session }) {
     }
   }
 
-  // Charge le match d'après (ligne en base + choix). Une panne ici ne doit JAMAIS
-  // empêcher d'afficher le match principal : on garde alors ce qu'on avait.
-  async function chargerMatchSuivant(infosSuivant, remettreOrdresEnRegle) {
-    if (!infosSuivant) {
-      setMatchSuivant(null)
-      setChoixSuivant([])
-      return
-    }
-    try {
-      let { data: ligne, error } = await supabase
-        .from('matchs')
-        .select('*')
-        .eq('nhl_game_id', infosSuivant.nhl_game_id)
-        .maybeSingle()
-      if (error) throw error
-
-      if (!ligne) {
-        const { data: nouveau, error: erreurInsert } = await supabase
-          .from('matchs')
-          .insert({
-            nhl_game_id: infosSuivant.nhl_game_id,
-            date_match: infosSuivant.date_match,
-            adversaire: infosSuivant.adversaire,
-            statut: 'a_venir',
-            ordre_choix: ORDRE_BASE,
-          })
-          .select()
-          .single()
-        if (erreurInsert) throw erreurInsert
-        await remettreOrdresEnRegle()
-        const { data: relu } = await supabase
-          .from('matchs')
-          .select('*')
-          .eq('id', nouveau.id)
-          .maybeSingle()
-        ligne = relu || nouveau
-      }
-
-      // Même filet de sécurité que pour le match principal : nouveau participant
-      if (ligne.statut !== 'termine' && new Date() < new Date(ligne.date_match)) {
-        const complet = completerOrdre(ligne.ordre_choix)
-        if (complet.length !== (ligne.ordre_choix || []).length) {
-          const { data: misAJour } = await supabase
-            .from('matchs')
-            .update({ ordre_choix: complet })
-            .eq('id', ligne.id)
-            .select()
-            .maybeSingle()
-          ligne = misAJour || { ...ligne, ordre_choix: complet }
-        }
-      }
-
-      const { data: choix, error: erreurChoix } = await supabase
-        .from('choix')
-        .select('*, joueurs(nom, nhl_id)')
-        .eq('match_id', ligne.id)
-      if (erreurChoix) throw erreurChoix
-
-      setMatchSuivant(ligne)
-      setChoixSuivant(choix || [])
-    } catch {
-      // on garde le match d'après déjà chargé (s'il y en a un)
-    }
-  }
-
   // silencieux : met tout à jour sur place, sans écran de chargement (donc sans
   // perdre la page, l'onglet ni ce qu'on est en train de taper).
   async function initialiser({ silencieux = false } = {}) {
@@ -2104,7 +1998,7 @@ function Pool({ session }) {
           matchExistant = misAJour || { ...matchExistant, ordre_choix: ordreComplet }
         }
       }
-      setMatchCourant(matchExistant)
+      setMatch(matchExistant)
 
       await chargerAlignement()
 
@@ -2114,10 +2008,7 @@ function Pool({ session }) {
         .eq('match_id', matchExistant.id)
       if (erreurChoixExistants) throw erreurChoixExistants
 
-      setChoixCourant(choixExistants || [])
-
-      // Le match d'après (affiché comme « prochain match » pendant que celui-ci est en cours)
-      await chargerMatchSuivant(dataMatch.suivant, remettreOrdresEnRegle)
+      setTousLesChoix(choixExistants || [])
 
       await chargerClassement()
     } catch (err) {
@@ -2221,8 +2112,6 @@ function Pool({ session }) {
 
   async function choisirJoueur(joueurNhl) {
     setErreur('')
-    // Les choix du match d'après n'ouvrent qu'une fois le match en cours terminé.
-    if (voirSuivant) return
 
     const dejaChoisi = tousLesChoix.some((c) => c.user_id === session.user.id)
 
@@ -3421,68 +3310,10 @@ function Pool({ session }) {
 
       {match && (
         <section className="carte carte-rouge pool-carte">
-          {suivantDisponible && (
-            <div className="bascule-match" role="group" aria-label="Quel match afficher?">
-              <button
-                type="button"
-                className={'bascule-bouton' + (!voirSuivant ? ' actif' : '')}
-                aria-pressed={!voirSuivant}
-                onClick={() => setVueMatch('direct')}
-              >
-                <span className="bascule-titre">
-                  {infosNhl?.en_direct && <span className="direct-point" aria-hidden="true" />}
-                  {infosNhl && matchTermine(infosNhl.statut)
-                    ? 'Match terminé'
-                    : 'En direct'}
-                </span>
-                <span className="bascule-detail">
-                  {infosNhl
-                    ? `MTL ${infosNhl.score_mtl ?? 0} – ${infosNhl.score_adversaire ?? 0} ${matchCourant.adversaire}`
-                    : `MTL – ${matchCourant.adversaire}`}
-                </span>
-                {infosNhl &&
-                  libellePeriode(
-                    infosNhl.periode,
-                    infosNhl.type_periode,
-                    matchTermine(infosNhl.statut)
-                  ) && (
-                    <span className="bascule-detail bascule-periode">
-                      {libellePeriode(
-                        infosNhl.periode,
-                        infosNhl.type_periode,
-                        matchTermine(infosNhl.statut)
-                      )}
-                    </span>
-                  )}
-              </button>
-              <button
-                type="button"
-                className={'bascule-bouton' + (voirSuivant ? ' actif' : '')}
-                aria-pressed={voirSuivant}
-                onClick={() => setVueMatch('suivant')}
-              >
-                <span className="bascule-titre">📅 Prochain match</span>
-                <span className="bascule-detail">
-                  MTL – {matchSuivant.adversaire}
-                </span>
-                <span className="bascule-detail bascule-periode">
-                  {formaterDateHeureMontreal(new Date(matchSuivant.date_match), {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short',
-                  })}
-                </span>
-              </button>
-            </div>
-          )}
+          {/* Pendant le match, le tableau « EN DIRECT » (équipes + pointage) remplace cette carte */}
+          {!jumbotronMontreLePointage && (
           <div className="pool-hero">
-          <h2>
-            {voirSuivant || !jumbotronMontreLePointage
-              ? '🏒 Prochain match'
-              : infosNhl && matchTermine(infosNhl.statut)
-                ? '🏒 Match terminé'
-                : '🏒 Match en cours'}
-          </h2>
+          <h2>🏒 Prochain match</h2>
           <div className="affrontement">
             <div className="affrontement-equipe">
               <LogoEquipe abbrev="MTL" taille={54} />
@@ -3507,13 +3338,13 @@ function Pool({ session }) {
           {!jumbotronMontreLePointage && (
             <Chrono
               ms={new Date(match.date_match) - maintenant}
-              urgent={!voirSuivant && new Date(match.date_match) - maintenant < 60 * 60 * 1000}
-              titre={voirSuivant ? 'Début du match dans' : undefined}
+              urgent={new Date(match.date_match) - maintenant < 60 * 60 * 1000}
             />
           )}
           </div>
+          )}
 
-          {match.ordre_choix && !voirSuivant && (
+          {match.ordre_choix && (
             <div className="pool-bloc">
               <h3 className="pool-titre"><span className="pool-titre-icone">🎯</span>Ordre de choix</h3>
               <p className="pool-info">
@@ -3579,13 +3410,7 @@ function Pool({ session }) {
             </div>
           )}
 
-          {voirSuivant ? (
-            <div className="pool-bloc">
-              <p className="verrou">
-                ⏳ Les choix pour ce match ouvriront dès que le match de ce soir sera terminé.
-              </p>
-            </div>
-          ) : jumbotronMontreLePointage ? (
+          {jumbotronMontreLePointage ? (
             <div className="pool-bloc">
               <TableauDirect infos={infosNhl} adversaire={match.adversaire} />
               <p className="verrou">🔒 Les choix sont verrouillés, le match a commencé.</p>
@@ -3650,17 +3475,13 @@ function Pool({ session }) {
             </div>
           )}
 
-          {!voirSuivant && (
-            <PronosticPointage
-              key={match.id}
-              session={session}
-              match={match}
-              ferme={jumbotronMontreLePointage}
-              version={versionMaj}
-            />
-          )}
+          <PronosticPointage
+            session={session}
+            match={match}
+            ferme={jumbotronMontreLePointage}
+            version={versionMaj}
+          />
 
-          {!voirSuivant && (
           <div className="pool-bloc">
           <h3 className="pool-titre"><span className="pool-titre-icone">👥</span>Choix de tout le monde</h3>
           <ul className="liste-choix">
@@ -3671,7 +3492,7 @@ function Pool({ session }) {
                 <span>
                   {NOMS[c.user_id] || 'Inconnu'} → {c.joueurs?.nom}
                 </span>
-                {matchEnCoursProvisoire && !voirSuivant && (
+                {matchEnCoursProvisoire && (
                   <span className="points-provisoires">
                     {pointsProvisoires(c, statsDirectEffectives).points} pts
                   </span>
@@ -3689,9 +3510,8 @@ function Pool({ session }) {
                 ))}
           </ul>
           </div>
-          )}
 
-          {matchEnCoursProvisoire && !voirSuivant && (
+          {matchEnCoursProvisoire && (
             <div className="classement-provisoire pool-bloc">
               <h3 className="pool-titre"><span className="pool-titre-icone">🔴</span>Classement provisoire</h3>
               <p className="note-tc">
@@ -3699,7 +3519,7 @@ function Pool({ session }) {
                 Le vrai classement se met à jour quand le match est terminé.
               </p>
               <ol className="classement-provisoire-liste">
-                {classementProvisoire(classement, choixCourant, statsDirectEffectives).map((c) => (
+                {classementProvisoire(classement, tousLesChoix, statsDirectEffectives).map((c) => (
                   <li key={c.user_id}>
                     <span>
                       <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={20} />{' '}

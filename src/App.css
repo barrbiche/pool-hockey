@@ -3361,67 +3361,6 @@ button:hover:not(:disabled) {
   background: linear-gradient(135deg, #1a2d52, #0c1e3d);
 }
 
-/* ===== Bascule « En direct / Prochain match » (onglet Pool) =====
-   Visible seulement pendant qu'un match est en cours. */
-.bascule-match {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.bascule-bouton {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-width: 0;
-  padding: 9px 6px;
-  border-radius: 12px;
-  border: 1.5px solid var(--bordure-forte);
-  background: var(--surface);
-  color: var(--encre);
-  box-shadow: var(--ombre);
-  text-align: center;
-  line-height: 1.2;
-  cursor: pointer;
-}
-
-.bascule-bouton:hover:not(.actif) {
-  border-color: var(--rouge);
-}
-
-.bascule-bouton.actif {
-  background: linear-gradient(135deg, var(--bleu) 0%, var(--bleu-2) 100%);
-  border-color: transparent;
-  color: var(--blanc);
-  box-shadow: 0 3px 10px rgba(12, 30, 61, 0.35);
-}
-
-.bascule-titre {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-weight: 800;
-  font-size: 0.8rem;
-  min-width: 0;
-}
-
-.bascule-detail {
-  font-size: 0.74rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-}
-
-.bascule-periode {
-  font-weight: 600;
-  font-size: 0.68rem;
-  opacity: 0.8;
-}
-
 .cal-lieu,
 .bareme-libelle,
 .article-numero {
