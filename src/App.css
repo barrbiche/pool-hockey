@@ -2445,6 +2445,20 @@ details[open] > .historique-entete .historique-chevron {
   box-shadow: none !important;
 }
 
+.bouton-tv {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin-left: auto;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.bouton-tv:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
 .menu-fond {
   position: fixed;
   inset: 0;
@@ -2580,6 +2594,17 @@ details[open] > .historique-entete .historique-chevron {
   .dock-maj { font-size: 0.78rem; gap: 4px; }
   .notif-switch { width: 58px; }
   .notif-switch.on .notif-switch-bouton { left: 28px; }
+}
+
+/* Très petits écrans : le titre + 📺 + ☰ doivent tenir sur une ligne */
+/* Le titre rapetisse avec l'écran (avant le bouton 📺 il avait toute la place). */
+.entete h1 { font-size: clamp(0.9rem, 5.4vw, 1.7rem); }
+
+@media (max-width: 345px) {
+  .entete-haut { gap: 6px; }
+  .entete-titre { gap: 6px; }
+  .entete h1 { letter-spacing: 0; }
+  .entete-haut .menu-bouton { width: 36px; height: 36px; }
 }
 
 @media (max-width: 360px) {

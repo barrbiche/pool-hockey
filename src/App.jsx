@@ -1085,6 +1085,8 @@ function Squelette({ lignes = 4, hauteur = 46 }) {
 // Messenger / Facebook / Instagram ouvrent les liens dans un mini-navigateur
 // où les notifications et l'installation ne fonctionnent pas.
 const URL_SITE = 'https://pool-hockey.netlify.app'
+// Bouton 📺 de l'en-tête : ouvre la page pour regarder le match
+const URL_TELE = 'https://slapstreams.com/montreal-canadiens-live/'
 // Notifications seulement sur téléphone/tablette : rien à afficher sur ordinateur
 const EST_MOBILE =
   /android|iphone|ipad|ipod/i.test(navigator.userAgent) ||
@@ -2498,6 +2500,16 @@ function Pool({ session }) {
             <Crest taille={36} />
             <h1>Pool de Hockey</h1>
           </div>
+          <a
+            className="menu-bouton bouton-tv"
+            href={URL_TELE}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Regarder le match (s'ouvre dans un nouvel onglet)"
+            title="Regarder le match"
+          >
+            📺
+          </a>
           <div className="menu-wrap">
             <button
               type="button"
