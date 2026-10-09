@@ -33,6 +33,9 @@ export async function handler() {
       .sort((a, b) => new Date(a.startTimeUTC) - new Date(b.startTimeUTC))
 
     const prochain = matchsAVenir[0]
+    // Le match d'après : le site l'affiche comme « prochain match » pendant que
+    // le premier est en cours (le pointage de ce soir reste visible à côté).
+    const suivant = matchsAVenir[1]
 
     if (!prochain) {
       return {
@@ -48,6 +51,16 @@ export async function handler() {
     // "LIVE" = match en cours, "CRIT" = fin de match serrée (dernières
     // minutes d'un match d'un but ou moins, ou prolongation).
     const enDirect = prochain.gameState === 'LIVE' || prochain.gameState === 'CRIT'
+
+    const infosSuivant = suivant
+      ? {
+          nhl_game_id: suivant.id,
+          date_match: suivant.startTimeUTC,
+          adversaire:
+            suivant.homeTeam.abbrev === 'MTL' ? suivant.awayTeam.abbrev : suivant.homeTeam.abbrev,
+          domicile: suivant.homeTeam.abbrev === 'MTL',
+        }
+      : null
 
     return {
       statusCode: 200,
@@ -70,6 +83,7 @@ export async function handler() {
           periode: prochain.periodDescriptor?.number ?? null,
           type_periode: prochain.periodDescriptor?.periodType ?? null,
         },
+        suivant: infosSuivant,
       }),
     }
   } catch (err) {
