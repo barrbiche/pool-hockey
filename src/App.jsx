@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from './lib/supabase'
 import Login from './Login'
@@ -863,7 +863,16 @@ const FONCTIONS_A_VERIFIER = [
   'admin-comptes',
   'admin-matchs',
   'bandeau',
+  'blessures',
 ]
+
+const SQL_BLESSURES = `create table if not exists public.blessures_manuelles (
+  nhl_id bigint primary key,
+  blesse boolean not null,
+  note text not null default '',
+  updated_at timestamptz not null default now()
+);
+alter table public.blessures_manuelles enable row level security;`
 
 const SQL_BANDEAU = `create table if not exists public.site_annonce (
   id int primary key default 1,
@@ -1301,6 +1310,175 @@ function CorrigerMatchBloc({ joueurs, onModifie }) {
   )
 }
 
+// 🩹 Blessures réglées à la main : elles passent avant celles de l'API (ESPN), qui n'est pas
+// fiable. Le site entier (sélecteur de joueurs, fiche, Stats CH, carte du joueur choisi) s'en sert.
+function BlessuresAdmin({ joueurs, blessures, tableOk, chargerBlessures }) {
+  const [choisi, setChoisi] = useState(null) // nhl_id du joueur à marquer blessé
+  const [note, setNote] = useState('')
+  const [enCours, setEnCours] = useState(false)
+  const [message, setMessage] = useState('')
+
+  async function envoyer(corps, succes) {
+    setEnCours(true)
+    setMessage('')
+    try {
+      const res = await fetchAvecSession('/.netlify/functions/blessures', {
+        method: 'POST',
+        body: JSON.stringify(corps),
+      })
+      await lireReponseFonction(res, 'blessures')
+      setMessage(`✓ ${succes}`)
+      await chargerBlessures()
+      return true
+    } catch (err) {
+      setMessage(`❌ ${err.message}`)
+      return false
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  async function marquerBlesse() {
+    const j = joueurs.find((x) => x.nhl_id === choisi)
+    if (!j) return
+    const ok = await envoyer({ nhl_id: j.nhl_id, blesse: true, note }, `${j.nom} est marqué blessé.`)
+    if (ok) {
+      setChoisi(null)
+      setNote('')
+    }
+  }
+
+  // « Rétabli » : si l'API ne le dit pas blessé, on efface juste le réglage; si elle le dit
+  // blessé, on force « en santé » pour qu'elle ne le remette pas blessé.
+  function retabli(j) {
+    const auto = j.blessure_manuelle ? j.blesse_auto : j.blesse
+    return envoyer(
+      auto ? { nhl_id: j.nhl_id, blesse: false } : { nhl_id: j.nhl_id, retirer: true },
+      `${j.nom} est rétabli.`
+    )
+  }
+
+  const blesses = joueurs.filter((j) => j.blesse)
+  const orphelins = blessures.filter((b) => b.blesse && !joueurs.some((j) => j.nhl_id === b.nhl_id))
+  const forces = blessures.filter((b) => !b.blesse)
+  const nomDe = (id) => joueurs.find((j) => j.nhl_id === id)?.nom || `Joueur #${id}`
+  const total = blesses.length + orphelins.length
+
+  return (
+    <div className="pool-bloc">
+      <h3 className="pool-titre"><span className="pool-titre-icone">🩹</span>Blessures</h3>
+      <p className="note-tc">
+        Les blessures de l’API ne sont pas fiables : ce que tu règles ici passe avant. Ça s’affiche
+        partout sur le site (liste de joueurs, fiche, Stats CH).
+      </p>
+      {!tableOk && (
+        <details className="repliable" open>
+          <summary className="repliable-titre">⚠️ Table à créer dans Supabase (une seule fois)</summary>
+          <p className="note-tc">Supabase → SQL Editor → New query → colle ceci → Run :</p>
+          <pre className="admin-sql">{SQL_BLESSURES}</pre>
+        </details>
+      )}
+
+      <h4 className="admin-sous-titre">Ajouter / modifier une blessure</h4>
+      {joueurs.length === 0 ? (
+        <p className="note-tc">La liste des joueurs n’est pas chargée (l’API de la NHL ne répond pas).</p>
+      ) : (
+        <div className="admin-blessure-form">
+          <SelecteurJoueur
+            joueurs={joueurs}
+            nomsPris={[]}
+            nhlIdChoisi={choisi}
+            onChoisir={(j) => {
+              setChoisi(j.nhl_id)
+              setNote(j.blessure_manuelle ? j.note_blessure || '' : '')
+            }}
+          />
+          <input
+            type="text"
+            maxLength={80}
+            placeholder="Détail (facultatif)"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            aria-label="Détail de la blessure"
+          />
+          <button onClick={marquerBlesse} disabled={enCours || choisi === null}>
+            {enCours ? '⏳' : '🩹 Marquer blessé'}
+          </button>
+        </div>
+      )}
+
+      <h4 className="admin-sous-titre">Blessés en ce moment ({total})</h4>
+      {total === 0 ? (
+        <p className="note-tc">Personne n’est blessé.</p>
+      ) : (
+        <ul className="liste-choix admin-blesses">
+          {blesses.map((j) => (
+            <li key={j.nhl_id} className="liste-choix-ligne">
+              <Headshot nhlId={j.nhl_id} taille={32} />
+              <span className="admin-notif-texte">
+                <strong>{j.nom}</strong>
+                <span className="admin-notif-detail">
+                  {j.blessure_manuelle ? `✍️ ${j.note_blessure || 'réglé par toi'}` : '🤖 Détecté par l’API (ESPN)'}
+                </span>
+              </span>
+              <button className="bouton-rappel" onClick={() => retabli(j)} disabled={enCours}>
+                ✅ Rétabli
+              </button>
+            </li>
+          ))}
+          {orphelins.map((b) => (
+            <li key={b.nhl_id} className="liste-choix-ligne">
+              <span className="admin-notif-texte">
+                <strong>{nomDe(b.nhl_id)}</strong>
+                <span className="admin-notif-detail">
+                  ✍️ {b.note || 'réglé par toi'} · plus dans l’alignement
+                </span>
+              </span>
+              <button
+                className="bouton-rappel"
+                onClick={() =>
+                  envoyer({ nhl_id: b.nhl_id, retirer: true }, `${nomDe(b.nhl_id)} est retiré de la liste.`)
+                }
+                disabled={enCours}
+              >
+                ✅ Retirer
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {forces.length > 0 && (
+        <details className="repliable">
+          <summary className="repliable-titre">Forcés « en santé » ({forces.length})</summary>
+          <p className="note-tc">
+            L’API les dit blessés, mais tu as dit que non. « Remettre auto » refait confiance à l’API.
+          </p>
+          <ul className="liste-choix admin-blesses">
+            {forces.map((b) => (
+              <li key={b.nhl_id} className="liste-choix-ligne">
+                <span className="admin-notif-texte">
+                  <strong>{nomDe(b.nhl_id)}</strong>
+                </span>
+                <button
+                  className="bouton-rappel"
+                  onClick={() =>
+                    envoyer({ nhl_id: b.nhl_id, retirer: true }, `${nomDe(b.nhl_id)} : retour à l’automatique.`)
+                  }
+                  disabled={enCours}
+                >
+                  ↩️ Remettre auto
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {message && <p className="rappels-message">{message}</p>}
+    </div>
+  )
+}
+
 // Page réservée à Eric (☰ → Admin) : état du site, notifications, comptes, bandeau,
 // annonces, rappels de choix, corrections de match. Le serveur revérifie à chaque appel
 // que c'est bien Eric.
@@ -1316,6 +1494,9 @@ function AdminPage({
   onModifie,
   bandeau,
   chargerBandeau,
+  blessures,
+  tableBlessuresOk,
+  chargerBlessures,
 }) {
   const [notifs, setNotifs] = useState(null)
   const [erreurNotifs, setErreurNotifs] = useState('')
@@ -1373,6 +1554,13 @@ function AdminPage({
   return (
     <section className="carte carte-rouge pool-carte">
       <EtatSiteBloc />
+
+      <BlessuresAdmin
+        joueurs={joueurs}
+        blessures={blessures}
+        tableOk={tableBlessuresOk}
+        chargerBlessures={chargerBlessures}
+      />
 
       <div className="pool-bloc">
         <h3 className="pool-titre"><span className="pool-titre-icone">🔔</span>Notifications</h3>
@@ -1677,7 +1865,7 @@ function FicheJoueur({ joueur, onFermer }) {
         )}
         {joueur.blesse ? (
           <p className="fiche-joueur-forme">
-            <IconePlasteur /> Possiblement blessé
+            <IconePlasteur /> {textePossiblementBlesse(joueur)}
           </p>
         ) : null}
       </div>
@@ -2377,9 +2565,33 @@ function PronosticPointage({ session, match, ferme, version = 0 }) {
   )
 }
 
+// Blessure réglée à la main par Eric (page Admin) : elle passe avant la source automatique
+// (ESPN). On garde l'ancienne valeur dans « blesse_auto » pour que l'Admin sache quoi faire
+// quand Eric dit « rétabli ».
+function appliquerBlessure(j, parId) {
+  const b = parId.get(Number(j.nhl_id ?? j.playerId))
+  if (!b) return j
+  return { ...j, blesse_auto: !!j.blesse, blesse: b.blesse, blessure_manuelle: true, note_blessure: b.note }
+}
+
+function textePossiblementBlesse(j) {
+  return j.blessure_manuelle ? `Blessé${j.note_blessure ? ` · ${j.note_blessure}` : ''}` : 'Possiblement blessé'
+}
+
 function Pool({ session }) {
   const [match, setMatch] = useState(null)
-  const [joueurs, setJoueurs] = useState([])
+  const [joueursNhl, setJoueurs] = useState([]) // tel que reçu de la NHL
+  const [blessuresManuelles, setBlessuresManuelles] = useState([]) // [{ nhl_id, blesse, note }]
+  const [tableBlessuresOk, setTableBlessuresOk] = useState(true)
+  const blessuresParId = useMemo(
+    () => new Map(blessuresManuelles.map((b) => [Number(b.nhl_id), b])),
+    [blessuresManuelles]
+  )
+  // Partout dans le site, « joueurs » = alignement avec les blessures d'Eric déjà appliquées
+  const joueurs = useMemo(
+    () => joueursNhl.map((j) => appliquerBlessure(j, blessuresParId)),
+    [joueursNhl, blessuresParId]
+  )
   const [bandeau, setBandeau] = useState(null) // { actif, texte, version, table_ok }
   const [bandeauFerme, setBandeauFerme] = useState(() => {
     try {
@@ -2525,6 +2737,19 @@ function Pool({ session }) {
     }
   }
 
+  // Blessures réglées à la main (Admin). Pas essentiel : sans elles, on garde celles de l'API.
+  async function chargerBlessures() {
+    try {
+      const res = await fetchAvecSession('/.netlify/functions/blessures')
+      if (!res.ok) return
+      const data = await res.json()
+      setBlessuresManuelles(Array.isArray(data.blessures) ? data.blessures : [])
+      setTableBlessuresOk(data.table_ok !== false)
+    } catch {
+      /* tant pis */
+    }
+  }
+
   function fermerBandeau(cle) {
     setBandeauFerme(cle)
     try {
@@ -2538,6 +2763,7 @@ function Pool({ session }) {
     setRafraichissementEnCours(true)
     setMessageMaj('')
     chargerBandeau()
+    chargerBlessures()
     const problemes = []
     try {
       // 1. Force le calcul des points si un match est terminé (appelle la NHL).
@@ -2749,6 +2975,7 @@ function Pool({ session }) {
   async function initialiser({ silencieux = false } = {}) {
     if (!silencieux) setChargement(true)
     chargerBandeau()
+    chargerBlessures()
     try {
       const resMatch = await fetch('/.netlify/functions/prochain-match')
       if (!resMatch.ok) {
@@ -3288,7 +3515,10 @@ function Pool({ session }) {
   return (
     <div className="conteneur">
       {celebration && <Confettis />}
-      <FicheJoueur joueur={ficheJoueur} onFermer={() => setFicheJoueur(null)} />
+      <FicheJoueur
+        joueur={ficheJoueur ? appliquerBlessure(ficheJoueur, blessuresParId) : null}
+        onFermer={() => setFicheJoueur(null)}
+      />
       <PartageResume texte={resumePartage} onFermer={() => setResumePartage(null)} />
       <GuideIphone
         ouverte={guideIphone}
@@ -3774,6 +4004,9 @@ function Pool({ session }) {
           onModifie={() => initialiser({ silencieux: true })}
           bandeau={bandeau}
           chargerBandeau={chargerBandeau}
+          blessures={blessuresManuelles}
+          tableBlessuresOk={tableBlessuresOk}
+          chargerBlessures={chargerBlessures}
         />
       )}
 
@@ -4136,7 +4369,7 @@ function Pool({ session }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {appliquerTri(statsEquipe, triStats, (j, col) =>
+                  {appliquerTri(statsEquipe.map((j) => appliquerBlessure(j, blessuresParId)), triStats, (j, col) =>
                     col === 'forme' ? { chaud: 1, froid: -1 }[j.forme] || 0 : j[col]
                   ).map((j, i) => (
                     <tr
@@ -4286,7 +4519,7 @@ function Pool({ session }) {
                     )}
                     {monJoueurDetails?.blesse && (
                       <span className="carte-joueur-forme blesse">
-                        <IconePlasteur /> Possiblement blessé
+                        <IconePlasteur /> {textePossiblementBlesse(monJoueurDetails)}
                       </span>
                     )}
                   </div>
