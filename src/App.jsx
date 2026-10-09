@@ -705,6 +705,148 @@ function AnnonceBloc() {
   )
 }
 
+// Mot de passe facile à dicter : pas de lettres qui se ressemblent (0/O, 1/l/I).
+function genererMotDePasse() {
+  const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789'
+  const octets = new Uint32Array(8)
+  crypto.getRandomValues(octets)
+  return Array.from(octets, (n) => alphabet[n % alphabet.length]).join('')
+}
+
+// Comptes du pool (Eric) : courriel, dernière connexion, nouveau mot de passe.
+// Les mots de passe actuels sont illisibles (Supabase n'en garde qu'une empreinte).
+function ComptesBloc() {
+  const [comptes, setComptes] = useState(null)
+  const [erreur, setErreur] = useState('')
+  const [chargement, setChargement] = useState(true)
+  const [ouvert, setOuvert] = useState(null) // id du compte dont on change le mot de passe
+  const [mdp, setMdp] = useState('')
+  const [enCours, setEnCours] = useState(false)
+  const [message, setMessage] = useState('')
+
+  async function charger() {
+    setChargement(true)
+    setErreur('')
+    try {
+      const res = await fetchAvecSession('/.netlify/functions/admin-comptes')
+      const data = await lireReponseFonction(res, 'admin-comptes')
+      setComptes(data.comptes)
+    } catch (err) {
+      setErreur(err.message)
+    } finally {
+      setChargement(false)
+    }
+  }
+
+  useEffect(() => {
+    charger()
+  }, [])
+
+  async function enregistrer(compte) {
+    setEnCours(true)
+    setMessage('')
+    try {
+      const res = await fetchAvecSession('/.netlify/functions/admin-comptes', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: compte.id, mot_de_passe: mdp }),
+      })
+      await lireReponseFonction(res, 'admin-comptes')
+      setMessage(`✓ Mot de passe de ${compte.nom} changé. Dis-lui le nouveau : ${mdp}`)
+      setOuvert(null)
+      setMdp('')
+      charger()
+    } catch (err) {
+      setMessage(`❌ ${err.message}`)
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  return (
+    <div className="pool-bloc">
+      <h3 className="pool-titre"><span className="pool-titre-icone">👤</span>Comptes</h3>
+      <p className="note-tc">
+        Les mots de passe actuels sont illisibles (même pour toi) : tu peux seulement en mettre un
+        nouveau.
+      </p>
+      {chargement && !comptes && <Squelette lignes={4} hauteur={40} />}
+      {erreur && <p className="erreur">⚠️ {erreur}</p>}
+      {comptes && (
+        <ul className="liste-choix admin-comptes">
+          {comptes.map((c) => (
+            <li key={c.id} className="admin-compte">
+              <div className="liste-choix-ligne admin-compte-haut">
+                <Pastille userId={c.id} nom={c.nom} taille={24} />
+                <span className="admin-notif-texte">
+                  <strong>{c.nom}</strong>
+                  {c.trouve ? (
+                    <>
+                      <span className="admin-notif-detail">{c.email}</span>
+                      <span className="admin-notif-detail">
+                        {c.confirme ? '' : '⚠️ Courriel pas confirmé · '}
+                        {c.derniere_connexion
+                          ? `Dernière connexion : ${formaterDateHeureMontreal(
+                              new Date(c.derniere_connexion),
+                              { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }
+                            )}`
+                          : 'Jamais connecté'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="admin-notif-detail">Compte introuvable dans Supabase</span>
+                  )}
+                </span>
+                {c.trouve && (
+                  <button
+                    className="bouton-rappel"
+                    onClick={() => {
+                      setOuvert(ouvert === c.id ? null : c.id)
+                      setMdp('')
+                      setMessage('')
+                    }}
+                  >
+                    🔑 Changer
+                  </button>
+                )}
+              </div>
+              {ouvert === c.id && (
+                <form
+                  className="admin-mdp-form"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    enregistrer(c)
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={mdp}
+                    onChange={(e) => setMdp(e.target.value)}
+                    placeholder={`Nouveau mot de passe de ${c.nom}`}
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    minLength={6}
+                    maxLength={72}
+                    required
+                  />
+                  <button type="button" onClick={() => setMdp(genererMotDePasse())}>
+                    🎲 Générer
+                  </button>
+                  <button type="submit" disabled={enCours || mdp.length < 6}>
+                    {enCours ? '⏳' : '💾 Enregistrer'}
+                  </button>
+                </form>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {message && <p className="rappels-message">{message}</p>}
+    </div>
+  )
+}
+
 // Page réservée à Eric (☰ → Admin) : qui a activé les notifications, annonces,
 // rappels de choix. Le serveur revérifie lui-même que c'est bien Eric.
 function AdminPage({
@@ -783,6 +925,8 @@ function AdminPage({
           {chargement ? '⏳ Vérification...' : '🔄 Actualiser'}
         </button>
       </div>
+
+      <ComptesBloc />
 
       <AnnonceBloc />
 

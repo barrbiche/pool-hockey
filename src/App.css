@@ -4099,3 +4099,39 @@ button:hover:not(:disabled) {
 .pool-bloc .bouton-copier {
   margin-top: 8px;
 }
+
+.admin-compte {
+  list-style: none;
+}
+
+.admin-compte-haut {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-mdp-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+
+.admin-mdp-form input {
+  flex: 1 1 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--bordure-forte);
+  background: var(--surface);
+  color: var(--encre);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1rem;
+}
+
+.admin-mdp-form button {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 0.85rem;
+  padding: 9px 10px;
+}
