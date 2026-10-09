@@ -4066,3 +4066,36 @@ button:hover:not(:disabled) {
     font-size: 0.6rem;
   }
 }
+
+/* ===== Page admin (Eric) ===== */
+.admin-notif-texte {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+  line-height: 1.25;
+}
+
+.admin-notif-detail {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--gris-texte);
+  overflow-wrap: anywhere;
+}
+
+.admin-notif-etat {
+  flex: 0 0 auto;
+  font-size: 0.74rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.admin-notif-etat.oui { color: var(--vert); }
+.admin-notif-etat.non { color: var(--rouge); }
+
+:root[data-theme='dark'] .admin-notif-etat.oui { color: #4ade80; }
+
+.pool-bloc .bouton-copier {
+  margin-top: 8px;
+}

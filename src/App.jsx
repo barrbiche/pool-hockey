@@ -633,24 +633,21 @@ function PartageResume({ texte, onFermer }) {
 
 // Fenêtre d'annonce (réservée à Eric) : écrire un texte, l'envoyer en
 // notification à tout le monde.
-function AnnonceModal({ ouverte, accessToken, onFermer }) {
+function AnnonceBloc() {
   const [texte, setTexte] = useState('')
   const [destinataire, setDestinataire] = useState('tous')
   const [enCours, setEnCours] = useState(false)
   const [resultat, setResultat] = useState('')
 
-  if (!ouverte) return null
-
   async function envoyer() {
     setEnCours(true)
     setResultat('')
     try {
-      const res = await fetch('/.netlify/functions/annonce', {
+      const res = await fetchAvecSession('/.netlify/functions/annonce', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ texte, destinataire }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setResultat(`❌ ${data.erreur || data.error || `Erreur ${res.status}`}`)
       } else {
@@ -672,40 +669,171 @@ function AnnonceModal({ ouverte, accessToken, onFermer }) {
   }
 
   return (
-    <div className="fiche-joueur-fond" onClick={onFermer}>
-      <div className="partage-resume-carte" onClick={(e) => e.stopPropagation()}>
-        <button className="fiche-joueur-fermer" onClick={onFermer} aria-label="Fermer">
-          ✕
-        </button>
-        <h3 className="partage-resume-titre">📣 Annonce</h3>
-        <label className="annonce-destinataire">
-          Envoyer à :{' '}
-          <select value={destinataire} onChange={(e) => setDestinataire(e.target.value)}>
-            <option value="tous">Tout le monde</option>
-            {ORDRE_BASE.map((uid) => (
-              <option key={uid} value={uid}>
-                {NOMS[uid]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <textarea
-          className="partage-resume-zone"
-          placeholder="Écris ton message ici..."
-          maxLength={300}
-          value={texte}
-          onChange={(e) => setTexte(e.target.value)}
-        />
-        <button
-          className="bouton-copier"
-          onClick={envoyer}
-          disabled={enCours || texte.trim().length === 0}
-        >
-          {enCours ? '⏳ Envoi...' : destinataire === 'tous' ? '📤 Envoyer à tout le monde' : `📤 Envoyer à ${NOMS[destinataire]}`}
-        </button>
-        {resultat && <p className="partage-resume-astuce">{resultat}</p>}
-      </div>
+    <div className="pool-bloc">
+      <h3 className="pool-titre"><span className="pool-titre-icone">📣</span>Annonce</h3>
+      <label className="annonce-destinataire">
+        Envoyer à :{' '}
+        <select value={destinataire} onChange={(e) => setDestinataire(e.target.value)}>
+          <option value="tous">Tout le monde</option>
+          {ORDRE_BASE.map((uid) => (
+            <option key={uid} value={uid}>
+              {NOMS[uid]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <textarea
+        className="partage-resume-zone"
+        placeholder="Écris ton message ici..."
+        maxLength={300}
+        value={texte}
+        onChange={(e) => setTexte(e.target.value)}
+      />
+      <button
+        className="bouton-copier"
+        onClick={envoyer}
+        disabled={enCours || texte.trim().length === 0}
+      >
+        {enCours
+          ? '⏳ Envoi...'
+          : destinataire === 'tous'
+            ? '📤 Envoyer à tout le monde'
+            : `📤 Envoyer à ${NOMS[destinataire]}`}
+      </button>
+      {resultat && <p className="partage-resume-astuce">{resultat}</p>}
     </div>
+  )
+}
+
+// Page réservée à Eric (☰ → Admin) : qui a activé les notifications, annonces,
+// rappels de choix. Le serveur revérifie lui-même que c'est bien Eric.
+function AdminPage({
+  match,
+  tousLesChoix,
+  prochainAChoisir,
+  matchCommence,
+  rappelEnCours,
+  messageRappel,
+  envoyerRappel,
+}) {
+  const [notifs, setNotifs] = useState(null)
+  const [erreurNotifs, setErreurNotifs] = useState('')
+  const [chargement, setChargement] = useState(true)
+
+  async function charger() {
+    setChargement(true)
+    setErreurNotifs('')
+    try {
+      const res = await fetchAvecSession('/.netlify/functions/admin-notifications')
+      setNotifs(await lireReponseFonction(res, 'admin-notifications'))
+    } catch (err) {
+      setErreurNotifs(err.message)
+    } finally {
+      setChargement(false)
+    }
+  }
+
+  useEffect(() => {
+    charger()
+  }, [])
+
+  return (
+    <section className="carte carte-rouge pool-carte">
+      <div className="pool-bloc">
+        <h3 className="pool-titre"><span className="pool-titre-icone">🔔</span>Notifications</h3>
+        {chargement && !notifs && <Squelette lignes={4} hauteur={40} />}
+        {erreurNotifs && <p className="erreur">⚠️ {erreurNotifs}</p>}
+        {notifs && (
+          <>
+            <p className="note-tc">
+              <strong>
+                {notifs.actifs} sur {notifs.total}
+              </strong>{' '}
+              ont activé les notifications.
+            </p>
+            <ul className="liste-choix admin-notifs">
+              {notifs.participants.map((p) => (
+                <li key={p.id} className={'liste-choix-ligne' + (p.actif ? '' : ' pas-choisi')}>
+                  <Pastille userId={p.id} nom={p.nom} taille={24} />
+                  <span className="admin-notif-texte">
+                    <strong>{p.nom}</strong>
+                    {p.actif ? (
+                      <span className="admin-notif-detail">
+                        {p.appareil}
+                        {p.depuis
+                          ? ` · depuis le ${formaterDateHeureMontreal(new Date(p.depuis), {
+                              day: 'numeric',
+                              month: 'short',
+                            })}`
+                          : ''}
+                      </span>
+                    ) : (
+                      <span className="admin-notif-detail">Pas d’appareil enregistré</span>
+                    )}
+                  </span>
+                  <span className={p.actif ? 'admin-notif-etat oui' : 'admin-notif-etat non'}>
+                    {p.actif ? '✅ Activées' : '❌ Pas activées'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        <button className="bouton-copier" onClick={charger} disabled={chargement}>
+          {chargement ? '⏳ Vérification...' : '🔄 Actualiser'}
+        </button>
+      </div>
+
+      <AnnonceBloc />
+
+      <div className="pool-bloc">
+        <h3 className="pool-titre"><span className="pool-titre-icone">🎯</span>Rappels de choix</h3>
+        {!match ? (
+          <p className="note-tc">Pas de match prévu pour le moment.</p>
+        ) : matchCommence ? (
+          <p className="note-tc">Le match est commencé : plus de choix à rappeler.</p>
+        ) : (
+          <>
+            <p className="note-tc">
+              Match contre <strong>{match.adversaire}</strong>. Le rappel ne peut être envoyé qu’à
+              la personne dont c’est le tour.
+            </p>
+            <ul className="liste-choix">
+              {(match.ordre_choix || []).map((uid) => {
+                const choix = tousLesChoix.find((c) => c.user_id === uid)
+                const sonTour = uid === prochainAChoisir
+                return (
+                  <li key={uid} className="liste-choix-ligne">
+                    <Pastille userId={uid} nom={NOMS[uid]} taille={24} />
+                    <span className="admin-notif-texte">
+                      <strong>{NOMS[uid] || 'Inconnu'}</strong>
+                      <span className="admin-notif-detail">
+                        {choix ? `✅ ${choix.joueurs?.nom || 'Choisi'}` : sonTour ? '⏳ Son tour' : 'En attente'}
+                      </span>
+                    </span>
+                    {!choix && uid !== ADMIN_ID && (
+                      <button
+                        className="bouton-rappel"
+                        onClick={() => envoyerRappel(uid)}
+                        disabled={rappelEnCours !== null || !sonTour}
+                        title={
+                          sonTour
+                            ? `Envoyer un rappel à ${NOMS[uid]}`
+                            : `Ce n'est pas encore le tour de ${NOMS[uid]}`
+                        }
+                      >
+                        {rappelEnCours === uid ? '⏳' : '🔔'} Rappeler
+                      </button>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+            {messageRappel && <p className="rappels-message">{messageRappel}</p>}
+          </>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -1664,7 +1792,6 @@ function Pool({ session }) {
   const [triClassementNhl, setTriClassementNhl] = useState(null)
   const [ficheJoueur, setFicheJoueur] = useState(null)
   const [resumePartage, setResumePartage] = useState(null)
-  const [annonceOuverte, setAnnonceOuverte] = useState(false)
   const [rappelEnCours, setRappelEnCours] = useState(null)
   const [messageRappel, setMessageRappel] = useState('')
   const [celebration, setCelebration] = useState(false)
@@ -2478,13 +2605,6 @@ function Pool({ session }) {
       {celebration && <Confettis />}
       <FicheJoueur joueur={ficheJoueur} onFermer={() => setFicheJoueur(null)} />
       <PartageResume texte={resumePartage} onFermer={() => setResumePartage(null)} />
-      {session.user.id === ADMIN_ID && (
-        <AnnonceModal
-          ouverte={annonceOuverte}
-          accessToken={session.access_token}
-          onFermer={() => setAnnonceOuverte(false)}
-        />
-      )}
       <GuideIphone
         ouverte={guideIphone}
         horsSafari={horsSafariIOS}
@@ -2529,10 +2649,10 @@ function Pool({ session }) {
                       role="menuitem"
                       onClick={() => {
                         setMenuOuvert(false)
-                        setAnnonceOuverte(true)
+                        setOnglet('admin')
                       }}
                     >
-                      📣 Annonce
+                      🛠️ Admin
                     </button>
                   )}
                   <button role="menuitem" onClick={() => supabase.auth.signOut()}>
@@ -2939,6 +3059,18 @@ function Pool({ session }) {
             </details>
           </article>
         </section>
+      )}
+
+      {onglet === 'admin' && session.user.id === ADMIN_ID && (
+        <AdminPage
+          match={match}
+          tousLesChoix={tousLesChoix}
+          prochainAChoisir={prochainAChoisir}
+          matchCommence={jumbotronMontreLePointage}
+          rappelEnCours={rappelEnCours}
+          messageRappel={messageRappel}
+          envoyerRappel={envoyerRappel}
+        />
       )}
 
       {onglet === 'historique' && (
@@ -3417,30 +3549,6 @@ function Pool({ session }) {
                   )
                 })}
               </ol>
-              {session.user.id === ADMIN_ID && !jumbotronMontreLePointage && (
-                <div className="rappels-admin">
-                  {match.ordre_choix
-                    .filter(
-                      (uid) => uid !== session.user.id && !tousLesChoix.some((c) => c.user_id === uid)
-                    )
-                    .map((uid) => (
-                      <button
-                        key={uid}
-                        className="bouton-rappel"
-                        onClick={() => envoyerRappel(uid)}
-                        disabled={rappelEnCours !== null || uid !== prochainAChoisir}
-                        title={
-                          uid === prochainAChoisir
-                            ? `Envoyer un rappel à ${NOMS[uid]}`
-                            : `Ce n'est pas encore le tour de ${NOMS[uid]}`
-                        }
-                      >
-                        {rappelEnCours === uid ? '⏳' : '🔔'} Rappeler {NOMS[uid]}
-                      </button>
-                    ))}
-                  {messageRappel && <p className="rappels-message">{messageRappel}</p>}
-                </div>
-              )}
             </div>
           )}
 
