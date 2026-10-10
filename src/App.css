@@ -4463,3 +4463,15 @@ button:hover:not(:disabled) {
 .admin-blesses .bouton-rappel {
   margin-left: auto;
 }
+
+.note-blesses {
+  margin-top: 4px;
+}
+
+.admin-alerte {
+  color: #8f0a1f;
+}
+
+:root[data-theme='dark'] .admin-alerte {
+  color: #ff93a3;
+}

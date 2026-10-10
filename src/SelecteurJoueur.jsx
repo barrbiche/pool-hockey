@@ -7,7 +7,7 @@ import { IconeFeu, IconeGlace, IconePlasteur } from './Icones'
 // options. La liste s'ouvre en place et pousse le contenu vers le bas,
 // plutôt que de flotter par-dessus — ça évite qu'elle soit coupée par les
 // cartes et ça se comporte bien sur cellulaire.
-export default function SelecteurJoueur({ joueurs, nomsPris, nhlIdChoisi, onChoisir }) {
+export default function SelecteurJoueur({ joueurs, nomsPris, nhlIdChoisi, onChoisir, bloquerBlesses = false }) {
   const [ouvert, setOuvert] = useState(false)
   const conteneurRef = useRef(null)
 
@@ -62,7 +62,11 @@ export default function SelecteurJoueur({ joueurs, nomsPris, nhlIdChoisi, onChoi
       {ouvert && (
         <ul className="selecteur-liste" role="listbox">
           {joueurs.map((j) => {
-            const pris = nomsPris.includes(j.nom)
+            // « bloquerBlesses » : les joueurs que Eric a marqués blessés à la main ne peuvent
+            // pas être choisis (les blessures « possibles » de l'API, elles, restent permises).
+            const blesseBloque = bloquerBlesses && j.blessure_manuelle === true && j.blesse === true
+            const dejaPris = nomsPris.includes(j.nom)
+            const pris = dejaPris || blesseBloque
             const actif = j.nhl_id === nhlIdChoisi
             return (
               <li key={j.nhl_id} role="presentation">
@@ -71,6 +75,7 @@ export default function SelecteurJoueur({ joueurs, nomsPris, nhlIdChoisi, onChoi
                   role="option"
                   aria-selected={actif}
                   disabled={pris}
+                  title={blesseBloque && !dejaPris ? 'Blessé : on ne peut pas le choisir' : undefined}
                   className={
                     'selecteur-option' + (pris ? ' pris' : '') + (actif ? ' actif' : '')
                   }
@@ -85,10 +90,12 @@ export default function SelecteurJoueur({ joueurs, nomsPris, nhlIdChoisi, onChoi
                     <span className="selecteur-position">{j.position}</span>
                   </span>
                   <span className="selecteur-option-icones">
-                    {j.blesse && <IconePlasteur />}
+                    {j.blesse && !blesseBloque && <IconePlasteur />}
                     {j.forme === 'chaud' && <IconeFeu />}
                     {j.forme === 'froid' && <IconeGlace />}
-                    {pris && <span className="selecteur-pris">pris</span>}
+                    {pris && (
+                      <span className="selecteur-pris">{dejaPris ? 'pris' : 'blessé'}</span>
+                    )}
                   </span>
                 </button>
               </li>

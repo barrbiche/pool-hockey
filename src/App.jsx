@@ -1312,7 +1312,7 @@ function CorrigerMatchBloc({ joueurs, onModifie }) {
 
 // 🩹 Blessures réglées à la main : elles passent avant celles de l'API (ESPN), qui n'est pas
 // fiable. Le site entier (sélecteur de joueurs, fiche, Stats CH, carte du joueur choisi) s'en sert.
-function BlessuresAdmin({ joueurs, blessures, tableOk, chargerBlessures }) {
+function BlessuresAdmin({ joueurs, blessures, tableOk, chargerBlessures, tousLesChoix = [], matchCommence = false }) {
   const [choisi, setChoisi] = useState(null) // nhl_id du joueur à marquer blessé
   const [note, setNote] = useState('')
   const [enCours, setEnCours] = useState(false)
@@ -1420,6 +1420,16 @@ function BlessuresAdmin({ joueurs, blessures, tableOk, chargerBlessures }) {
                 <span className="admin-notif-detail">
                   {j.blessure_manuelle ? `✍️ ${j.note_blessure || 'réglé par toi'}` : '🤖 Détecté par l’API (ESPN)'}
                 </span>
+                {j.blessure_manuelle &&
+                  !matchCommence &&
+                  tousLesChoix
+                    .filter((c) => c.joueurs?.nhl_id === j.nhl_id)
+                    .map((c) => (
+                      <span key={c.user_id} className="admin-notif-detail admin-alerte">
+                        ⚠️ {NOMS[c.user_id] || 'Quelqu’un'} l’a déjà choisi pour le prochain match (tu peux le
+                        changer dans « Corriger un match »)
+                      </span>
+                    ))}
               </span>
               <button className="bouton-rappel" onClick={() => retabli(j)} disabled={enCours}>
                 ✅ Rétabli
@@ -1560,6 +1570,8 @@ function AdminPage({
         blessures={blessures}
         tableOk={tableBlessuresOk}
         chargerBlessures={chargerBlessures}
+        tousLesChoix={tousLesChoix}
+        matchCommence={matchCommence}
       />
 
       <div className="pool-bloc">
@@ -2741,12 +2753,14 @@ function Pool({ session }) {
   async function chargerBlessures() {
     try {
       const res = await fetchAvecSession('/.netlify/functions/blessures')
-      if (!res.ok) return
+      if (!res.ok) return null
       const data = await res.json()
-      setBlessuresManuelles(Array.isArray(data.blessures) ? data.blessures : [])
+      const liste = Array.isArray(data.blessures) ? data.blessures : []
+      setBlessuresManuelles(liste)
       setTableBlessuresOk(data.table_ok !== false)
+      return liste
     } catch {
-      /* tant pis */
+      return null /* tant pis */
     }
   }
 
@@ -3173,6 +3187,17 @@ function Pool({ session }) {
     )
     if (dejaPrisParAutre) {
       setErreur(`🚫 ${joueurNhl.nom} est déjà choisi par quelqu'un d'autre pour ce match!`)
+      return
+    }
+
+    // Joueur blessé (réglé par Eric) : on relit la liste à l'instant même, au cas où Eric
+    // l'aurait marqué blessé pendant que la page était ouverte.
+    const blessuresFraiches = await chargerBlessures()
+    const blesseMaintenant = (blessuresFraiches || blessuresManuelles).some(
+      (b) => b.blesse && Number(b.nhl_id) === Number(joueurNhl.nhl_id)
+    )
+    if (blesseMaintenant) {
+      setErreur(`🩹 ${joueurNhl.nom} est blessé : tu ne peux pas le choisir. Prends-en un autre!`)
       return
     }
 
@@ -4545,12 +4570,22 @@ function Pool({ session }) {
                     .filter(Boolean)}
                   nhlIdChoisi={maLigneDeChoix?.joueurs?.nhl_id || null}
                   onChoisir={choisirJoueur}
+                  bloquerBlesses
                 />
               )}
               <p className="note-tc">
                 <IconeFeu /> chaud · <IconeGlace /> froid (5 derniers matchs) ·{' '}
                 <IconePlasteur /> possiblement blessé
               </p>
+              {joueurs.some((j) => j.blessure_manuelle && j.blesse) && (
+                <p className="note-tc note-blesses">
+                  🩹 Blessés, on ne peut pas les choisir :{' '}
+                  {joueurs
+                    .filter((j) => j.blessure_manuelle && j.blesse)
+                    .map((j) => j.nom)
+                    .join(', ')}
+                </p>
+              )}
             </div>
           )}
 
