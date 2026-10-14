@@ -4475,3 +4475,11 @@ button:hover:not(:disabled) {
 :root[data-theme='dark'] .admin-alerte {
   color: #ff93a3;
 }
+
+/* Pronostics de pointage dans le classement */
+.classement-pronos {
+  margin-top: 2px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gris-texte);
+}

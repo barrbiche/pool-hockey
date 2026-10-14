@@ -270,9 +270,36 @@ function serieCumulee(historique) {
   return { matchs, cumul }
 }
 
-// Trophées de la saison, calculés à partir de l'historique. Retourne seulement
-// ceux qui ont au moins un gagnant.
-function calculerTrophees(historique) {
+// Pointages devinés de la saison. Les EXACTS se lisent dans les résultats (colonne « bonus »,
+// remplie au calcul des points). Le nombre de pronostics FAITS (pour le taux de réussite) vient
+// du serveur (stats-pronostics); s'il manque, on affiche seulement les exacts.
+function statsPronostics(historique, faits) {
+  const exacts = {}
+  for (const r of historique) {
+    if ((r.bonus || 0) > 0) exacts[r.user_id] = (exacts[r.user_id] || 0) + 1
+  }
+  const parUser = {}
+  let total = 0
+  for (const u of ORDRE_BASE) {
+    const e = exacts[u] || 0
+    // « faits » ne peut pas être plus petit que les exacts (au cas où les données diffèrent)
+    const f = faits && typeof faits[u] === 'number' ? Math.max(faits[u], e) : null
+    parUser[u] = { exacts: e, faits: f }
+    total += f ?? e
+  }
+  return { parUser, actif: total > 0 }
+}
+
+function textePronostics({ exacts, faits }) {
+  const mot = `pointage${exacts > 1 ? 's' : ''} exact${exacts > 1 ? 's' : ''}`
+  if (faits === null) return `🎯 ${exacts} ${mot}`
+  if (faits === 0) return '🎯 Aucun pronostic encore'
+  return `🎯 ${exacts} ${mot} sur ${faits} (${Math.round((exacts / faits) * 100)}\u00a0%)`
+}
+
+// Trophées de la saison, calculés à partir de l'historique (et du nombre de pronostics faits,
+// quand on l'a). Retourne seulement ceux qui ont au moins un gagnant.
+function calculerTrophees(historique, faits = null) {
   const { matchs } = serieCumulee(historique)
   const trophees = []
   const noms = (uids) => uids.map((u) => NOMS[u] || 'Inconnu').join(' et ')
@@ -305,6 +332,60 @@ function calculerTrophees(historique) {
       titre: 'Devin du pool',
       gagnant: noms(devin.uids),
       detail: `${devin.max} pointage${devin.max > 1 ? 's' : ''} exact${devin.max > 1 ? 's' : ''}`,
+    })
+  }
+
+  // 🔮 Meilleur flair (meilleur taux de réussite aux pronostics, au moins 3 pronostics faits)
+  if (faits) {
+    const taux = {}
+    for (const u of ORDRE_BASE) {
+      const e = devins[u] || 0
+      const f = Math.max(faits[u] || 0, e)
+      if (f >= 3 && e > 0) taux[u] = { t: e / f, e, f }
+    }
+    const meilleurTaux = Math.max(0, ...Object.values(taux).map((x) => x.t))
+    const gagnants = ORDRE_BASE.filter((u) => taux[u] && Math.abs(taux[u].t - meilleurTaux) < 1e-9)
+    if (gagnants.length > 0) {
+      const pct = Math.round(meilleurTaux * 100)
+      trophees.push({
+        icone: '🔮',
+        titre: 'Meilleur flair',
+        gagnant: noms(gagnants),
+        detail:
+          gagnants.length === 1
+            ? `${pct}\u00a0% de réussite (${taux[gagnants[0]].e} sur ${taux[gagnants[0]].f})`
+            : `${pct}\u00a0% de réussite`,
+      })
+    }
+  }
+
+  // 🎰 Devin en série (le plus de pointages exacts de suite, au moins 2)
+  const bonusParMatch = {}
+  for (const r of historique) {
+    if (!bonusParMatch[r.match_id]) bonusParMatch[r.match_id] = {}
+    bonusParMatch[r.match_id][r.user_id] = r.bonus || 0
+  }
+  const seriesExactes = {}
+  for (const uid of ORDRE_BASE) {
+    let courante = 0
+    let max = 0
+    for (const m of matchs) {
+      if ((bonusParMatch[m.id]?.[uid] || 0) > 0) {
+        courante += 1
+        max = Math.max(max, courante)
+      } else {
+        courante = 0
+      }
+    }
+    seriesExactes[uid] = max
+  }
+  const roiExact = meilleurs(seriesExactes, 2)
+  if (roiExact) {
+    trophees.push({
+      icone: '🎰',
+      titre: 'Devin en série',
+      gagnant: noms(roiExact.uids),
+      detail: `${roiExact.max} pointages exacts de suite`,
     })
   }
 
@@ -534,8 +615,8 @@ function CourbeClassement({ historique }) {
   )
 }
 
-function Trophees({ historique }) {
-  const liste = calculerTrophees(historique)
+function Trophees({ historique, faits }) {
+  const liste = calculerTrophees(historique, faits)
   if (liste.length === 0) return null
   return (
     <details className="repliable trophees" open>
@@ -864,6 +945,7 @@ const FONCTIONS_A_VERIFIER = [
   'admin-matchs',
   'bandeau',
   'blessures',
+  'stats-pronostics',
 ]
 
 const SQL_BLESSURES = `create table if not exists public.blessures_manuelles (
@@ -2595,6 +2677,7 @@ function Pool({ session }) {
   const [joueursNhl, setJoueurs] = useState([]) // tel que reçu de la NHL
   const [blessuresManuelles, setBlessuresManuelles] = useState([]) // [{ nhl_id, blesse, note }]
   const [tableBlessuresOk, setTableBlessuresOk] = useState(true)
+  const [faitsPronostics, setFaitsPronostics] = useState(null) // { <user_id>: nb de pronostics faits } ou null
   const blessuresParId = useMemo(
     () => new Map(blessuresManuelles.map((b) => [Number(b.nhl_id), b])),
     [blessuresManuelles]
@@ -2725,6 +2808,7 @@ function Pool({ session }) {
   // Mon choix pour ce match, enrichi des infos de l'alignement (numéro,
   // position, forme) pour la carte du joueur choisi.
   const maLigneDeChoix = tousLesChoix.find((c) => c.user_id === session.user.id)
+  const pronos = statsPronostics(historique, faitsPronostics)
   const monJoueurDetails = maLigneDeChoix?.joueurs?.nhl_id
     ? joueurs.find((j) => j.nhl_id === maLigneDeChoix.joueurs.nhl_id)
     : null
@@ -3482,8 +3566,22 @@ function Pool({ session }) {
     }
   }
 
+  // Nombre de pointages devinés par personne (pour le taux de réussite). Pas essentiel :
+  // sans ça, le classement montre seulement les pointages exacts.
+  async function chargerPronostics() {
+    try {
+      const res = await fetchAvecSession('/.netlify/functions/stats-pronostics')
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.faits && typeof data.faits === 'object') setFaitsPronostics(data.faits)
+    } catch {
+      /* tant pis */
+    }
+  }
+
   async function chargerHistorique() {
     setChargementHistorique(true)
+    chargerPronostics()
     try {
       const { debutSaison } = saisonEnCours()
       const { data: resultatsData, error: erreurResultatsHistorique } = await supabase
@@ -3837,6 +3935,11 @@ function Pool({ session }) {
                         {c.buts} {c.buts > 1 ? 'buts' : 'but'} · {c.passes} {c.passes > 1 ? 'passes' : 'passe'} · {c.tc}{' '}
                         {c.tc > 1 ? 'tours' : 'tour'} du chapeau
                       </div>
+                      {pronos.actif && (
+                        <div className="classement-pronos">
+                          {textePronostics(pronos.parUser[c.user_id] || { exacts: 0, faits: null })}
+                        </div>
+                      )}
                     </li>
                   )
                 })}
@@ -3845,7 +3948,7 @@ function Pool({ session }) {
               {historique.length > 0 && (
                 <>
                   <CourbeClassement historique={historique} />
-                  <Trophees historique={historique} />
+                  <Trophees historique={historique} faits={faitsPronostics} />
                 </>
               )}
             </>
