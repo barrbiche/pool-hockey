@@ -2808,6 +2808,15 @@ function Pool({ session }) {
   // Mon choix pour ce match, enrichi des infos de l'alignement (numéro,
   // position, forme) pour la carte du joueur choisi.
   const maLigneDeChoix = tousLesChoix.find((c) => c.user_id === session.user.id)
+
+  // Les choix affichés dans l'ordre de choix du match (celui du widget « Ordre de choix »).
+  // La base ne garantit AUCUN ordre : quand quelqu'un change de joueur, sa ligne est réécrite
+  // et revient en dernier. Sans ce tri, il « descendait » dans la liste à chaque changement.
+  const choixDansLOrdre = [...tousLesChoix].sort((a, b) => {
+    const ordre = match?.ordre_choix || []
+    const position = (uid) => (ordre.includes(uid) ? ordre.indexOf(uid) : ordre.length)
+    return position(a.user_id) - position(b.user_id)
+  })
   const pronos = statsPronostics(historique, faitsPronostics)
   const monJoueurDetails = maLigneDeChoix?.joueurs?.nhl_id
     ? joueurs.find((j) => j.nhl_id === maLigneDeChoix.joueurs.nhl_id)
@@ -4702,7 +4711,7 @@ function Pool({ session }) {
           <div className="pool-bloc">
           <h3 className="pool-titre"><span className="pool-titre-icone">👥</span>Choix de tout le monde</h3>
           <ul className="liste-choix">
-            {tousLesChoix.map((c) => (
+            {choixDansLOrdre.map((c) => (
               <li key={c.id} className="liste-choix-ligne">
                 <Pastille userId={c.user_id} nom={NOMS[c.user_id]} taille={24} />
                 <Headshot nhlId={c.joueurs?.nhl_id} taille={34} />
