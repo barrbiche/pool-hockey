@@ -9,6 +9,7 @@ import { IconeFeu, IconeGlace, IconePlasteur } from './Icones'
 import SelecteurJoueur from './SelecteurJoueur'
 import Pastille from './Pastille'
 import BoutonTheme from './Theme'
+import { lireQuizColle } from './quizColle'
 // Participants, ordre de base et rotation : une seule liste partagée avec les
 // fonctions Netlify (netlify/functions/_participants.js).
 import {
@@ -946,6 +947,7 @@ const FONCTIONS_A_VERIFIER = [
   'bandeau',
   'blessures',
   'stats-pronostics',
+  'quiz',
 ]
 
 const SQL_BLESSURES = `create table if not exists public.blessures_manuelles (
@@ -965,6 +967,26 @@ const SQL_BANDEAU = `create table if not exists public.site_annonce (
 );
 alter table public.site_annonce enable row level security;
 insert into public.site_annonce (id) values (1) on conflict do nothing;`
+
+const SQL_QUIZ = `create table if not exists public.quiz (
+  id bigint generated always as identity primary key,
+  question text not null,
+  choix jsonb not null,
+  bonne_reponse int not null,
+  explication text not null default '',
+  piege text not null default '',
+  created_at timestamptz not null default now()
+);
+alter table public.quiz add column if not exists piege text not null default '';
+create table if not exists public.quiz_reponses (
+  quiz_id bigint not null references public.quiz(id) on delete cascade,
+  user_id uuid not null,
+  choix int not null,
+  created_at timestamptz not null default now(),
+  primary key (quiz_id, user_id)
+);
+alter table public.quiz enable row level security;
+alter table public.quiz_reponses enable row level security;`
 
 // 🩺 État du site : vert / jaune / rouge pour chaque morceau qui peut casser.
 function EtatSiteBloc() {
@@ -1166,6 +1188,238 @@ function BandeauAdmin({ bandeau, chargerBandeau }) {
         </button>
       </div>
       {message && <p className="rappels-message">{message}</p>}
+    </div>
+  )
+}
+
+const LETTRES_QUIZ = ['A', 'B', 'C', 'D', 'E', 'F']
+
+// 🧠 Quiz : Eric écrit une question à choix de réponse + l'explication; les autres répondent
+// dans l'onglet Quiz et voient l'explication seulement après leur réponse.
+function QuizAdmin({ quizDonnees, chargerQuiz }) {
+  const [question, setQuestion] = useState('')
+  const [choix, setChoix] = useState(['', '', '', '', ''])
+  const [bonne, setBonne] = useState(0)
+  const [explication, setExplication] = useState('')
+  const [piege, setPiege] = useState('')
+  const [collage, setCollage] = useState('')
+  const [collageOuvert, setCollageOuvert] = useState(false)
+  const [erreurCollage, setErreurCollage] = useState('')
+  const [enCours, setEnCours] = useState(false)
+  const [message, setMessage] = useState('')
+
+  // Les choix laissés vides sont ignorés (la bonne réponse suit sa case, pas sa position)
+  const remplis = choix.map((texte, i) => ({ texte: texte.trim(), i })).filter((c) => c.texte !== '')
+  const pret = question.trim() !== '' && remplis.length >= 2 && remplis.some((c) => c.i === bonne)
+  const liste = quizDonnees?.quiz || []
+  const nbJoueurs = (quizDonnees?.joueurs || []).length
+
+  // Remplit le formulaire à partir d'un quiz écrit en texte (voir src/quizColle.js)
+  function remplirDepuisCollage() {
+    const r = lireQuizColle(collage)
+    if (r.erreur) {
+      setErreurCollage(r.erreur)
+      return
+    }
+    setErreurCollage('')
+    setQuestion(r.question)
+    setChoix([...r.choix, ...Array(Math.max(0, 5 - r.choix.length)).fill('')])
+    setBonne(r.bonne)
+    setExplication(r.explication)
+    setPiege(r.piege)
+    setCollage('')
+    setCollageOuvert(false)
+    setMessage('✓ Formulaire rempli : vérifie, puis publie.')
+  }
+
+  async function publier(e) {
+    e.preventDefault()
+    if (!pret || enCours) return
+    setEnCours(true)
+    setMessage('')
+    try {
+      const res = await fetchAvecSession('/.netlify/functions/quiz', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'creer',
+          question: question.trim(),
+          choix: remplis.map((c) => c.texte),
+          bonne_reponse: remplis.findIndex((c) => c.i === bonne),
+          explication: explication.trim(),
+          piege: piege.trim(),
+        }),
+      })
+      await lireReponseFonction(res, 'quiz')
+      setQuestion('')
+      setChoix(['', '', '', '', ''])
+      setBonne(0)
+      setExplication('')
+      setPiege('')
+      setMessage('✓ Quiz publié : tout le monde le voit dans l’onglet 🧠 Quiz.')
+      await chargerQuiz()
+    } catch (err) {
+      setMessage(`❌ ${err.message}`)
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  async function supprimer(q) {
+    if (!window.confirm(`Supprimer ce quiz et les réponses reçues?\n\n« ${q.question} »`)) return
+    setEnCours(true)
+    setMessage('')
+    try {
+      const res = await fetchAvecSession('/.netlify/functions/quiz', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'supprimer', quiz_id: q.id }),
+      })
+      await lireReponseFonction(res, 'quiz')
+      setMessage('✓ Quiz supprimé.')
+      await chargerQuiz()
+    } catch (err) {
+      setMessage(`❌ ${err.message}`)
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  return (
+    <div className="pool-bloc">
+      <h3 className="pool-titre"><span className="pool-titre-icone">🧠</span>Quiz</h3>
+      <p className="note-tc">
+        Écris une question à choix de réponse, coche la bonne, ajoute ton explication et, si tu
+        veux, « pourquoi c’est un piège ». Les autres répondent dans l’onglet 🧠 Quiz (une seule
+        réponse chacun) et voient tout ça après. Un choix laissé vide est ignoré.
+      </p>
+      {quizDonnees && (quizDonnees.table_ok === false || quizDonnees.piege_ok === false) && (
+        <details className="repliable" open>
+          <summary className="repliable-titre">
+            {quizDonnees.table_ok === false
+              ? '⚠️ Tables à créer dans Supabase (une seule fois)'
+              : '⚠️ Une colonne à ajouter dans Supabase (une seule fois, tes quiz restent)'}
+          </summary>
+          <p className="note-tc">Supabase → SQL Editor → New query → colle ceci → Run :</p>
+          <pre className="admin-sql">{SQL_QUIZ}</pre>
+        </details>
+      )}
+      <details
+        className="repliable"
+        open={collageOuvert}
+        onToggle={(e) => setCollageOuvert(e.currentTarget.open)}
+      >
+        <summary className="repliable-titre">📋 Coller un quiz déjà écrit</summary>
+        <p className="note-tc">
+          Colle ton texte tel quel : « Question : … », les choix « A) … », « Réponse : C) … »,
+          puis l’explication et « Pourquoi c’est un piège : … ». Le formulaire se remplit; tu
+          vérifies et tu publies.
+        </p>
+        <textarea
+          className="partage-resume-zone zone-longue"
+          placeholder={'Question : …\nA) …\nB) …\nC) …\nRéponse : C) …\nTon explication…\nPourquoi c’est un piège : …'}
+          value={collage}
+          onChange={(e) => setCollage(e.target.value)}
+          aria-label="Quiz à coller"
+        />
+        <button
+          type="button"
+          className="quiz-admin-ajout"
+          onClick={remplirDepuisCollage}
+          disabled={collage.trim() === ''}
+        >
+          ✨ Remplir le formulaire
+        </button>
+        {erreurCollage && <p className="rappels-message">❌ {erreurCollage}</p>}
+      </details>
+      <form onSubmit={publier}>
+        <textarea
+          className="partage-resume-zone zone-courte"
+          placeholder="Ta question. Ex. : Combien de Coupes Stanley le Canadien a-t-il gagnées?"
+          maxLength={300}
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          aria-label="Question"
+        />
+        <p className="quiz-admin-aide">Coche la bonne réponse 👇</p>
+        {choix.map((texte, i) => (
+          <div className="quiz-admin-choix" key={i}>
+            <input
+              type="radio"
+              name="quiz-bonne"
+              checked={bonne === i}
+              onChange={() => setBonne(i)}
+              aria-label={`Choix ${LETTRES_QUIZ[i]} : bonne réponse`}
+            />
+            <span className="quiz-lettre" aria-hidden="true">{LETTRES_QUIZ[i]}</span>
+            <input
+              type="text"
+              maxLength={120}
+              placeholder={`Choix ${LETTRES_QUIZ[i]}`}
+              value={texte}
+              onChange={(e) => setChoix(choix.map((c, j) => (j === i ? e.target.value : c)))}
+              aria-label={`Choix ${LETTRES_QUIZ[i]}`}
+            />
+          </div>
+        ))}
+        {choix.length < LETTRES_QUIZ.length && (
+          <button
+            type="button"
+            className="quiz-admin-ajout"
+            onClick={() => setChoix([...choix, ''])}
+          >
+            ➕ Ajouter un choix
+          </button>
+        )}
+        <textarea
+          className="partage-resume-zone zone-courte"
+          placeholder="Ton explication (affichée après leur réponse)."
+          maxLength={800}
+          value={explication}
+          onChange={(e) => setExplication(e.target.value)}
+          aria-label="Explication"
+        />
+        <textarea
+          className="partage-resume-zone zone-courte"
+          placeholder="Pourquoi c’est un piège (facultatif). Ex. : tel joueur a marqué deux fois dans ce match…"
+          maxLength={800}
+          value={piege}
+          onChange={(e) => setPiege(e.target.value)}
+          aria-label="Pourquoi c’est un piège"
+        />
+        <div className="admin-bandeau-actions">
+          <button type="submit" disabled={enCours || !pret}>
+            {enCours ? '⏳' : '📤 Publier le quiz'}
+          </button>
+        </div>
+      </form>
+      {message && <p className="rappels-message">{message}</p>}
+
+      {liste.length > 0 && (
+        <>
+          <h4 className="admin-sous-titre">Quiz publiés ({liste.length})</h4>
+          <ul className="quiz-admin-liste">
+            {liste.map((q) => (
+              <li key={q.id} className="quiz-admin-ligne">
+                <div className="quiz-admin-texte">
+                  <strong>{q.question}</strong>
+                  <span className="note-tc">
+                    {q.nb_reponses}/{nbJoueurs} ont répondu · bonne réponse :{' '}
+                    {LETTRES_QUIZ[q.bonne_reponse]}. {q.choix[q.bonne_reponse]}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="quiz-admin-suppr"
+                  onClick={() => supprimer(q)}
+                  disabled={enCours}
+                  aria-label={`Supprimer le quiz : ${q.question}`}
+                >
+                  🗑️
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   )
 }
@@ -1589,6 +1843,8 @@ function AdminPage({
   blessures,
   tableBlessuresOk,
   chargerBlessures,
+  quiz,
+  chargerQuiz,
 }) {
   const [notifs, setNotifs] = useState(null)
   const [erreurNotifs, setErreurNotifs] = useState('')
@@ -1717,6 +1973,8 @@ function AdminPage({
       <ComptesBloc />
 
       <BandeauAdmin bandeau={bandeau} chargerBandeau={chargerBandeau} />
+
+      <QuizAdmin quizDonnees={quiz} chargerQuiz={chargerQuiz} />
 
       <AnnonceBloc />
 
@@ -2688,6 +2946,8 @@ function Pool({ session }) {
     [joueursNhl, blessuresParId]
   )
   const [bandeau, setBandeau] = useState(null) // { actif, texte, version, table_ok }
+  const [quizDonnees, setQuizDonnees] = useState(null) // { quiz, joueurs, stats, admin, table_ok }
+  const quizAFaire = (quizDonnees?.quiz || []).filter((q) => !q.revele).length
   const [bandeauFerme, setBandeauFerme] = useState(() => {
     try {
       return localStorage.getItem('bandeau-ferme') || ''
@@ -2857,6 +3117,17 @@ function Pool({ session }) {
     }
   }
 
+  // Quiz (onglet 🧠). Pas essentiel : en cas de problème on garde ce qu'on avait.
+  async function chargerQuiz() {
+    try {
+      const res = await fetchAvecSession('/.netlify/functions/quiz')
+      if (!res.ok) return
+      setQuizDonnees(await res.json())
+    } catch {
+      /* tant pis */
+    }
+  }
+
   function fermerBandeau(cle) {
     setBandeauFerme(cle)
     try {
@@ -2870,6 +3141,7 @@ function Pool({ session }) {
     setRafraichissementEnCours(true)
     setMessageMaj('')
     chargerBandeau()
+    chargerQuiz()
     chargerBlessures()
     const problemes = []
     try {
@@ -3082,6 +3354,7 @@ function Pool({ session }) {
   async function initialiser({ silencieux = false } = {}) {
     if (!silencieux) setChargement(true)
     chargerBandeau()
+    chargerQuiz()
     chargerBlessures()
     try {
       const resMatch = await fetch('/.netlify/functions/prochain-match')
@@ -3864,6 +4137,21 @@ function Pool({ session }) {
           <span className="onglet-icone" aria-hidden="true">📜</span>
           <span className="onglet-texte">Règlements</span>
         </button>
+        <button
+          className={onglet === 'quiz' ? 'onglet actif' : 'onglet'}
+          onClick={() => {
+            setOnglet('quiz')
+            chargerQuiz()
+          }}
+        >
+          <span className="onglet-icone" aria-hidden="true">🧠</span>
+          <span className="onglet-texte">Quiz</span>
+          {quizAFaire > 0 && (
+            <span className="onglet-pastille" aria-label={`${quizAFaire} quiz à faire`}>
+              {quizAFaire}
+            </span>
+          )}
+        </button>
       </div>
 
       {erreur && <Alerte key={erreur} message={erreur} onFermer={() => setErreur('')} />}
@@ -4141,11 +4429,15 @@ function Pool({ session }) {
           onModifie={() => initialiser({ silencieux: true })}
           bandeau={bandeau}
           chargerBandeau={chargerBandeau}
+          quiz={quizDonnees}
+          chargerQuiz={chargerQuiz}
           blessures={blessuresManuelles}
           tableBlessuresOk={tableBlessuresOk}
           chargerBlessures={chargerBlessures}
         />
       )}
+
+      {onglet === 'quiz' && <QuizOnglet donnees={quizDonnees} recharger={chargerQuiz} />}
 
       {onglet === 'historique' && (
         <HistoriqueOnglet
@@ -4763,6 +5055,221 @@ function Pool({ session }) {
       )}
       </div>
     </div>
+  )
+}
+
+// 🧠 Un quiz : on choisit une réponse, on valide (une seule fois), puis on voit la bonne
+// réponse, l'explication et ce que les autres ont répondu. Avant de répondre, le serveur
+// n'envoie ni la bonne réponse ni l'explication.
+function QuizCarte({ q, joueurs, admin, apresReponse }) {
+  const [choisi, setChoisi] = useState(null)
+  const [enCours, setEnCours] = useState(false)
+  const [erreurQuiz, setErreurQuiz] = useState('')
+
+  async function valider() {
+    if (choisi === null || enCours) return
+    setEnCours(true)
+    setErreurQuiz('')
+    try {
+      const res = await fetchAvecSession('/.netlify/functions/quiz', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'repondre', quiz_id: q.id, choix: choisi }),
+      })
+      await lireReponseFonction(res, 'quiz')
+      await apresReponse()
+    } catch (err) {
+      setErreurQuiz(err.message)
+      if (/déjà répondu/.test(err.message)) await apresReponse()
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  const date = new Date(q.created_at).toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' })
+  const bonne = q.bonne_reponse
+  const correct = q.revele && q.ma_reponse === bonne
+
+  return (
+    <article className={q.revele ? 'quiz-carte quiz-carte-fini' : 'quiz-carte'}>
+      <header className="quiz-entete">
+        <span className="quiz-date">🗓️ {date}</span>
+        {!q.revele && <span className="quiz-etiquette">À répondre</span>}
+        {q.revele && !admin && (
+          <span className={correct ? 'quiz-verdict quiz-verdict-bon' : 'quiz-verdict quiz-verdict-mauvais'}>
+            {correct ? '🎉 Bonne réponse!' : '😅 Pas cette fois'}
+          </span>
+        )}
+      </header>
+      <h4 className="quiz-question">{q.question}</h4>
+
+      {!q.revele ? (
+        <>
+          <ul className="quiz-choix-liste" role="group" aria-label="Choix de réponse">
+            {q.choix.map((texte, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  className={choisi === i ? 'quiz-choix choisi' : 'quiz-choix'}
+                  aria-pressed={choisi === i}
+                  onClick={() => setChoisi(i)}
+                  disabled={enCours}
+                >
+                  <span className="quiz-lettre" aria-hidden="true">{LETTRES_QUIZ[i]}</span>
+                  <span className="quiz-choix-texte">{texte}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="quiz-valider"
+            onClick={valider}
+            disabled={choisi === null || enCours}
+          >
+            {enCours ? '⏳' : choisi === null ? 'Choisis une réponse' : '✅ Valider ma réponse'}
+          </button>
+          <p className="note-tc quiz-note">
+            Une seule réponse par quiz : tu ne pourras pas la changer.
+            {q.nb_reponses > 0 && ` ${q.nb_reponses} sur ${joueurs.length} ont déjà répondu.`}
+          </p>
+          {erreurQuiz && <p className="rappels-message">❌ {erreurQuiz}</p>}
+        </>
+      ) : (
+        <>
+          <ul className="quiz-choix-liste">
+            {q.choix.map((texte, i) => {
+              const classe =
+                i === bonne
+                  ? 'quiz-choix quiz-choix-bon'
+                  : i === q.ma_reponse
+                    ? 'quiz-choix quiz-choix-mauvais'
+                    : 'quiz-choix quiz-choix-neutre'
+              return (
+                <li key={i} className={classe}>
+                  <span className="quiz-lettre" aria-hidden="true">{LETTRES_QUIZ[i]}</span>
+                  <span className="quiz-choix-texte">{texte}</span>
+                  {i === q.ma_reponse && <span className="quiz-tag">Ta réponse</span>}
+                  {i === bonne && <span className="quiz-marque" aria-label="Bonne réponse">✅</span>}
+                  {i !== bonne && i === q.ma_reponse && (
+                    <span className="quiz-marque" aria-label="Mauvaise réponse">❌</span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+          <p className="quiz-bonne-ligne">
+            Réponse : <strong>{LETTRES_QUIZ[bonne]}) {q.choix[bonne]}</strong>
+          </p>
+          {q.explication && (
+            <div className="quiz-explication">
+              <strong>💡 Explication</strong>
+              <p>{q.explication}</p>
+            </div>
+          )}
+          {q.piege && (
+            <div className="quiz-explication quiz-piege">
+              <strong>🪤 Pourquoi c’est un piège</strong>
+              <p>{q.piege}</p>
+            </div>
+          )}
+          <ul className="quiz-reponses">
+            {joueurs.map((uid) => {
+              const r = (q.reponses || []).find((x) => x.user_id === uid)
+              return (
+                <li key={uid}>
+                  <Pastille userId={uid} nom={NOMS[uid]} taille={22} />
+                  <span className="quiz-reponses-nom">{NOMS[uid]}</span>
+                  <span className="quiz-reponses-choix">
+                    {r
+                      ? `${LETTRES_QUIZ[r.choix]} ${r.choix === bonne ? '✅' : '❌'}`
+                      : '⏳ pas encore répondu'}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </>
+      )}
+    </article>
+  )
+}
+
+function QuizOnglet({ donnees, recharger }) {
+  const [anciens, setAnciens] = useState(false)
+  if (!donnees) return <Squelette lignes={4} hauteur={90} />
+
+  const { quiz = [], joueurs = [], stats = {}, admin = false } = donnees
+  const aRepondre = quiz.filter((q) => !q.revele)
+  const termines = quiz.filter((q) => q.revele)
+  const termineVisibles = anciens ? termines : termines.slice(0, 5)
+  const classement = joueurs
+    .map((uid) => ({ uid, repondues: stats[uid]?.repondues || 0, bonnes: stats[uid]?.bonnes || 0 }))
+    .sort((a, b) => b.bonnes - a.bonnes || a.repondues - b.repondues)
+  const quelquunAJoue = classement.some((c) => c.repondues > 0)
+
+  return (
+    <section className="carte carte-rouge">
+      <h2>🧠 Quiz</h2>
+      <div className="quiz-avis" role="note">
+        <span aria-hidden="true">🚫</span>
+        <p>
+          <strong>Pas de recherche sur internet!</strong> Réponds de tête, c’est plus le fun comme
+          ça.
+        </p>
+      </div>
+      {admin && (
+        <p className="note-tc">
+          Tu vois toutes les réponses : c’est toi qui fais les questions, tu ne joues pas. Pour en
+          ajouter : ☰ → Admin → 🧠 Quiz.
+        </p>
+      )}
+      {admin && donnees.table_ok === false && (
+        <p className="rappels-message">
+          ⚠️ Les tables du quiz ne sont pas encore créées : ☰ → Admin → 🧠 Quiz pour le SQL.
+        </p>
+      )}
+
+      {quiz.length === 0 && (
+        <p className="info">
+          Pas de quiz pour le moment. Eric en ajoute quand ça lui tente : repasse voir de temps en
+          temps!
+        </p>
+      )}
+
+      {quelquunAJoue && (
+        <div className="quiz-classement">
+          <h3 className="quiz-sous-titre">🏅 Bonnes réponses</h3>
+          <ul>
+            {classement.map((c) => (
+              <li key={c.uid}>
+                <Pastille userId={c.uid} nom={NOMS[c.uid]} taille={24} />
+                <span className="quiz-classement-nom">{NOMS[c.uid]}</span>
+                <span className="quiz-classement-score">
+                  {c.bonnes}&nbsp;/&nbsp;{c.repondues}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {aRepondre.length > 0 && (
+        <h3 className="quiz-sous-titre">À répondre ({aRepondre.length})</h3>
+      )}
+      {aRepondre.map((q) => (
+        <QuizCarte key={q.id} q={q} joueurs={joueurs} admin={admin} apresReponse={recharger} />
+      ))}
+
+      {termines.length > 0 && <h3 className="quiz-sous-titre">{admin ? 'Les quiz' : 'Déjà répondus'}</h3>}
+      {termineVisibles.map((q) => (
+        <QuizCarte key={q.id} q={q} joueurs={joueurs} admin={admin} apresReponse={recharger} />
+      ))}
+      {termines.length > 5 && (
+        <button type="button" className="bouton-copier" onClick={() => setAnciens(!anciens)}>
+          {anciens ? 'Cacher les anciens' : `Voir les anciens (${termines.length - 5})`}
+        </button>
+      )}
+    </section>
   )
 }
 
